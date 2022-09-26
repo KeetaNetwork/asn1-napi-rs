@@ -101,5 +101,8 @@
     "singleQuote": true,
     "arrowParens": "always"
   },
-  "packageManager": "yarn@3.2.3"
+  "packageManager": "yarn@3.2.3",
+  "dependencies": {
+    "@napi-rs/package-template": "^1.0.0"
+  }
 }

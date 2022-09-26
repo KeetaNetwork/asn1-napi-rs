@@ -1,17 +1,19 @@
 [package]
-authors = ["LongYinan <lynweklm@gmail.com>"]
+authors = ["Tanveer Wahid <tan@wahid.email>"]
 edition = "2021"
-name = "napi-package-template"
+name = "asn1-napi-rs"
 version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = "2"
+napi = {version = "2", features = ["chrono_date", "napi6"] }
 napi-derive = "2"
+asn1-rs = "0.5.1"
+der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}
+base64 = "0.13.0"
+chrono = "0.4.22"
 
 [build-dependencies]
 napi-build = "2"

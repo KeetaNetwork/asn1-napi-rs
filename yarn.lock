@@ -114,11 +114,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@napi-rs/package-template@workspace:.":
+"@napi-rs/package-template@^1.0.0, @napi-rs/package-template@workspace:.":
   version: 0.0.0-use.local
   resolution: "@napi-rs/package-template@workspace:."
   dependencies:
     "@napi-rs/cli": ^2.11.4
+    "@napi-rs/package-template": ^1.0.0
     "@swc-node/register": ^1.5.1
     "@typescript-eslint/eslint-plugin": ^5.35.1
     "@typescript-eslint/parser": ^5.35.1

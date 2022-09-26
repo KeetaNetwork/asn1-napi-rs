@@ -218,6 +218,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { plus100 } = nativeBinding
+const { addOneHundred, JStoASN1, JsType, Asn1ToJs } = nativeBinding
 
-module.exports.plus100 = plus100
+module.exports.addOneHundred = addOneHundred
+module.exports.JStoASN1 = JStoASN1
+module.exports.JsType = JsType
+module.exports.Asn1ToJs = Asn1ToJs

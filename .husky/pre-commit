@@ -1,4 +1,10 @@
 #!/bin/sh
+set -e
+
 . "$(dirname "$0")/_/husky.sh"
 
 yarn lint-staged
+cargo fmt
+cargo test --all-features
+cargo clippy --fix --allow-staged
+cargo doc --no-deps
