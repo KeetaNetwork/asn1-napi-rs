@@ -3,22 +3,28 @@
 #[macro_use]
 extern crate napi_derive;
 
-use asn1_rs::{Boolean, Integer, PrintableString, ToDer};
+use anyhow::{bail, Error, Result};
+use asn1_rs::{ASN1DateTime, Boolean, GeneralizedTime, Integer, PrintableString, ToDer};
+use chrono::{DateTime, Datelike, NaiveDateTime, TimeZone, Timelike, Utc};
 use der_parser::ber::{
-    ber_read_element_header, parse_ber_bool, parse_ber_generalizedtime, parse_ber_integer,
-    parse_ber_null, parse_ber_printablestring, parse_ber_sequence, parse_ber_utf8string, BerObject,
-    BerObjectContent, Tag,
+    ber_read_element_header, parse_ber_bitstring, parse_ber_bool, parse_ber_generalizedtime,
+    parse_ber_integer, parse_ber_null, parse_ber_printablestring, parse_ber_sequence,
+    parse_ber_utf8string, BerObject, BerObjectContent, Tag,
 };
 use napi::{
     bindgen_prelude::{BigInt, ToNapiValue},
-    Error, JsUnknown, Result, Status, ValueType,
+    JsDate, JsUnknown, ValueType,
 };
+use thiserror::Error;
 
-#[napi(js_name = "addOneHundred")]
-pub fn plus_100(input: u32) -> u32 {
-    input + 100
+/// Library errors
+#[derive(Error, Debug)]
+enum ASN1NAPIError {
+    #[error("Unable to handle JS input type")]
+    UnknownArgument,
 }
 
+/// TODO Native encoding
 pub enum UniversalTag {
     Boolean = 0x01, // +
     Integer = 0x02, // +
@@ -50,39 +56,31 @@ pub enum UniversalTag {
     BMPString = 0x1E,
 }
 
+unsafe impl Send for UniversalTag {}
+unsafe impl Sync for UniversalTag {}
+
 /// Convert JS input into ASN1 BER encoded data.
 ///
 /// See [`asn1_rs::asn1_types`]
-///
-/// # Examples
-///
-/// ## Basic usage
-///
-/// ```
-///
-/// ```
 #[napi(js_name = "JStoASN1")]
 pub fn js_to_asn1(data: JsUnknown) -> Result<Vec<u8>> {
     let mut writer = Vec::new();
 
     match data.get_type()? {
-        ValueType::Boolean => Boolean::new(if data.coerce_to_bool()?.get_value()? {
-            1
-        } else {
-            0
-        })
-        .write_der(&mut writer)
-        .expect("serialization to boolean failed"),
-        ValueType::BigInt => Integer::from_i64(data.coerce_to_number()?.get_int64()?)
-            .write_der(&mut writer)
-            .expect("serialization to bigint failed"),
-        ValueType::Number => Integer::from_i32(data.coerce_to_number()?.get_int32()?)
-            .write_der(&mut writer)
-            .expect("serialization to integer failed"),
+        ValueType::Boolean => {
+            Boolean::new(if get_boolean_from_js(data)? { 1 } else { 0 }).write_der(&mut writer)?
+        }
+        ValueType::BigInt => {
+            Integer::from_i64(get_big_integer_from_js(data)?).write_der(&mut writer)?
+        }
+        ValueType::Number => {
+            Integer::from_i32(get_integer_from_js(data)?).write_der(&mut writer)?
+        }
         ValueType::String => {
-            PrintableString::new(&data.coerce_to_string()?.into_utf8()?.into_owned()?)
-                .write_der(&mut writer)
-                .expect("serialization to string failed")
+            PrintableString::from(get_string_from_js(data)?).write_der(&mut writer)?
+        }
+        ValueType::Object if data.is_date()? => {
+            chrono_to_generalized_time(get_date_time_from_js(data)?).write_der(&mut writer)?
         }
         ValueType::Unknown if data.is_array()? => {
             println!("{:?}", data.get_type());
@@ -90,42 +88,96 @@ pub fn js_to_asn1(data: JsUnknown) -> Result<Vec<u8>> {
             // writer = Sequence::from_iter_to_der(obj).unwrap();
             todo!()
         }
-        ValueType::Unknown => {
-            println!("{:?}", data.get_type());
-            todo!()
-        }
-        ValueType::Object => todo!(),
         _ => {
-            let msg = "unknown argument type".to_string();
-            return Err(Error::new(Status::InvalidArg, msg));
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     };
 
     Ok(writer)
 }
 
+/// Get an ASN1 boolean from a JsUnknown.
+fn get_boolean_from_js(data: JsUnknown) -> Result<bool> {
+    Ok(data.coerce_to_bool()?.get_value()?)
+}
+
+/// Get a string from a JsUnknown.
+fn get_string_from_js<'a>(data: JsUnknown) -> Result<String> {
+    Ok(data.coerce_to_string()?.into_utf8()?.into_owned()?)
+}
+
+/// Get an i32 integer from a JsUnknown.
+fn get_integer_from_js(data: JsUnknown) -> Result<i32> {
+    Ok(data.coerce_to_number()?.get_int32()?)
+}
+
+/// Get an i64 integer from a JsUnknown.
+fn get_big_integer_from_js<'a>(data: JsUnknown) -> Result<i64> {
+    Ok(data.coerce_to_number()?.get_int64()?)
+}
+
+/// Get an chrono datetime from a JsUnknown.
+/// JavaScript Date objects are described in
+/// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)
+/// of the ECMAScript Language Specification.
+fn get_date_time_from_js(data: JsUnknown) -> Result<DateTime<Utc>> {
+    let js_date = JsDate::try_from(data)?;
+    let timestamp = js_date.value_of()? as i64;
+    let naive = NaiveDateTime::from_timestamp(timestamp / 1000, (timestamp % 1000) as u32);
+
+    Ok(DateTime::from_utc(naive, Utc))
+}
+
+fn chrono_to_generalized_time<T: TimeZone>(date: DateTime<T>) -> GeneralizedTime {
+    GeneralizedTime::new(ASN1DateTime::new(
+        date.year() as u32,
+        date.month() as u8,
+        date.day() as u8,
+        date.hour() as u8,
+        date.minute() as u8,
+        date.second() as u8,
+        Some(date.timestamp_subsec_millis() as u16),
+        asn1_rs::ASN1TimeZone::Offset(0, 0),
+    ))
+}
+
 /// Convert raw data from BER encoding
 fn get_ber_object<'a>(data: &'a [u8]) -> Result<BerObject<'a>> {
-    if let Ok((_, header)) = ber_read_element_header(&data) {
-        let (_, result) = match header.tag() {
-            Tag::Null => parse_ber_null(&[]),
-            Tag::Utf8String => parse_ber_utf8string(&data),
-            Tag::PrintableString => parse_ber_printablestring(&data),
-            Tag::Integer => parse_ber_integer(&data),
-            Tag::Boolean => parse_ber_bool(&data),
-            Tag::Sequence => parse_ber_sequence(&data),
-            Tag::GeneralizedTime => parse_ber_generalizedtime(&data),
-            tag => {
-                println!("{:?}", tag);
-                todo!()
-            }
+    let (_, header) = ber_read_element_header(&data)?;
+    let (_, result) = match header.tag() {
+        Tag::Null => parse_ber_null(&[]),
+        Tag::Utf8String => parse_ber_utf8string(&data),
+        Tag::PrintableString => parse_ber_printablestring(&data),
+        Tag::BitString => parse_ber_bitstring(&data),
+        Tag::Integer => parse_ber_integer(&data),
+        Tag::Boolean => parse_ber_bool(&data),
+        Tag::Sequence => parse_ber_sequence(&data),
+        Tag::GeneralizedTime => parse_ber_generalizedtime(&data),
+        tag => {
+            println!("{:?}", tag);
+            todo!()
         }
-        .unwrap_or((&[], BerObject::from(BerObjectContent::Null)));
+    }?;
 
-        Ok(result)
+    Ok(result)
+}
+
+/// Get a chrono DateTime from a BerObject
+fn get_chrono_from_ber_object(obj: BerObject) -> Result<DateTime<Utc>> {
+    if let BerObjectContent::GeneralizedTime(data) = obj.content {
+        Ok(Utc
+            .ymd(
+                data.year.try_into()?,
+                data.month.try_into()?,
+                data.day.try_into()?,
+            )
+            .and_hms(
+                data.hour.try_into()?,
+                data.minute.try_into()?,
+                data.second.try_into()?,
+            ))
     } else {
-        let msg = String::from("{to do} {more conversions}");
-        Err(Error::new(Status::InvalidArg, msg))
+        bail!(ASN1NAPIError::UnknownArgument)
     }
 }
 
@@ -143,6 +195,14 @@ pub enum JsType {
 }
 
 /// Convert ASN1 BER encoded data to JS native types.
+///
+/// # Examples
+///
+/// ## Basic usage
+///
+/// ```
+///
+/// ```
 #[napi]
 #[derive(Debug)]
 pub struct ASN1toJS {
@@ -154,18 +214,13 @@ pub struct ASN1toJS {
 impl ASN1toJS {
     /// Create a new ANS1toJS instance from ASN1 encoded data.
     #[napi(constructor)]
-    pub fn new(data: Vec<u8>) -> Self {
-        if let Ok((_, header)) = ber_read_element_header(&data) {
-            ASN1toJS {
-                js_type: Self::fetch_type(header.tag()),
-                data: data,
-            }
-        } else {
-            ASN1toJS {
-                js_type: JsType::Unknown,
-                data: data,
-            }
-        }
+    pub fn new(data: Vec<u8>) -> Result<Self> {
+        let (_, header) = ber_read_element_header(&data)?;
+
+        Ok(ASN1toJS {
+            js_type: Self::fetch_type(header.tag()),
+            data: data,
+        })
     }
 
     /// Return a JsType from a BER tag
@@ -195,8 +250,7 @@ impl ASN1toJS {
         if let Ok(data) = get_ber_object(&self.data) {
             Ok(data.as_i32().unwrap_or(0))
         } else {
-            let msg = String::from("Invalid type");
-            Err(Error::new(Status::GenericFailure, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 
@@ -206,8 +260,7 @@ impl ASN1toJS {
         if let Ok(data) = get_ber_object(&self.data) {
             Ok(BigInt::from(data.as_u64().unwrap_or(0)))
         } else {
-            let msg = String::from("Invalid type");
-            Err(Error::new(Status::GenericFailure, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 
@@ -217,8 +270,7 @@ impl ASN1toJS {
         if let Ok(data) = get_ber_object(&self.data) {
             Ok(data.as_bool().unwrap_or(false))
         } else {
-            let msg = String::from("Invalid type");
-            Err(Error::new(Status::GenericFailure, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 
@@ -228,50 +280,59 @@ impl ASN1toJS {
         if let Ok(data) = get_ber_object(&self.data) {
             Ok(data.as_str().unwrap_or("").to_string())
         } else {
-            let msg = String::from("Invalid type");
-            Err(Error::new(Status::GenericFailure, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
+        }
+    }
+
+    /// Convert to a date.
+    #[napi]
+    pub fn into_date(&self) -> Result<DateTime<Utc>> {
+        if let Ok(data) = get_ber_object(&self.data) {
+            Ok(get_chrono_from_ber_object(data)?)
+        } else {
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 }
 
 impl TryFrom<String> for ASN1toJS {
-    type Error = napi::Error;
+    type Error = Error;
 
+    /// Create an instance of ANS1toJS from Base64 encoded data
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
         Self::try_from(value.as_str())
     }
 }
 
 impl<'a> TryFrom<&'a str> for ASN1toJS {
-    type Error = napi::Error;
+    type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 encoded data
     fn try_from(value: &'a str) -> std::result::Result<Self, Self::Error> {
         if let Ok(result) = base64::decode(value) {
             Self::try_from(result.as_slice())
         } else {
-            let msg = String::from("Failed to decode Base64 data");
-            Err(Error::new(Status::InvalidArg, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 }
 
 impl<'a> TryFrom<&'a [u8]> for ASN1toJS {
-    type Error = napi::Error;
+    type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 encoded data
-    fn try_from(value: &'a [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         if let Ok(data) = get_ber_object(value)?.to_vec() {
-            Ok(Self::new(data))
+            Self::new(data)
         } else {
-            let msg = String::from("Failed to decode ASN1 BER data");
-            Err(Error::new(Status::InvalidArg, msg))
+            bail!(ASN1NAPIError::UnknownArgument)
         }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use chrono::{TimeZone, Utc};
     use der_parser::ber::{parse_ber_sequence, Tag};
 
     use crate::get_ber_object;
@@ -335,5 +396,13 @@ mod test {
     }
 
     #[test]
-    fn test_js_to_asn1() {}
+    fn test_asn1_to_js_into_date() {
+        let encoded = "GA8yMDIyMDkyNjEwMDAwMFo=";
+        let obj = ASN1toJS::from_base64(encoded.into()).expect("base64");
+
+        assert_eq!(
+            obj.into_date().unwrap(),
+            Utc.ymd(2022, 9, 26).and_hms_milli(10, 0, 0, 0)
+        );
+    }
 }

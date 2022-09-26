@@ -8,12 +8,14 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2", features = ["chrono_date", "napi6"] }
+napi = {version = "2", features = ["chrono_date", "error_anyhow", "napi6"] }
 napi-derive = "2"
 asn1-rs = "0.5.1"
 der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}
 base64 = "0.13.0"
 chrono = "0.4.22"
+anyhow = "1.0.65"
+thiserror = "1.0.36"
 
 [build-dependencies]
 napi-build = "2"
