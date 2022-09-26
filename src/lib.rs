@@ -1,5 +1,3 @@
-#![deny(clippy::all)]
-
 #[macro_use]
 extern crate napi_derive;
 
@@ -102,7 +100,7 @@ fn get_boolean_from_js(data: JsUnknown) -> Result<bool> {
 }
 
 /// Get a string from a JsUnknown.
-fn get_string_from_js<'a>(data: JsUnknown) -> Result<String> {
+fn get_string_from_js(data: JsUnknown) -> Result<String> {
     Ok(data.coerce_to_string()?.into_utf8()?.into_owned()?)
 }
 
@@ -112,7 +110,7 @@ fn get_integer_from_js(data: JsUnknown) -> Result<i32> {
 }
 
 /// Get an i64 integer from a JsUnknown.
-fn get_big_integer_from_js<'a>(data: JsUnknown) -> Result<i64> {
+fn get_big_integer_from_js(data: JsUnknown) -> Result<i64> {
     Ok(data.coerce_to_number()?.get_int64()?)
 }
 
@@ -142,17 +140,17 @@ fn chrono_to_generalized_time<T: TimeZone>(date: DateTime<T>) -> GeneralizedTime
 }
 
 /// Convert raw data from BER encoding
-fn get_ber_object<'a>(data: &'a [u8]) -> Result<BerObject<'a>> {
-    let (_, header) = ber_read_element_header(&data)?;
+fn get_ber_object(data: &'_ [u8]) -> Result<BerObject<'_>> {
+    let (_, header) = ber_read_element_header(data)?;
     let (_, result) = match header.tag() {
         Tag::Null => parse_ber_null(&[]),
-        Tag::Utf8String => parse_ber_utf8string(&data),
-        Tag::PrintableString => parse_ber_printablestring(&data),
-        Tag::BitString => parse_ber_bitstring(&data),
-        Tag::Integer => parse_ber_integer(&data),
-        Tag::Boolean => parse_ber_bool(&data),
-        Tag::Sequence => parse_ber_sequence(&data),
-        Tag::GeneralizedTime => parse_ber_generalizedtime(&data),
+        Tag::Utf8String => parse_ber_utf8string(data),
+        Tag::PrintableString => parse_ber_printablestring(data),
+        Tag::BitString => parse_ber_bitstring(data),
+        Tag::Integer => parse_ber_integer(data),
+        Tag::Boolean => parse_ber_bool(data),
+        Tag::Sequence => parse_ber_sequence(data),
+        Tag::GeneralizedTime => parse_ber_generalizedtime(data),
         tag => {
             println!("{:?}", tag);
             todo!()
@@ -219,7 +217,7 @@ impl ASN1toJS {
 
         Ok(ASN1toJS {
             js_type: Self::fetch_type(header.tag()),
-            data: data,
+            data,
         })
     }
 
