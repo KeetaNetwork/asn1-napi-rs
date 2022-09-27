@@ -42,6 +42,10 @@ export class Asn1 {
   intoString(): string
   /** Convert to a date. */
   intoDate(): Date
+  /** Convert to an array. */
+  intoArray(): any
+  /** Convert to a buffer. */
+  intoBuffer(): Buffer
 }
 export type ASN1OID = Asn1Oid
 /** ANS1 OID. */

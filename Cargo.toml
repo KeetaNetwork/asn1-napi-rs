@@ -8,7 +8,7 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2", features = ["chrono_date", "error_anyhow", "napi6"] }
+napi = {version = "2", features = ["chrono_date", "error_anyhow", "napi7"] }
 napi-derive = "2"
 asn1-rs = "0.5.1"
 der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}

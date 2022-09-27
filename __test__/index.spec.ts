@@ -23,6 +23,10 @@ test('JS string to ASN1 conversion', (t) => {
   t.deepEqual(lib.JStoASN1('test'), [0x13, 0x4, 0x74, 0x65, 0x73, 0x74])
 })
 
+test('JS Buffer to ASN1 conversion', (t) => {
+  t.deepEqual(lib.JStoASN1(Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))), [0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05])
+})
+
 // test('JS Date to ASN1 conversion', (t) => {
 //   // eslint-disable-next-line no-console
 //   const fixture = lib.JStoASN1(new Date('2022-09-26T10:00:00.000+00:00'))
@@ -143,4 +147,24 @@ test('ASN1 to Js Date conversion round trip', (t) => {
   const js = new lib.Asn1(asn1)
 
   t.deepEqual(js.intoDate(), input)
+})
+
+test('ASN1 to Js Buffer conversion from byte code', (t) => {
+  const obj = new lib.Asn1([0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05])
+
+  t.deepEqual(obj.intoBuffer(), Buffer.from(new Uint8Array([1, 2, 3, 4, 5])))
+})
+
+test('ASN1 to Js Buffer conversion from base64', (t) => {
+  const obj = lib.Asn1.fromBase64('BAUBAgMEBQ==')
+
+  t.deepEqual(obj.intoBuffer(), Buffer.from(new Uint8Array([1, 2, 3, 4, 5])))
+})
+
+test('ASN1 to Js Buffer conversion round trip', (t) => {
+  const input = Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))
+  const asn1 = lib.JStoASN1(input)
+  const js = new lib.Asn1(asn1)
+
+  t.deepEqual(js.intoBuffer(), input)
 })
