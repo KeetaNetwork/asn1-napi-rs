@@ -218,8 +218,10 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { JStoASN1, JsType, Asn1ToJs } = nativeBinding
+const { JsType, Asn1, Asn1Oid, JStoASN1, ASN1toJS } = nativeBinding
 
-module.exports.JStoASN1 = JStoASN1
 module.exports.JsType = JsType
-module.exports.Asn1ToJs = Asn1ToJs
+module.exports.Asn1 = Asn1
+module.exports.Asn1Oid = Asn1Oid
+module.exports.JStoASN1 = JStoASN1
+module.exports.ASN1toJS = ASN1toJS
