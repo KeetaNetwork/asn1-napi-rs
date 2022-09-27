@@ -142,6 +142,7 @@ fn get_boolean_from_js(data: JsUnknown) -> Result<bool> {
 /// Get a string from a JsUnknown.
 fn get_string_from_js(data: JsUnknown) -> Result<String> {
     Ok(JsString::from_unknown(data)?.into_utf8()?.into_owned()?)
+    Ok(data.coerce_to_string()?.into_utf8()?.into_owned()?)
 }
 
 /// Get an i32 integer from a JsUnknown.
@@ -152,6 +153,9 @@ fn get_integer_from_js(data: JsUnknown) -> Result<i32> {
 /// Get an i128 integer from a JsUnknown.
 fn get_big_integer_from_js(data: JsUnknown) -> Result<i128> {
     Ok(JsBigInt::from_unknown(data)?.get_i128()?.0)
+/// Get an i64 integer from a JsUnknown.
+fn get_big_integer_from_js(data: JsUnknown) -> Result<i64> {
+    Ok(data.coerce_to_number()?.get_int64()?)
 }
 
 /// Get an chrono datetime from a JsUnknown.
