@@ -1,6 +1,14 @@
 #[macro_use]
 extern crate napi_derive;
 
+#[macro_use]
+extern crate phf;
+
+#[macro_use]
+extern crate der_parser;
+
+use std::borrow::Cow;
+
 use anyhow::{bail, Error, Result};
 use asn1_rs::{
     ASN1DateTime, Boolean, GeneralizedTime, Integer, OctetString, PrintableString, ToDer, UtcTime,
@@ -9,12 +17,14 @@ use chrono::{DateTime, Datelike, NaiveDateTime, TimeZone, Timelike, Utc};
 use der_parser::ber::{
     ber_read_element_header, parse_ber_bitstring, parse_ber_bool, parse_ber_generalizedtime,
     parse_ber_generalstring, parse_ber_integer, parse_ber_null, parse_ber_octetstring,
-    parse_ber_printablestring, parse_ber_sequence, parse_ber_universalstring, parse_ber_utctime,
-    parse_ber_utf8string, parse_ber_visiblestring, BerObject, BerObjectContent, Tag,
+    parse_ber_oid, parse_ber_printablestring, parse_ber_sequence, parse_ber_universalstring,
+    parse_ber_utctime, parse_ber_utf8string, parse_ber_visiblestring, BerObject, BerObjectContent,
+    Tag,
 };
+use der_parser::Oid;
 use napi::{
     bindgen_prelude::{Buffer, FromNapiValue, ToNapiValue},
-    JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsString, JsUnknown, ValueType,
+    JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use thiserror::Error;
 
@@ -23,20 +33,26 @@ use thiserror::Error;
 enum ASN1NAPIError {
     #[error("Unable to handle JS input type")]
     UnknownArgument,
+    #[error("Unable to handle this object")]
+    UnknownObject,
+    #[error("Unable to handle this objects type field")]
+    UnknownFieldProperty,
+    #[error("Unable to handle this OID")]
+    UnknownOid,
     #[error("The provided string is of an unknown format")]
     UnknownStringFormat,
     #[error("The provided ASN1 data is malformed and cannot be decoded")]
     MalformedData,
 }
 
-/// TODO Native encoding without dependencies
+/// TODO Native encoding without ASN1 dependencies
 pub enum UniversalTag {
     Boolean = 0x01, // +
     Integer = 0x02, // +
     BitString = 0x03,
     OctetString = 0x04, // +
     Null = 0x05,        // +
-    ObjectID = 0x06,
+    ObjectID = 0x06,    // +
     ObjectDescriptor = 0x07,
     External = 0x08,
     Real = 0x09,
@@ -51,8 +67,8 @@ pub enum UniversalTag {
     TelexString = 0x14,
     VideotexString = 0x15,
     IA5String = 0x16,
-    UTCTime = 0x17,
-    GeneralizedTime = 0x18,
+    UTCTime = 0x17,         // +
+    GeneralizedTime = 0x18, // +
     GraphicString = 0x19,
     VisibleString = 0x1A,   // +
     GeneralString = 0x1B,   // +
@@ -66,7 +82,7 @@ unsafe impl Sync for UniversalTag {}
 
 /// JavaScript Types
 #[napi]
-#[derive(Debug)]
+#[derive(Hash, Eq, PartialEq, Debug)]
 pub enum JsType {
     Sequence,
     Integer,
@@ -87,11 +103,64 @@ pub struct ASN1toJS {
 }
 
 /// ANS1 OID.
-#[napi]
+#[napi(object, js_name = "ASN1OID")]
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct ASN1OID {
-    r#type: String,
-    oid: String,
+    pub r#type: String,
+    pub oid: String,
+}
+
+#[derive(Hash, Eq, PartialEq, Debug)]
+pub enum ASN1Object {
+    ASN1OID(ASN1OID),
+}
+
+/// HashMap for names to OID
+static NAME_TO_OID_MAP: phf::Map<&'static str, Oid> = phf_map! {
+    "sha256" => oid!(2.16.840.1.101.3.4.2.1),
+    "sha3-256" => oid!(2.16.840.1.101.3.4.2.8),
+    "sha3-256WithEcDSA" => oid!(2.16.840.1.101.3.4.3.10),
+    "sha256WithEcDSA" => oid!(1.2.840.10045.4.3.2),
+    "sha3-256WithEd25519" => Oid::new(Cow::Borrowed(&[])),
+    "ecdsa" => oid!(1.2.840.10045.2.1),
+    "ed25519" => oid!(1.3.101.112),
+    "secp256k1" => oid!(1.3.132.0.10),
+    "account" => oid!(2.23.42.2.7.11),
+    "serialNumber" => oid!(2.5.4.5),
+    "member" => oid!(2.5.4.31),
+    "commonName" => oid!(2.5.4.3),
+    "hash" => oid!(1.3.6.1.4.1.8301.3.2.2.1.1),
+    "hashData" => oid!(2.16.840.1.101.3.3.1.3),
+};
+
+/// HashMap for an OID string to name
+static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
+    "2.16.840.1.101.3.4.2.1" => "sha256",
+    "2.16.840.1.101.3.4.2.8" => "sha3-256",
+    "2.16.840.1.101.3.4.3.10" => "sha3-256WithEcDSA",
+    "1.2.840.10045.4.3.2" => "sha256WithEcDSA",
+    "" => "sha3-256WithEd25519",
+    "1.2.840.10045.2.1" => "ecdsa",
+    "1.3.101.112" => "ed25519",
+    "1.3.132.0.10" => "secp256k1",
+    "2.23.42.2.7.11" => "account",
+    "2.5.4.5" => "serialNumber",
+    "2.5.4.31" => "member",
+    "2.5.4.3" => "commonName",
+    "1.3.6.1.4.1.8301.3.2.2.1.1" => "hash",
+    "2.16.840.1.101.3.3.1.3" => "hashData",
+};
+
+fn get_oid_from_name(name: &str) -> Option<&Oid> {
+    NAME_TO_OID_MAP.get(name)
+}
+
+fn get_name_from_oid(oid: Oid) -> Option<&str> {
+    if let Some(name) = OID_TO_NAME_MAP.get(&oid.to_string()) {
+        Some(*name)
+    } else {
+        None
+    }
 }
 
 /// Convert JS input into ASN1 BER encoded data.
@@ -120,6 +189,11 @@ pub fn js_to_asn1(data: JsUnknown) -> Result<Vec<u8>> {
         ValueType::Object if data.is_date()? => {
             chrono_to_generalized_time(get_date_time_from_js(data)?).write_der(&mut writer)?
         }
+        ValueType::Object => match get_object_from_js(data)? {
+            ASN1Object::ASN1OID(oid) => get_oid_from_name(&oid.oid)
+                .unwrap()
+                .write_der(&mut writer)?,
+        },
         ValueType::Unknown if data.is_array()? => {
             println!("{:?}", data.get_type());
             // let obj: Vec<JsUnknown> = data.coerce_to_object()?.to_vec();
@@ -159,8 +233,26 @@ fn get_big_integer_from_js(data: JsUnknown) -> Result<i128> {
     Ok(JsBigInt::from_unknown(data)?.get_i128()?.0)
 }
 
+/// Get a Vec<u8> via a JsBuffer from a JsUnknown.
 fn get_buffer_from_js(data: JsUnknown) -> Result<Vec<u8>> {
     Ok(JsBuffer::from_unknown(data)?.into_value()?.to_vec())
+}
+
+/// Get an ASN1Object from a JsUnknown.
+fn get_object_from_js(data: JsUnknown) -> Result<ASN1Object> {
+    let obj = data.coerce_to_object()?;
+    let field = obj.get_named_property::<JsUnknown>("type")?;
+
+    if let Ok(ValueType::String) = field.get_type() {
+        let name = get_string_from_js(field)?;
+
+        Ok(match name.as_str() {
+            "oid" => ASN1Object::ASN1OID(ASN1OID::try_from(obj)?),
+            _ => bail!(ASN1NAPIError::UnknownFieldProperty),
+        })
+    } else {
+        bail!(ASN1NAPIError::UnknownObject)
+    }
 }
 
 /// Get an chrono datetime from a JsUnknown.
@@ -220,6 +312,7 @@ fn get_ber_object(data: &'_ [u8]) -> Result<BerObject<'_>> {
         Tag::Sequence => parse_ber_sequence(data),
         Tag::GeneralizedTime => parse_ber_generalizedtime(data),
         Tag::UtcTime => parse_ber_utctime(data),
+        Tag::Oid => parse_ber_oid(data),
         tag => {
             println!("{:?}", tag);
             todo!()
@@ -361,13 +454,23 @@ impl ASN1toJS {
             bail!(ASN1NAPIError::MalformedData)
         }
     }
+
+    /// Convert to an OID object.
+    #[napi]
+    pub fn into_oid(&self) -> Result<ASN1OID> {
+        if let Ok(data) = get_ber_object(&self.data) {
+            ASN1OID::try_from(data.as_oid()?.to_owned())
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
+    }
 }
 
 impl TryFrom<String> for ASN1toJS {
     type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 or hex encoded data.
-    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
     }
 }
@@ -376,7 +479,7 @@ impl<'a> TryFrom<&'a str> for ASN1toJS {
     type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 or hex encoded data.
-    fn try_from(value: &'a str) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         if let Ok(result) = base64::decode(value) {
             Self::try_from(result.as_slice())
         } else if let Ok(result) = hex::decode(value) {
@@ -400,6 +503,55 @@ impl<'a> TryFrom<&'a [u8]> for ASN1toJS {
     }
 }
 
+impl TryFrom<Oid<'_>> for ASN1OID {
+    type Error = Error;
+
+    fn try_from(value: Oid) -> Result<Self, Self::Error> {
+        if let Some(name) = get_name_from_oid(value) {
+            Ok(Self {
+                r#type: "oid".to_string(),
+                oid: name.to_string(),
+            })
+        } else {
+            bail!(ASN1NAPIError::UnknownOid)
+        }
+    }
+}
+
+impl TryFrom<JsObject> for ASN1OID {
+    type Error = Error;
+
+    fn try_from(value: JsObject) -> Result<Self, Self::Error> {
+        let oid = value.get_named_property::<JsString>("oid")?;
+        let name = oid.into_utf8()?;
+
+        Self::try_from(name.as_str()?)
+    }
+}
+
+impl TryFrom<String> for ASN1OID {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for ASN1OID {
+    type Error = Error;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        if get_oid_from_name(value).is_some() {
+            Ok(Self {
+                r#type: "oid".to_string(),
+                oid: value.to_string(),
+            })
+        } else {
+            bail!(ASN1NAPIError::UnknownOid)
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use chrono::{TimeZone, Utc};
@@ -407,6 +559,7 @@ mod test {
 
     use crate::get_ber_object;
     use crate::ASN1toJS;
+    use crate::ASN1OID;
 
     const TEST_BLOCK: &str = "MIHWAgEAAgIByAIBexgTMjAyMjA2MjIxODE4MDAuMjEwW\
                               gQiAALE/SPerrujysUeJZetilu60VeOZ29M3vyUsjGPdq\
@@ -492,6 +645,20 @@ mod test {
         assert_eq!(
             obj.into_array().unwrap(),
             vec![0x01, 0x02, 0x03, 0x04, 0x05]
+        );
+    }
+
+    #[test]
+    fn test_asn1_to_js_into_oid() {
+        let encoded = "BglghkgBZQMEAgE=";
+        let obj = ASN1toJS::from_base64(encoded.into()).expect("base64");
+
+        assert_eq!(
+            obj.into_oid().unwrap(),
+            ASN1OID {
+                r#type: "oid".into(),
+                oid: "sha256".into()
+            }
         );
     }
 }

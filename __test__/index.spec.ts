@@ -27,6 +27,11 @@ test('JS Buffer to ASN1 conversion', (t) => {
   t.deepEqual(lib.JStoASN1(Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))), [0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05])
 })
 
+test('JS ANS1OID to ASN1 conversion', (t) => {
+  const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
+  t.deepEqual(lib.JStoASN1(oid), [0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01])
+})
+
 // test('JS Date to ASN1 conversion', (t) => {
 //   // eslint-disable-next-line no-console
 //   const fixture = lib.JStoASN1(new Date('2022-09-26T10:00:00.000+00:00'))
@@ -167,4 +172,26 @@ test('ASN1 to Js Buffer conversion round trip', (t) => {
   const js = new lib.Asn1(asn1)
 
   t.deepEqual(js.intoBuffer(), input)
+})
+
+test('ASN1 to Js ASN1OID conversion from byte code', (t) => {
+  const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
+  const obj = new lib.Asn1([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01])
+
+  t.deepEqual(obj.intoOid(), oid)
+})
+
+test('ASN1 to Js ASN1OID conversion from base64', (t) => {
+  const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
+  const obj = lib.Asn1.fromBase64('BglghkgBZQMEAgE=')
+
+  t.deepEqual(obj.intoOid(), oid)
+})
+
+test('ASN1 to Js ASN1OID conversion round trip', (t) => {
+  const input: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
+  const asn1 = lib.JStoASN1(input)
+  const js = new lib.Asn1(asn1)
+
+  t.deepEqual(js.intoOid(), input)
 })

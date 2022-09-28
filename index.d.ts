@@ -12,7 +12,12 @@ export const enum JsType {
   String = 4,
   Boolean = 5,
   Unknown = 6,
-  Undefined = 7
+  Undefined = 7,
+}
+/** ANS1 OID. */
+export interface ASN1OID {
+  type: string
+  oid: string
 }
 /**
  * Convert JS input into ASN1 BER encoded data.
@@ -46,7 +51,6 @@ export class Asn1 {
   intoArray(): any
   /** Convert to a buffer. */
   intoBuffer(): Buffer
+  /** Convert to an OID object. */
+  intoOid(): ASN1OID
 }
-export type ASN1OID = Asn1Oid
-/** ANS1 OID. */
-export class Asn1Oid { }

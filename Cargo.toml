@@ -10,13 +10,14 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = {version = "2", features = ["chrono_date", "error_anyhow", "napi7"] }
 napi-derive = "2"
-asn1-rs = "0.5.1"
+asn1-rs = {version = "0.5.1", features = ["bigint"]}
 der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}
 base64 = "0.13.0"
 chrono = "0.4.22"
 anyhow = "1.0.65"
 thiserror = "1.0.36"
 hex = "0.4.3"
+phf = { version = "0.11.1", features = ["macros"] }
 
 [build-dependencies]
 napi-build = "2"
