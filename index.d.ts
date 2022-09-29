@@ -10,32 +10,49 @@ export const enum JsType {
   DateTime = 2,
   Null = 3,
   String = 4,
-  Boolean = 5,
-  Unknown = 6,
-  Undefined = 7,
+  BitString = 5,
+  Boolean = 6,
+  Buffer = 7,
+  Object = 8,
+  Unknown = 9,
+  Undefined = 10
 }
 /** ANS1 OID. */
 export interface ASN1OID {
   type: string
   oid: string
 }
-/**
- * Convert JS input into ASN1 BER encoded data.
- *
- * See [`asn1_rs::asn1_types`]
- */
+/** ANS1 Set. */
+export interface ASN1Set {
+  type: string
+  name: ASN1OID
+  value: string
+}
+/** ANS1 bitstring. */
+export interface ASN1BitString {
+  type: string
+  value: Buffer
+}
+/** Helper to convert a JS BigInt to a JS Buffer */
+export function ASN1BigIntToBuffer(data: bigint): Buffer
+/** Helper to convert a JS number to a JS BigInt */
+export function ASN1IntegerToBigInt(data: number): bigint
+/** Convert JS input into ASN1 BER encoded data. */
 export function JStoASN1(data: unknown): Array<number>
+/** Convert ASN1 BER encoded data to JS native types. */
 export function ASN1toJS(data: unknown): unknown
-export type ASN1toJS = Asn1
+export type ASN1 = Asn1
 /** Convert ASN1 BER encoded data to JS native types. */
 export class Asn1 {
   /** Create a new ANS1toJS instance from ASN1 encoded data. */
   constructor(data: Array<number>)
   /** Get the JsType of the encoded data. */
   get type(): JsType
-  /** Create an instance of ANS1toJS from Base64 encoded data. */
+  /** Create an instance of ANS1 from a buffer. */
+  static fromBuffer(value: Buffer): this
+  /** Create an instance of ANS1 from Base64 encoded data. */
   static fromBase64(value: string): this
-  /** Create an instance of ANS1toJS from hex encoded data */
+  /** Create an instance of ANS1 from hex encoded data */
   static fromHex(value: string): this
   /** Convert to an integer. */
   intoInteger(): number
@@ -53,4 +70,8 @@ export class Asn1 {
   intoBuffer(): Buffer
   /** Convert to an OID object. */
   intoOid(): ASN1OID
+  /** Convert to a ASN1BitString object. */
+  intoBitstring(): ASN1BitString
+  /** Convert to an Set object. */
+  intoSet(): ASN1Set
 }
