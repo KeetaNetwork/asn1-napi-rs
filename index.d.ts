@@ -15,7 +15,7 @@ export const enum JsType {
   Buffer = 7,
   Object = 8,
   Unknown = 9,
-  Undefined = 10
+  Undefined = 10,
 }
 /** ANS1 OID. */
 export interface ASN1OID {
@@ -28,10 +28,20 @@ export interface ASN1Set {
   name: ASN1OID
   value: string
 }
+/** ANS1 Context Tag. */
+export interface ASN1ContextTag {
+  type: string
+  value: number
+  data: Array<number>
+}
 /** ANS1 bitstring. */
 export interface ASN1BitString {
   type: string
-  value: Buffer
+  value: Array<number>
+}
+/** ANS1 Sequence. */
+export interface ASN1Sequence {
+  type: string
 }
 /** Helper to convert a JS BigInt to a JS Buffer */
 export function ASN1BigIntToBuffer(data: bigint): Buffer
@@ -56,16 +66,16 @@ export class Asn1 {
   static fromHex(value: string): this
   /** Convert to an integer. */
   intoInteger(): number
-  /** Convert to a big integer. */
-  intoBigInteger(): bigint
+  /** Convert to a JS big integer. */
+  intoBigInt(): bigint
   /** Convert to a boolean. */
   intoBool(): boolean
   /** Convert to a string. */
   intoString(): string
   /** Convert to a date. */
   intoDate(): Date
-  /** Convert to an array. */
-  intoArray(): any
+  /** Convert to an byte array. */
+  intoBytes(): any
   /** Convert to a buffer. */
   intoBuffer(): Buffer
   /** Convert to an OID object. */
@@ -74,4 +84,13 @@ export class Asn1 {
   intoBitstring(): ASN1BitString
   /** Convert to an Set object. */
   intoSet(): ASN1Set
+  /**
+   * TODO
+   * Convert to an Context Tag object.
+   */
+  intoContextTag(): ASN1ContextTag
+  /** Convert a Sequence to an Array. */
+  intoArray(): unknown[]
+  /** Convert to a decoded Sequence. */
+  intoSequence(): Array<Asn1>
 }

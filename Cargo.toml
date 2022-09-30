@@ -8,7 +8,7 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2", features = ["chrono_date", "error_anyhow", "napi7"] }
+napi = {version = "2.9.1", features = ["chrono_date", "error_anyhow", "napi7"] }
 napi-derive = "2"
 rasn = "0.6.1"
 der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}
@@ -18,6 +18,7 @@ anyhow = "1.0.65"
 thiserror = "1.0.36"
 hex = "0.4.3"
 phf = { version = "0.11.1", features = ["macros"] }
+num-bigint = "0.4.3"
 
 [build-dependencies]
 napi-build = "2"
