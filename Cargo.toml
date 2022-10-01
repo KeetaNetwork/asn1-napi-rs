@@ -1,5 +1,5 @@
 [package]
-authors = ["Tanveer Wahid <tan@wahid.email>"]
+authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
 version = "0.1.0"
@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 napi = {version = "2.9.1", features = ["chrono_date", "error_anyhow", "napi7"] }
 napi-derive = "2"
 rasn = "0.6.1"
-der-parser = {version = "8.1.0", features = ["bigint", "serialize"]}
 base64 = "0.13.0"
 chrono = "0.4.22"
 anyhow = "1.0.65"

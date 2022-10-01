@@ -48,7 +48,7 @@ test('JS string to ASN1 conversion', (t) => {
 
 test('JS number Array to ASN1 conversion', (t) => {
   t.deepEqual(
-    lib.JStoASN1([1, 2, 3, 4, 5]),
+    lib.JStoASN1([1n, 2n, 3n, 4n, 5n]),
     [0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03, 0x02, 0x01, 0x04, 0x02, 0x01, 0x05],
   )
 })
@@ -134,7 +134,7 @@ test('ASN1 to Js integer conversion from base64', (t) => {
 
 test('ASN1 to Js integer conversion round trip', (t) => {
   TEST_INTEGERS.map((v) => {
-    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v)), v)
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v)), BigInt(v))
   })
 })
 
@@ -275,7 +275,7 @@ test('ASN1 to Js ASN1Set conversion round trip', (t) => {
 })
 
 test('ASN1 to Js number array conversion from byte code', (t) => {
-  const input = [1, 2, 3, 4, 5]
+  const input = [1n, 2n, 3n, 4n, 5n]
   const obj = new lib.Asn1([
     0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03, 0x02, 0x01, 0x04, 0x02, 0x01, 0x05,
   ])
@@ -284,14 +284,44 @@ test('ASN1 to Js number array conversion from byte code', (t) => {
 })
 
 test('ASN1 to Js number array conversion from base64', (t) => {
-  const input = [1, 2, 3, 4, 5]
+  const input = [1n, 2n, 3n, 4n, 5n]
   const obj = lib.Asn1.fromBase64('MA8CAQECAQICAQMCAQQCAQU=')
 
   t.deepEqual(obj.intoArray(), input)
 })
 
 test('ASN1 to Js number array conversion round trip', (t) => {
-  const input = [1, 2, 3, 4, 5]
+  const input = [1n, 2n, 3n, 4n, 5n]
+  const asn1 = lib.JStoASN1(input)
+  const js = new lib.Asn1(asn1)
+
+  t.deepEqual(js.intoArray(), input)
+})
+
+test('ASN1 to Js mixed array conversion from byte code', (t) => {
+  const oid: lib.ASN1OID = { type: 'oid', oid: 'commonName' }
+  const set: lib.ASN1Set = { type: 'set', name: oid, value: 'test' }
+  const input = [1n, 'test', oid, set, 532434n]
+
+  const obj = new lib.Asn1([
+    0x30, 0x22, 0x02, 0x01, 0x01, 0x13, 0x04, 0x74, 0x65, 0x73, 0x74, 0x06, 0x03, 0x55, 0x04, 0x03, 0x31, 0x0d, 0x30,
+    0x0b, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x04, 0x74, 0x65, 0x73, 0x74, 0x02, 0x03, 0x08, 0x1f, 0xd2,
+  ])
+
+  t.deepEqual(obj.intoArray(), input)
+})
+
+test('ASN1 to Js mixed array conversion from base64', (t) => {
+  const oid: lib.ASN1OID = { type: 'oid', oid: 'commonName' }
+  const set: lib.ASN1Set = { type: 'set', name: oid, value: 'test' }
+  const input = [1n, 'test', oid, set, 532434n]
+  const obj = lib.Asn1.fromBase64('MCICAQETBHRlc3QGA1UEAzENMAsGA1UEAxMEdGVzdAIDCB/S')
+
+  t.deepEqual(obj.intoArray(), input)
+})
+
+test('ASN1 to Js mixed array conversion round trip', (t) => {
+  const input = [1n, 2n, 3n, 4n, 5n]
   const asn1 = lib.JStoASN1(input)
   const js = new lib.Asn1(asn1)
 

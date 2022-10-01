@@ -7,18 +7,9 @@ extern crate phf;
 use std::str::FromStr;
 
 use anyhow::{bail, Error, Result};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
-use der_parser::ber::{
-    ber_read_element_header, parse_ber_bitstring, parse_ber_bmpstring, parse_ber_bool,
-    parse_ber_generalizedtime, parse_ber_generalstring, parse_ber_graphicstring,
-    parse_ber_ia5string, parse_ber_integer, parse_ber_null, parse_ber_numericstring,
-    parse_ber_octetstring, parse_ber_oid, parse_ber_printablestring, parse_ber_sequence,
-    parse_ber_set, parse_ber_t61string, parse_ber_universalstring, parse_ber_utctime,
-    parse_ber_utf8string, parse_ber_videotexstring, parse_ber_visiblestring, BerObject,
-    BerObjectContent,
-};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-    bindgen_prelude::{Array, Buffer, FromNapiValue, ToNapiValue},
+    bindgen_prelude::{Array, Buffer, FromNapiValue},
     Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::{BigInt, Sign};
@@ -26,7 +17,10 @@ use rasn::{
     ber::{decode, encode},
     de::Error as rasnError,
     enc::Error as RASNError,
-    types::{Any, BitString, Class, ObjectIdentifier, Oid, PrintableString, SequenceOf},
+    types::{
+        Any, BitString, Class, ObjectIdentifier, OctetString, Oid, PrintableString, SequenceOf,
+        Utf8String,
+    },
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 use thiserror::Error;
@@ -53,12 +47,8 @@ enum ASN1NAPIError {
     UnknownStringFormat,
     #[error("The provided ASN1 data is malformed and cannot be decoded")]
     MalformedData,
-    #[error("We only know how to handle sets with 1 sequence")]
-    InvalidSetLength,
-    #[error("Set->Sequence must contain 2 values")]
-    InvalidSetSequenceLength,
-    #[error("Set->Sequence must contain and OID and String")]
-    InvalidSetData,
+    #[error("Cannot decoded Bitstring")]
+    InvalidBitString,
 }
 
 /// TODO Native encoding without ASN1 dependencies
@@ -95,7 +85,6 @@ pub enum UniversalTag {
 }
 
 /// JavaScript Types
-#[napi]
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub enum JsType {
     Sequence,
@@ -233,10 +222,6 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "2.16.840.1.101.3.3.1.3" => "hashData",
 };
 
-fn get_oid_from_oid_string<'a>(oid: &'a str) -> Result<&'static [u32]> {
-    get_oid_from_name(get_name_from_oid_string(oid)?)
-}
-
 fn get_oid_from_name<'a>(name: &'a str) -> Result<&'static [u32]> {
     if let Some(oid) = NAME_TO_OID_MAP.get(name) {
         Ok(*oid)
@@ -253,14 +238,6 @@ fn get_name_from_oid(oid: &Oid) -> Result<&str> {
     }
 }
 
-fn get_name_from_oid_string(oid: &str) -> Result<&str> {
-    if let Some(name) = OID_TO_NAME_MAP.get(oid) {
-        Ok(*name)
-    } else {
-        bail!(ASN1NAPIError::UnknownOid)
-    }
-}
-
 fn get_oid_string_from_oid(oid: &Oid) -> String {
     oid.iter()
         .map(|&e| e.to_string())
@@ -271,6 +248,22 @@ fn get_oid_string_from_oid(oid: &Oid) -> String {
 fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     let (sign, words) = data.to_u64_digits();
     (sign == Sign::Minus, words)
+}
+
+/// Helper for handling date/times with milliseconds
+fn get_utc_date_time_from_asn1_milli(data: &[u8]) -> Result<DateTime<Utc>> {
+    let mut decoder: rasn::ber::de::Decoder =
+        rasn::ber::de::Decoder::new(data, rasn::ber::de::DecoderOptions::ber());
+
+    if let Ok(decoded) = Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME) {
+        Ok(DateTime::<FixedOffset>::from_utc(
+            NaiveDateTime::parse_from_str(&decoded, "%Y%m%d%H%M%S%.3fZ")?,
+            FixedOffset::east(0),
+        )
+        .with_timezone(&Utc))
+    } else {
+        bail!(ASN1NAPIError::MalformedData)
+    }
 }
 
 /// Helper to convert a JS BigInt to a JS Buffer
@@ -310,9 +303,12 @@ pub fn asn1_to_js(env: Env, data: JsUnknown) -> Result<JsUnknown> {
 
 /// Get a JSUnknown from an ASN1 object.
 fn asn1_to_js_unknown(env: Env, asn1: ASN1) -> Result<JsUnknown> {
-    Ok(match asn1.get_type() {
+    Ok(match asn1.get_js_type() {
         JsType::Integer => match ASN1Number::try_from(asn1)? {
-            ASN1Number::Integer(val) => env.create_int64(val)?.into_unknown(),
+            ASN1Number::Integer(val) => {
+                env.create_bigint_from_i64(val)?.into_unknown()?
+                //env.create_int64(val)?.into_unknown()
+            }
             ASN1Number::BigInt(val) => {
                 let (bit, words) = get_words_from_big_int(val);
                 env.create_bigint_from_words(bit, words)?.into_unknown()?
@@ -331,7 +327,18 @@ fn asn1_to_js_unknown(env: Env, asn1: ASN1) -> Result<JsUnknown> {
         JsType::Buffer => env
             .create_buffer_with_data(asn1.into_buffer()?.to_vec())?
             .into_unknown(),
-        JsType::Object => todo!(),
+        JsType::Object => {
+            //let mut js_object = env.create_object()?;
+            //
+            // match asn1.into_object()? {
+            //     ASN1Object::ASN1OID(obj) => env.wrap(&mut js_object, obj),
+            //     ASN1Object::ASN1Set(obj) => env.wrap(&mut js_object, obj),
+            //     ASN1Object::ASN1BitString(obj) => env.wrap(&mut js_object, obj),
+            //     ASN1Object::ASN1ContextTag(obj) => env.wrap(&mut js_object, obj),
+            // }?;
+
+            get_object_from_asn1(env, asn1)?.into_unknown()
+        }
         JsType::Sequence => asn1.into_array(env)?.coerce_to_object()?.into_unknown(),
         _ => env.get_null()?.into_unknown(),
     })
@@ -353,6 +360,49 @@ fn get_asn1_data_from_unknown(data: JsUnknown) -> Result<ASN1Data> {
         }
         _ => ASN1Data::Unknown,
     })
+}
+
+// TODO Make less bootleg - wrapping results in empty objects...
+fn get_object_from_asn1(env: Env, asn1: ASN1) -> Result<JsObject> {
+    let mut js_object = env.create_object()?;
+
+    match asn1.into_object()? {
+        ASN1Object::ASN1OID(obj) => {
+            js_object
+                .set_named_property::<JsString>("type", env.create_string(ASN1_OBJECT_TYPE_OID)?)?;
+            js_object.set_named_property::<JsString>("oid", env.create_string(&obj.oid)?)?;
+        }
+        ASN1Object::ASN1Set(obj) => {
+            let mut oid = env.create_object()?;
+
+            oid.set_named_property::<JsString>("type", env.create_string(ASN1_OBJECT_TYPE_OID)?)?;
+            oid.set_named_property::<JsString>("oid", env.create_string(&obj.name.oid)?)?;
+
+            js_object
+                .set_named_property::<JsString>("type", env.create_string(ASN1_OBJECT_TYPE_SET)?)?;
+            js_object.set_named_property::<JsObject>("name", oid)?;
+            js_object.set_named_property::<JsString>("value", env.create_string(&obj.value)?)?;
+        }
+        ASN1Object::ASN1BitString(obj) => {
+            js_object.set_named_property::<JsString>(
+                "type",
+                env.create_string(ASN1_OBJECT_TYPE_BITSTRING)?,
+            )?;
+            js_object.set_named_property::<JsUnknown>(
+                "value",
+                env.create_buffer_with_data(obj.value)?.into_unknown(),
+            )?;
+        }
+        ASN1Object::ASN1ContextTag(_obj) => {
+            js_object.set_named_property::<JsString>(
+                "type",
+                env.create_string(ASN1_OBJECT_TYPE_CONTEXT)?,
+            )?;
+            todo!()
+        }
+    };
+
+    Ok(js_object)
 }
 
 /// Get an ASN1 boolean from a JsUnknown.
@@ -437,40 +487,6 @@ fn get_fixed_date_time_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>>
     ))
 }
 
-/// Convert raw data from BER encoding
-fn get_ber_object(data: &'_ [u8]) -> Result<BerObject<'_>> {
-    let (_, header) = ber_read_element_header(data)?;
-    let (_, result) = match header.tag() {
-        der_parser::ber::Tag::Null => parse_ber_null(&[]),
-        der_parser::ber::Tag::Utf8String => parse_ber_utf8string(data),
-        der_parser::ber::Tag::PrintableString => parse_ber_printablestring(data),
-        der_parser::ber::Tag::BitString => parse_ber_bitstring(data),
-        der_parser::ber::Tag::VisibleString => parse_ber_visiblestring(data),
-        der_parser::ber::Tag::UniversalString => parse_ber_universalstring(data),
-        der_parser::ber::Tag::GeneralString => parse_ber_generalstring(data),
-        der_parser::ber::Tag::OctetString => parse_ber_octetstring(data),
-        der_parser::ber::Tag::BmpString => parse_ber_bmpstring(data),
-        der_parser::ber::Tag::GraphicString => parse_ber_graphicstring(data),
-        der_parser::ber::Tag::Ia5String => parse_ber_ia5string(data),
-        der_parser::ber::Tag::VideotexString => parse_ber_videotexstring(data),
-        der_parser::ber::Tag::TeletexString => parse_ber_t61string(data),
-        der_parser::ber::Tag::NumericString => parse_ber_numericstring(data),
-        der_parser::ber::Tag::Integer => parse_ber_integer(data),
-        der_parser::ber::Tag::Boolean => parse_ber_bool(data),
-        der_parser::ber::Tag::GeneralizedTime => parse_ber_generalizedtime(data),
-        der_parser::ber::Tag::UtcTime => parse_ber_utctime(data),
-        der_parser::ber::Tag::Oid => parse_ber_oid(data),
-        der_parser::ber::Tag::Sequence => parse_ber_sequence(data),
-        der_parser::ber::Tag::Set => parse_ber_set(data),
-        tag => {
-            println!("{:?}", tag);
-            todo!()
-        }
-    }?;
-
-    Ok(result)
-}
-
 /// Return a JsType from a BER tag.
 fn asn1_tag_to_js_tag(tag: Tag) -> JsType {
     match tag {
@@ -499,25 +515,6 @@ fn asn1_tag_to_js_tag(tag: Tag) -> JsType {
     }
 }
 
-/// Get a chrono DateTime from a BerObject
-fn get_chrono_from_ber_object(obj: BerObject) -> Result<DateTime<Utc>> {
-    if let BerObjectContent::GeneralizedTime(data) = obj.content {
-        Ok(Utc
-            .ymd(
-                data.year.try_into()?,
-                data.month.try_into()?,
-                data.day.try_into()?,
-            )
-            .and_hms(
-                data.hour.try_into()?,
-                data.minute.try_into()?,
-                data.second.try_into()?,
-            ))
-    } else {
-        bail!(ASN1NAPIError::UnknownArgument)
-    }
-}
-
 impl AsnType for ASN1Set {
     const TAG: Tag = Tag::SET;
 }
@@ -538,6 +535,10 @@ impl AsnType for ASN1Data {
     const TAG: Tag = Tag::SET;
 }
 
+impl AsnType for ASN1Object {
+    const TAG: Tag = Tag::SET;
+}
+
 impl Encode for ASN1BitString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         if let Ok(result) = BitString::try_from(self.value.clone()) {
@@ -545,6 +546,18 @@ impl Encode for ASN1BitString {
             Ok(())
         } else {
             Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownOid))
+        }
+    }
+}
+
+impl Decode for ASN1BitString {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        if let Ok(result) = decoder.decode_bit_string(tag) {
+            Ok(ASN1BitString::from(result))
+        } else {
+            Err(<D as rasn::Decoder>::Error::custom(
+                ASN1NAPIError::InvalidBitString,
+            ))
         }
     }
 }
@@ -585,6 +598,54 @@ impl Encode for ASN1Set {
         })?;
 
         Ok(())
+    }
+}
+
+impl Decode for ASN1Set {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
+        decoder.decode_sequence(Tag::SET, |decoder| {
+            decoder.decode_sequence(Tag::SEQUENCE, |decoder| {
+                let name = ObjectIdentifier::decode(decoder)?;
+                let value = PrintableString::decode(decoder)?;
+
+                if let Ok(oid) = ASN1OID::try_from(name.to_vec()) {
+                    Ok(Self {
+                        r#type: ASN1ObjectType::Set.into(),
+                        name: oid,
+                        value: value.to_string(),
+                    })
+                } else {
+                    Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownOid))
+                }
+            })
+        })
+    }
+}
+
+// TODO Figure out a better way to handle this
+impl Decode for ASN1Object {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
+        if let Ok(obj) = ASN1Set::decode(decoder) {
+            Ok(ASN1Object::ASN1Set(obj))
+        } else if let Ok(obj) = ASN1OID::decode(decoder) {
+            Ok(ASN1Object::ASN1OID(obj))
+        } else if let Ok(obj) = ASN1BitString::decode(decoder) {
+            Ok(ASN1Object::ASN1BitString(obj))
+        } else {
+            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownObject))
+        }
+    }
+}
+
+impl Encode for ASN1ContextTag {
+    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
+        todo!()
+    }
+}
+
+impl Decode for ASN1ContextTag {
+    fn decode_with_tag<D: Decoder>(_decoder: &mut D, _tag: Tag) -> Result<Self, D::Error> {
+        todo!()
     }
 }
 
@@ -629,31 +690,6 @@ impl Encode for ASN1Data {
     }
 }
 
-// TODO Deprecate usage of der-parser
-impl Decode for ASN1Set {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_sequence(tag, |decoder| {
-            let name = ObjectIdentifier::decode(decoder)?;
-            let value = PrintableString::decode(decoder)?;
-            println!("{:?}", name);
-            println!("{:?}", value);
-            todo!()
-            // let name = decoder.get(0);
-            // let value = PrintableString::decode(decoder)?;
-
-            // Ok(ASN1Set {
-            //     r#type: ASN1ObjectType::Set.into(),
-            // })
-        })
-    }
-}
-
-impl Encode for ASN1ContextTag {
-    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
-        todo!()
-    }
-}
-
 impl ToString for ASN1ObjectType {
     /// Return the String representation of an ASN1Object Types.
     fn to_string(&self) -> String {
@@ -686,9 +722,8 @@ impl ASN1 {
     }
 
     /// Get the JsType of the encoded data.
-    #[napi(getter, js_name = "type")]
-    pub fn get_type(&self) -> JsType {
-        self.js_type
+    pub fn get_js_type(&self) -> &JsType {
+        &self.js_type
     }
 
     /// Create an instance of ANS1 from a buffer.
@@ -713,126 +748,94 @@ impl ASN1 {
         }
     }
 
-    /// Convert to an integer.
-    #[napi]
-    pub fn into_integer(&self) -> Result<i64> {
-        if let Ok(data) = decode::<i64>(&self.data) {
+    /// Decode ASN1 encoded data.
+    pub fn decode<T: Decode>(&self) -> Result<T> {
+        if let Ok(data) = decode::<T>(&self.data) {
             Ok(data)
         } else {
             bail!(ASN1NAPIError::MalformedData)
         }
+    }
+
+    /// Decode an object to an ASN1Object.
+    pub fn into_object(&self) -> Result<ASN1Object> {
+        self.decode::<ASN1Object>()
+    }
+
+    /// Convert to a big integer.
+    pub fn into_big_integer(&self) -> Result<BigInt> {
+        self.decode::<BigInt>()
+    }
+
+    /// Convert to an integer.
+    #[napi]
+    pub fn into_integer(&self) -> Result<i64> {
+        self.decode::<i64>()
     }
 
     /// Convert to a JS big integer.
     #[napi]
     pub fn into_big_int(&self, env: Env) -> Result<JsBigInt> {
-        if let Ok(data) = decode::<BigInt>(&self.data) {
-            let (bit, words) = get_words_from_big_int(data);
-            Ok(env.create_bigint_from_words(bit, words)?)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
-    }
-
-    /// Convert to a big integer.
-    pub fn into_big_integer(&self) -> Result<BigInt> {
-        if let Ok(data) = decode::<BigInt>(&self.data) {
-            Ok(data)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        let (bit, words) = get_words_from_big_int(self.decode::<BigInt>()?);
+        Ok(env.create_bigint_from_words(bit, words)?)
     }
 
     /// Convert to a boolean.
     #[napi]
     pub fn into_bool(&self) -> Result<bool> {
-        if let Ok(data) = decode::<bool>(&self.data) {
-            Ok(data)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<bool>()
     }
 
     /// Convert to a string.
     #[napi]
     pub fn into_string(&self) -> Result<String> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            Ok(data.as_str()?.to_string())
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        Ok(self.decode::<PrintableString>()?.as_str().into())
     }
 
     /// Convert to a date.
     #[napi]
     pub fn into_date(&self) -> Result<DateTime<Utc>> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            Ok(get_chrono_from_ber_object(data)?)
+        if let Ok(date) = self.decode::<DateTime<FixedOffset>>() {
+            Ok(date.with_timezone(&Utc))
         } else {
-            bail!(ASN1NAPIError::MalformedData)
+            get_utc_date_time_from_asn1_milli(&self.data)
         }
     }
 
     /// Convert to an byte array.
     #[napi]
-    pub fn into_bytes(&self) -> Result<&[u8]> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            Ok(data.as_slice()?)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+    pub fn into_bytes(&self) -> Result<Vec<u8>> {
+        Ok(self.decode::<OctetString>()?.to_vec())
     }
 
     /// Convert to a buffer.
     #[napi]
     pub fn into_buffer(&self) -> Result<Buffer> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            Ok(data.as_slice()?.into())
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        Ok(self.into_bytes()?.into())
     }
 
     /// Convert to an OID object.
     #[napi]
     pub fn into_oid(&self) -> Result<ASN1OID> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            let oid = &data.as_oid()?.to_id_string();
-            ASN1OID::try_from(get_oid_from_oid_string(oid)?)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1OID>()
     }
 
     /// Convert to a ASN1BitString object.
     #[napi]
     pub fn into_bitstring(&self) -> Result<ASN1BitString> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            Ok(ASN1BitString::from(data.as_bitstring()?.data))
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1BitString>()
     }
 
     /// Convert to an Set object.
     #[napi]
     pub fn into_set(&self) -> Result<ASN1Set> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            ASN1Set::try_from(data.as_set()?)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1Set>()
     }
 
-    /// TODO
     /// Convert to an Context Tag object.
     #[napi]
     pub fn into_context_tag(&self) -> Result<ASN1ContextTag> {
-        if let Ok(data) = get_ber_object(&self.data) {
-            ASN1ContextTag::try_from(data.as_set()?)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1ContextTag>()
     }
 
     /// Convert a Sequence to an Array.
@@ -903,6 +906,21 @@ impl<'a> From<&'a [u8]> for ASN1BitString {
             r#type: ASN1ObjectType::BitString.into(),
             value: value.into(),
         }
+    }
+}
+
+impl From<Vec<u8>> for ASN1BitString {
+    fn from(value: Vec<u8>) -> Self {
+        Self {
+            r#type: ASN1ObjectType::BitString.into(),
+            value,
+        }
+    }
+}
+
+impl From<BitString> for ASN1BitString {
+    fn from(value: BitString) -> Self {
+        Self::from(value.into_vec())
     }
 }
 
@@ -1059,41 +1077,6 @@ impl TryFrom<JsObject> for ASN1ContextTag {
     }
 }
 
-impl<'a> TryFrom<&Vec<BerObject<'a>>> for ASN1ContextTag {
-    type Error = Error;
-
-    fn try_from(_value: &Vec<BerObject<'a>>) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-impl<'a> TryFrom<&Vec<BerObject<'a>>> for ASN1Set {
-    type Error = Error;
-
-    fn try_from(value: &Vec<BerObject<'a>>) -> Result<Self, Self::Error> {
-        if value.len() != 1 {
-            println!("{:?}", value);
-            bail!(ASN1NAPIError::InvalidSetLength)
-        } else if let BerObjectContent::Sequence(content) = &value[0].content {
-            if content.len() != 2 {
-                bail!(ASN1NAPIError::InvalidSetSequenceLength)
-            } else if let (BerObjectContent::OID(name), BerObjectContent::PrintableString(value)) =
-                (&content[0].content, &content[1].content)
-            {
-                Ok(ASN1Set {
-                    r#type: ASN1_OBJECT_TYPE_SET,
-                    name: ASN1OID::try_from(get_oid_from_oid_string(&name.to_id_string())?)?,
-                    value: (*value).into(),
-                })
-            } else {
-                bail!(ASN1NAPIError::InvalidSetData)
-            }
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
-    }
-}
-
 impl TryFrom<ASN1> for ASN1Number {
     type Error = Error;
 
@@ -1115,7 +1098,6 @@ mod test {
     use chrono::{TimeZone, Utc};
     use num_bigint::BigInt;
 
-    use crate::get_ber_object;
     //use crate::ASN1ContextTag;
     use crate::ASN1Set;
     use crate::JsType;
@@ -1136,29 +1118,7 @@ mod test {
                               Ze4qTtQfXRoCkhoCgzqg==";
 
     #[test]
-    fn test_lib_asn1_sequence() {
-        let data = base64::decode(TEST_BLOCK).expect("base64");
-        let (_, sequence) =
-            der_parser::ber::parse_ber_sequence(&data).expect("Failed to parse object");
-
-        sequence.ref_iter().for_each(|element| {
-            println!("{:?}", element);
-        });
-
-        assert_eq!(sequence.header.tag(), der_parser::ber::Tag::Sequence);
-    }
-
-    #[test]
-    fn test_asn1_get_ber_object() {
-        let bytes = vec![0x02, 0x03, 0x01, 0x00, 0x01, 0x02, 0x03, 0x01, 0x00, 0x00];
-        let convert = get_ber_object(&bytes);
-
-        assert!(convert.is_ok());
-        assert_eq!(convert.unwrap().content.as_u64(), Ok(65537));
-    }
-
-    #[test]
-    fn test_asn1_to_js_into_bool() {
+    fn test_asn1_into_bool() {
         let encoded_true = "AQH/";
         let encoded_false = "AQEA";
 
@@ -1170,7 +1130,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_integer() {
+    fn test_asn_into_integer() {
         let encoded = "AgEq";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1183,7 +1143,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_big_integer() {
+    fn test_asn1_into_big_integer() {
         let encoded = "AgkBAgMEBQYHCAk=";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1194,7 +1154,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_string() {
+    fn test_asn1_into_string() {
         let encoded = "EwR0ZXN0";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1202,7 +1162,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_date() {
+    fn test_asn1_into_date() {
         let encoded = "GA8yMDIyMDkyNjEwMDAwMFo=";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1213,7 +1173,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_bytes() {
+    fn test_asn1_into_bytes() {
         let encoded = "BAUBAgMEBQ==";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1224,7 +1184,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_oid() {
+    fn test_asn1_into_oid() {
         let encoded = "BglghkgBZQMEAgE=";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -1238,9 +1198,29 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_set() {
+    fn test_asn1_into_set() {
         let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
+
+        assert_eq!(
+            obj.into_set().unwrap(),
+            ASN1Set {
+                r#type: ASN1_OBJECT_TYPE_SET,
+                name: ASN1OID {
+                    r#type: ASN1_OBJECT_TYPE_OID,
+                    oid: "commonName".into()
+                },
+                value: "test".into()
+            }
+        );
+    }
+
+    #[test]
+    fn test_asn1_into_object() {
+        let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
+        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+
+        println!("{:?}", obj.into_object());
 
         assert_eq!(
             obj.into_set().unwrap(),
@@ -1258,7 +1238,7 @@ mod test {
     // TODO
     #[ignore]
     #[test]
-    fn test_asn1_to_js_into_context_tag() {
+    fn test_asn1_into_context_tag() {
         let encoded = base64::encode([
             0xa0, 0x53, 0x30, 0x51, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
             0x08, 0x30, 0x44, 0x04, 0x20, 0x13, 0x05, 0x77, 0x0e, 0x24, 0x9b, 0xd2, 0xe5, 0xd1,
@@ -1274,54 +1254,54 @@ mod test {
     }
 
     #[test]
-    fn test_asn1_to_js_into_sequence() {
+    fn test_asn1_block_into_sequence() {
         let obj = ASN1::from_base64(TEST_BLOCK.into()).expect("base64");
         let sequence: Vec<ASN1> = obj.into_sequence().expect("");
 
-        assert_eq!(obj.get_type(), JsType::Sequence);
-        assert_eq!(sequence[0].get_type(), JsType::Integer);
+        assert_eq!(obj.get_js_type(), &JsType::Sequence);
+        assert_eq!(sequence[0].get_js_type(), &JsType::Integer);
         assert_eq!(sequence[0].into_integer().unwrap(), 0);
-        assert_eq!(sequence[1].get_type(), JsType::Integer);
+        assert_eq!(sequence[1].get_js_type(), &JsType::Integer);
         assert_eq!(sequence[1].into_integer().unwrap(), 456);
-        assert_eq!(sequence[2].get_type(), JsType::Integer);
+        assert_eq!(sequence[2].get_js_type(), &JsType::Integer);
         assert_eq!(sequence[2].into_integer().unwrap(), 123);
-        assert_eq!(sequence[3].get_type(), JsType::DateTime);
+        assert_eq!(sequence[3].get_js_type(), &JsType::DateTime);
         assert_eq!(
             sequence[3].into_date().unwrap(),
-            Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 0)
+            Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 210)
         );
-        assert_eq!(sequence[4].get_type(), JsType::Buffer);
+        assert_eq!(sequence[4].get_js_type(), &JsType::Buffer);
         assert_eq!(
             sequence[4].into_bytes().unwrap(),
             hex::decode("0002C4FD23DEAEBBA3CAC51E2597AD8A5BBAD1578E676F4CDEFC94B2318F76A6A0B2")
                 .unwrap()
         );
-        assert_eq!(sequence[5].get_type(), JsType::Buffer);
+        assert_eq!(sequence[5].get_js_type(), &JsType::Buffer);
         assert_eq!(
             sequence[5].into_bytes().unwrap(),
             hex::decode("B8FE9ADDF32B3662D5CD7A6D99487423C3ADBB94B77D7E0F5960436D6C4477E2")
                 .unwrap()
         );
-        assert_eq!(sequence[6].get_type(), JsType::Sequence);
+        assert_eq!(sequence[6].get_js_type(), &JsType::Sequence);
 
         let nested_sequence: Vec<ASN1> = sequence[6].into_sequence().expect("");
 
-        assert_eq!(nested_sequence[0].get_type(), JsType::Sequence);
+        assert_eq!(nested_sequence[0].get_js_type(), &JsType::Sequence);
 
         let nested_sequence: Vec<ASN1> = nested_sequence[0].into_sequence().expect("");
 
-        assert_eq!(nested_sequence[0].get_type(), JsType::Integer);
+        assert_eq!(nested_sequence[0].get_js_type(), &JsType::Integer);
         assert_eq!(nested_sequence[0].into_integer().unwrap(), 0);
-        assert_eq!(nested_sequence[1].get_type(), JsType::Buffer);
+        assert_eq!(nested_sequence[1].get_js_type(), &JsType::Buffer);
         assert_eq!(
             nested_sequence[1].into_bytes().unwrap(),
             hex::decode("0003C194689E585C277B078EA244C2D732D9A63CE5B9BF7303D832BEB28DCAD41B91")
                 .unwrap()
         );
-        assert_eq!(nested_sequence[2].get_type(), JsType::Integer);
+        assert_eq!(nested_sequence[2].get_js_type(), &JsType::Integer);
         assert_eq!(nested_sequence[2].into_integer().unwrap(), 10);
 
-        assert_eq!(sequence[7].get_type(), JsType::Integer);
+        assert_eq!(sequence[7].get_js_type(), &JsType::Integer);
         assert_eq!(
             sequence[7].into_big_integer().unwrap(),
             BigInt::from_str("12342084984267966262840258399369837191947502386530640049419263801438878759232954781610995155808851108259294273199446278227692318752971658125549615746397098")
