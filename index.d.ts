@@ -65,13 +65,11 @@ export class Asn1 {
   /** Convert to an OID object. */
   intoOid(): ASN1OID
   /** Convert to a ASN1BitString object. */
-  intoBitstring(): ASN1BitString
+  intoBitString(): ASN1BitString
   /** Convert to an Set object. */
   intoSet(): ASN1Set
   /** Convert to an Context Tag object. */
   intoContextTag(): ASN1ContextTag
   /** Convert a Sequence to an Array. */
   intoArray(): unknown[]
-  /** Convert to a decoded Sequence. */
-  intoSequence(): Array<Asn1>
 }

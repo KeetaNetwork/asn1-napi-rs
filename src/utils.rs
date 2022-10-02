@@ -3,12 +3,18 @@ use std::str::FromStr;
 use anyhow::{bail, Result};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-    bindgen_prelude::FromNapiValue, JsBoolean, JsBuffer, JsDate, JsNumber, JsString, JsUnknown,
+    bindgen_prelude::{Array, FromNapiValue},
+    Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown,
 };
 use num_bigint::{BigInt, Sign};
 use rasn::{types::Utf8String, Decode, Tag};
 
-use crate::{types::JsType, ASN1NAPIError};
+use crate::{
+    asn1::ASNIterator,
+    constants::ANS1_DATE_TIME_UTC_FORMAT,
+    types::{ASN1Data, JsValue},
+    ASN1NAPIError,
+};
 
 /// Get an ASN1 boolean from a JsUnknown.
 pub(crate) fn get_boolean_from_js(data: JsUnknown) -> Result<bool> {
@@ -26,7 +32,7 @@ pub(crate) fn get_integer_from_js(data: JsUnknown) -> Result<i64> {
 }
 
 /// Get an i128 integer from a JsUnknown.
-pub(crate) fn get_big_integer_from_js(data: JsUnknown) -> Result<BigInt> {
+pub(crate) fn get_big_int_from_js(data: JsUnknown) -> Result<BigInt> {
     Ok(BigInt::from_str(
         data.coerce_to_string()?.into_utf8()?.as_str()?,
     )?)
@@ -40,6 +46,30 @@ pub(crate) fn get_buffer_from_js(data: JsUnknown) -> Result<Vec<u8>> {
 /// Get a Vec<u8> from a JsUnknown.
 pub(crate) fn get_vec_from_js(data: JsUnknown) -> Result<Vec<u8>> {
     Ok(Vec::<u8>::from_unknown(data)?)
+}
+
+/// Get a Vec<ASN1Data> from an ASNIterator.
+pub(crate) fn get_vec_from_asn_iter(data: &ASNIterator) -> Result<Vec<ASN1Data>> {
+    data.to_owned().collect()
+}
+
+/// Get an Array from an ASNIterator.
+pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASNIterator) -> Result<Array> {
+    get_js_array_from_asn_data(env, get_vec_from_asn_iter(data)?)
+}
+
+/// Get an Array from a Vec<ASN1Data>.
+pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<Array> {
+    let mut array = env.create_array(data.len() as u32)?;
+
+    for (i, data) in data.iter().enumerate() {
+        array.set(
+            i as u32,
+            JsUnknown::try_from(JsValue::try_from((env, data.to_owned()))?)?,
+        )?;
+    }
+
+    Ok(array)
 }
 
 /// Get an chrono datetime from a JsUnknown.
@@ -63,6 +93,17 @@ pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     (sign == Sign::Minus, words)
 }
 
+/// Get a JsObject from a Vec<ASN1Data>.
+pub(crate) fn get_js_obj_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<JsObject> {
+    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
+}
+
+/// Get a JsBigInt from a BigInt.
+pub(crate) fn get_js_big_int_from_big_int(env: Env, data: BigInt) -> Result<JsBigInt> {
+    let (negative, words) = get_words_from_big_int(data);
+    Ok(env.create_bigint_from_words(negative, words)?)
+}
+
 /// Helper for handling date/times with milliseconds
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
     let mut decoder: rasn::ber::de::Decoder =
@@ -70,40 +111,12 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
 
     if let Ok(decoded) = Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME) {
         Ok(DateTime::<FixedOffset>::from_utc(
-            NaiveDateTime::parse_from_str(&decoded, "%Y%m%d%H%M%S%.3fZ")?,
+            NaiveDateTime::parse_from_str(&decoded, ANS1_DATE_TIME_UTC_FORMAT)?,
             FixedOffset::east(0),
         )
         .with_timezone(&Utc))
     } else {
         bail!(ASN1NAPIError::MalformedData)
-    }
-}
-
-/// Return a JsType from a BER tag.
-pub(crate) fn get_js_tag_from_asn1_tag(tag: Tag) -> JsType {
-    match tag {
-        Tag::BOOL => JsType::Boolean,
-        Tag::INTEGER => JsType::Integer,
-        Tag::NULL => JsType::Null,
-        Tag::UTF8_STRING => JsType::String,
-        Tag::PRINTABLE_STRING => JsType::String,
-        Tag::VISIBLE_STRING => JsType::String,
-        Tag::UNIVERSAL_STRING => JsType::String,
-        Tag::GENERAL_STRING => JsType::String,
-        Tag::GRAPHIC_STRING => JsType::String,
-        Tag::IA5_STRING => JsType::String,
-        Tag::VIDEOTEX_STRING => JsType::String,
-        Tag::TELETEX_STRING => JsType::String,
-        Tag::NUMERIC_STRING => JsType::String,
-        Tag::BMP_STRING => JsType::String,
-        Tag::BIT_STRING => JsType::BitString,
-        Tag::OCTET_STRING => JsType::Buffer,
-        Tag::SEQUENCE => JsType::Sequence,
-        Tag::GENERALIZED_TIME => JsType::DateTime,
-        Tag::UTC_TIME => JsType::DateTime,
-        Tag::OBJECT_IDENTIFIER => JsType::Object,
-        Tag::SET => JsType::Object,
-        _ => JsType::Unknown,
     }
 }
 

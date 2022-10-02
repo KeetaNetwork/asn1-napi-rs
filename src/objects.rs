@@ -10,7 +10,7 @@ use rasn::{
 
 use crate::{
     constants::*,
-    types::{ASN1Data, ASN1ObjectType},
+    types::ASN1Data,
     utils::{get_buffer_from_js, get_integer_from_js},
     ASN1NAPIError,
 };
@@ -50,8 +50,9 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "1.3.6.1.4.1.8301.3.2.2.1.1" => "hash",
     "2.16.840.1.101.3.3.1.3" => "hashData",
 };
+trait ASNAny: AsnType + Decode + Encode {}
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ASN1Object {
     ASN1OID(ASN1OID),
     ASN1Set(ASN1Set),
@@ -61,7 +62,7 @@ pub enum ASN1Object {
 
 /// ANS1 OID.
 #[napi(object, js_name = "ASN1OID")]
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1OID {
     pub r#type: &'static str,
     pub oid: String,
@@ -69,7 +70,7 @@ pub struct ASN1OID {
 
 /// ANS1 Set.
 #[napi(object, js_name = "ASN1Set")]
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1Set {
     pub r#type: &'static str,
     pub name: ASN1OID,
@@ -78,7 +79,7 @@ pub struct ASN1Set {
 
 /// ANS1 Context Tag.
 #[napi(object, js_name = "ASN1ContextTag")]
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1ContextTag {
     pub r#type: &'static str,
     pub value: i64,
@@ -87,7 +88,7 @@ pub struct ASN1ContextTag {
 
 /// ANS1 bitstring.
 #[napi(object, js_name = "ASN1BitString")]
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1BitString {
     pub r#type: &'static str,
     pub value: Vec<u8>,
@@ -132,6 +133,34 @@ fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
     } else {
         bail!(ASN1NAPIError::UnknownOid)
     }
+}
+
+pub trait TypedObject<'a> {
+    const TYPE: &'a str;
+
+    fn get_type() -> &'a str {
+        Self::TYPE
+    }
+}
+
+impl<'a> TypedObject<'a> for ASN1BitString {
+    const TYPE: &'a str = "bitstring";
+}
+
+impl<'a> TypedObject<'a> for ASN1OID {
+    const TYPE: &'a str = "oid";
+}
+
+impl<'a> TypedObject<'a> for ASN1Set {
+    const TYPE: &'a str = "set";
+}
+
+impl<'a> TypedObject<'a> for ASN1Sequence {
+    const TYPE: &'a str = "sequence";
+}
+
+impl<'a> TypedObject<'a> for ASN1ContextTag {
+    const TYPE: &'a str = "context";
 }
 
 #[napi]
@@ -237,7 +266,7 @@ impl Decode for ASN1Set {
 
                 if let Ok(oid) = ASN1OID::try_from(name.to_vec()) {
                     Ok(Self {
-                        r#type: ASN1ObjectType::Set.into(),
+                        r#type: Self::TYPE,
                         name: oid,
                         value: value.to_string(),
                     })
@@ -246,6 +275,17 @@ impl Decode for ASN1Set {
                 }
             })
         })
+    }
+}
+
+impl Encode for ASN1Object {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
+        match self {
+            ASN1Object::ASN1OID(obj) => obj.encode(encoder),
+            ASN1Object::ASN1Set(obj) => obj.encode(encoder),
+            ASN1Object::ASN1BitString(obj) => obj.encode(encoder),
+            ASN1Object::ASN1ContextTag(obj) => obj.encode(encoder),
+        }
     }
 }
 
@@ -264,22 +304,10 @@ impl Decode for ASN1Object {
     }
 }
 
-impl Encode for ASN1ContextTag {
-    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
-        todo!()
-    }
-}
-
-impl Decode for ASN1ContextTag {
-    fn decode_with_tag<D: Decoder>(_decoder: &mut D, _tag: Tag) -> Result<Self, D::Error> {
-        todo!()
-    }
-}
-
 impl Encode for ASN1Data {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
         match self {
-            ASN1Data::Bool(val) => {
+            ASN1Data::Boolean(val) => {
                 encoder.encode_bool(Tag::BOOL, *val)?;
                 Ok(())
             }
@@ -287,7 +315,7 @@ impl Encode for ASN1Data {
                 encoder.encode_integer(Tag::INTEGER, val)?;
                 Ok(())
             }
-            ASN1Data::Int(val) => {
+            ASN1Data::Integer(val) => {
                 encoder.encode_integer(Tag::INTEGER, &BigInt::from(*val))?;
                 Ok(())
             }
@@ -300,7 +328,7 @@ impl Encode for ASN1Data {
                 Ok(())
             }
             ASN1Data::Date(val) => {
-                encoder.encode_generalized_time(Tag::GENERALIZED_TIME, val)?;
+                encoder.encode_generalized_time(Tag::GENERALIZED_TIME, &val.to_owned())?;
                 Ok(())
             }
             ASN1Data::Object(obj) => match obj {
@@ -310,18 +338,50 @@ impl Encode for ASN1Data {
                 ASN1Object::ASN1ContextTag(context) => context.encode(encoder),
             },
             ASN1Data::Array(arr) => arr.encode(encoder),
-            ASN1Data::Unknown => Err(<E as Encoder>::Error::custom(
+            ASN1Data::Unknown(any) => any.encode(encoder),
+            ASN1Data::Null => Err(<E as Encoder>::Error::custom(
                 ASN1NAPIError::UnknownArgument,
             )),
         }
     }
 }
 
+impl Decode for ASN1Data {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
+        if let Ok(any) = decoder.decode_any() {
+            println!("{:?}", any);
+            todo!()
+        } else {
+            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownObject))
+        }
+    }
+}
+
+impl Encode for ASN1ContextTag {
+    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
+        todo!()
+    }
+}
+
+impl Decode for ASN1ContextTag {
+    fn decode_with_tag<D: Decoder>(_decoder: &mut D, _tag: Tag) -> Result<Self, D::Error> {
+        todo!()
+    }
+}
+
 impl<'a> From<&'a [u8]> for ASN1BitString {
     /// Convert bytes into an ASN1BitString instance.
+    /// TODO
+    /// # Examples
+    ///
+    /// ## Basic usage
+    ///
+    /// ```
+    ///
+    /// ```
     fn from(value: &'a [u8]) -> Self {
         Self {
-            r#type: ASN1ObjectType::BitString.into(),
+            r#type: Self::TYPE,
             value: value.into(),
         }
     }
@@ -331,7 +391,7 @@ impl From<Vec<u8>> for ASN1BitString {
     /// Convert an owned byte array into an ASN1BitString instance.
     fn from(value: Vec<u8>) -> Self {
         Self {
-            r#type: ASN1ObjectType::BitString.into(),
+            r#type: Self::TYPE,
             value,
         }
     }
@@ -359,7 +419,7 @@ impl TryFrom<JsBuffer> for ASN1BitString {
     /// Attempt to convert a JsBuffer instance into an ASN1BitString instance.
     fn try_from(value: JsBuffer) -> Result<Self, Self::Error> {
         Ok(Self {
-            r#type: ASN1ObjectType::BitString.into(),
+            r#type: Self::TYPE,
             value: value.into_value()?.to_vec(),
         })
     }
@@ -372,12 +432,12 @@ impl<'a> TryFrom<&'a [u32]> for ASN1OID {
     fn try_from(value: &'a [u32]) -> Result<Self, Self::Error> {
         if value.is_empty() {
             Ok(Self {
-                r#type: ASN1ObjectType::Oid.into(),
+                r#type: Self::TYPE,
                 oid: get_name_from_oid_string("")?.into(),
             })
         } else if let Some(oid) = Oid::new(value) {
             Ok(Self {
-                r#type: ASN1ObjectType::Oid.into(),
+                r#type: Self::TYPE,
                 oid: get_name_from_oid(oid)?.into(),
             })
         } else {
@@ -409,7 +469,7 @@ impl TryFrom<JsObject> for ASN1OID {
 
     /// Attempt to convert a JsObject instance into an ASN1OID instance.
     fn try_from(value: JsObject) -> Result<Self, Self::Error> {
-        let oid = value.get_named_property::<JsString>(ASN1_OBJECT_TYPE_OID)?;
+        let oid = value.get_named_property::<JsString>(ASN1OID::TYPE)?;
         let name = oid.into_utf8()?;
 
         Self::try_from(name.as_str()?)
@@ -423,7 +483,7 @@ impl<'a> TryFrom<&'a str> for ASN1OID {
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         if get_oid_from_name(value).is_ok() {
             Ok(Self {
-                r#type: ASN1ObjectType::Oid.into(),
+                r#type: Self::TYPE,
                 oid: value.to_string(),
             })
         } else {
@@ -447,7 +507,7 @@ impl TryFrom<JsObject> for ASN1Set {
     /// Attempt to convert a JsObject instance into an ASN1Set instance.
     fn try_from(value: JsObject) -> Result<Self, Self::Error> {
         Ok(Self {
-            r#type: ASN1ObjectType::Set.into(),
+            r#type: Self::TYPE,
             name: ASN1OID::try_from(value.get_named_property::<JsObject>("name")?)?,
             value: value
                 .get_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY)?
@@ -464,7 +524,7 @@ impl TryFrom<JsObject> for ASN1ContextTag {
     /// Attempt to convert a JsObject instance into an ASN1ContextTag instance.
     fn try_from(value: JsObject) -> Result<Self, Self::Error> {
         Ok(Self {
-            r#type: ASN1ObjectType::Context.into(),
+            r#type: Self::TYPE,
             value: get_integer_from_js(value.get_named_property::<JsUnknown>("name")?)?,
             data: get_buffer_from_js(value.get_named_property::<JsUnknown>("data")?)?,
         })
@@ -473,15 +533,14 @@ impl TryFrom<JsObject> for ASN1ContextTag {
 
 #[cfg(test)]
 mod test {
-    use crate::types::ASN1ObjectType;
-
     use super::ASN1OID;
+    use crate::objects::TypedObject;
 
     #[test]
     fn test_asn1oid_try_from_string() {
         let input = "sha3-256WithEcDSA";
         let result = ASN1OID {
-            r#type: ASN1ObjectType::Oid.into(),
+            r#type: ASN1OID::TYPE,
             oid: input.into(),
         };
 
@@ -492,7 +551,7 @@ mod test {
     fn test_asn1oid_try_from_words() {
         let input = vec![2, 23, 42, 2, 7, 11];
         let result = ASN1OID {
-            r#type: ASN1ObjectType::Oid.into(),
+            r#type: ASN1OID::TYPE,
             oid: "account".into(),
         };
 
@@ -500,7 +559,7 @@ mod test {
 
         let input = vec![];
         let result = ASN1OID {
-            r#type: ASN1ObjectType::Oid.into(),
+            r#type: ASN1OID::TYPE,
             oid: "sha3-256WithEd25519".into(),
         };
 

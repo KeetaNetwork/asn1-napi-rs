@@ -1,36 +1,67 @@
-use anyhow::{bail, Error};
+use anyhow::{bail, Error, Result};
 use chrono::{DateTime, FixedOffset};
+use napi::{
+    Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNull, JsNumber, JsObject, JsString, JsUndefined,
+    JsUnknown, ValueType,
+};
 use num_bigint::BigInt;
+use rasn::{types::Any, Tag};
 
-use crate::{asn1::ASN1, constants::*, objects::ASN1Object, ASN1NAPIError};
+use crate::{
+    asn1::ASN1,
+    asn1_integer_to_big_int, get_array_from_js, get_js_obj_from_asn_object, get_object_from_js,
+    objects::ASN1Object,
+    utils::{
+        get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_time_from_js,
+        get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
+        get_string_from_js, get_vec_from_asn_iter,
+    },
+    ASN1NAPIError,
+};
 
 /// JavaScript Types
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, Copy, Clone, PartialEq, Debug)]
 pub enum JsType {
-    Sequence,
+    Boolean,
     Integer,
+    BigInt,
+    String,
+    Buffer,
+    Sequence,
+    Object,
     DateTime,
     Null,
-    String,
-    BitString,
-    Boolean,
-    Buffer,
-    Object,
     Unknown,
     Undefined,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+/// JavaScript Values Container
+pub enum JsValue {
+    Boolean(JsBoolean),
+    Integer(JsNumber),
+    BigInt(JsBigInt),
+    String(JsString),
+    Buffer(JsBuffer),
+    Sequence(JsObject),
+    Object(JsObject),
+    DateTime(JsDate),
+    Null(JsNull),
+    Unknown(JsUnknown),
+    Undefined(JsUndefined),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ASN1Data {
-    Bool(bool),
+    Boolean(bool),
+    Integer(i64),
     BigInt(BigInt),
-    Int(i64),
     String(String),
     Bytes(Vec<u8>),
     Array(Vec<ASN1Data>),
-    Date(DateTime<FixedOffset>),
     Object(ASN1Object),
-    Unknown,
+    Date(DateTime<FixedOffset>),
+    Unknown(Any),
+    Null,
 }
 
 /// Integer or Big Integer
@@ -38,16 +69,6 @@ pub enum ASN1Data {
 pub enum ASN1Number {
     Integer(i64),
     BigInt(BigInt),
-}
-
-/// Valid ASN1Object Types
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub enum ASN1ObjectType {
-    BitString,
-    Oid,
-    Set,
-    Context,
-    Unknown,
 }
 
 /// TODO Native encoding without ASN1 dependencies
@@ -83,42 +104,118 @@ pub enum ASN1ObjectType {
 //     BMPString = 0x1E,       // +
 // }
 
-impl ToString for ASN1ObjectType {
-    /// Return the String representation of an ASN1ObjectType.
-    fn to_string(&self) -> String {
-        match *self {
-            ASN1ObjectType::BitString => ASN1_OBJECT_TYPE_BITSTRING.into(),
-            ASN1ObjectType::Oid => ASN1_OBJECT_TYPE_OID.into(),
-            ASN1ObjectType::Set => ASN1_OBJECT_TYPE_SET.into(),
-            ASN1ObjectType::Context => ASN1_OBJECT_TYPE_CONTEXT.into(),
-            _ => ASN1_OBJECT_TYPE_UNKNOWN.into(),
+impl From<Tag> for JsType {
+    fn from(tag: Tag) -> Self {
+        match tag {
+            Tag::BOOL => JsType::Boolean,
+            Tag::INTEGER => JsType::Integer,
+            Tag::NULL => JsType::Null,
+            Tag::UTF8_STRING => JsType::String,
+            Tag::PRINTABLE_STRING => JsType::String,
+            Tag::VISIBLE_STRING => JsType::String,
+            Tag::UNIVERSAL_STRING => JsType::String,
+            Tag::GENERAL_STRING => JsType::String,
+            Tag::GRAPHIC_STRING => JsType::String,
+            Tag::IA5_STRING => JsType::String,
+            Tag::VIDEOTEX_STRING => JsType::String,
+            Tag::TELETEX_STRING => JsType::String,
+            Tag::NUMERIC_STRING => JsType::String,
+            Tag::BMP_STRING => JsType::String,
+            Tag::BIT_STRING => JsType::Object,
+            Tag::OCTET_STRING => JsType::Buffer,
+            Tag::SEQUENCE => JsType::Sequence,
+            Tag::GENERALIZED_TIME => JsType::DateTime,
+            Tag::UTC_TIME => JsType::DateTime,
+            Tag::OBJECT_IDENTIFIER => JsType::Object,
+            Tag::SET => JsType::Object,
+            _ => JsType::Unknown,
         }
     }
 }
 
-impl From<ASN1ObjectType> for &str {
-    /// Return the String representation of an ASN1ObjectType.
-    fn from(obj: ASN1ObjectType) -> Self {
-        match obj {
-            ASN1ObjectType::BitString => ASN1_OBJECT_TYPE_BITSTRING,
-            ASN1ObjectType::Oid => ASN1_OBJECT_TYPE_OID,
-            ASN1ObjectType::Set => ASN1_OBJECT_TYPE_SET,
-            ASN1ObjectType::Context => ASN1_OBJECT_TYPE_CONTEXT,
-            _ => ASN1_OBJECT_TYPE_UNKNOWN,
-        }
+impl TryFrom<ASN1> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+        Ok(match value.get_js_type() {
+            JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
+            JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
+            JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
+            JsType::String => ASN1Data::String(value.into_string()?),
+            JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
+            JsType::Sequence => ASN1Data::Array(get_vec_from_asn_iter(&value.into_iter())?),
+            JsType::Object => ASN1Data::Object(value.into_object()?),
+            JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
+            JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
+            JsType::Undefined | JsType::Null => ASN1Data::Null,
+        })
     }
 }
 
-impl From<&str> for ASN1ObjectType {
-    /// Return ASN1ObjectType from a string.
-    fn from(value: &str) -> Self {
-        match value {
-            ASN1_OBJECT_TYPE_BITSTRING => ASN1ObjectType::BitString,
-            ASN1_OBJECT_TYPE_OID => ASN1ObjectType::Oid,
-            ASN1_OBJECT_TYPE_SET => ASN1ObjectType::Set,
-            ASN1_OBJECT_TYPE_CONTEXT => ASN1ObjectType::Context,
-            _ => ASN1ObjectType::Unknown,
-        }
+impl TryFrom<(Env, ASN1Data)> for JsValue {
+    type Error = Error;
+
+    fn try_from(value: (Env, ASN1Data)) -> Result<Self, Self::Error> {
+        let (env, data) = value;
+
+        Ok(match data {
+            ASN1Data::Boolean(val) => JsValue::Boolean(env.get_boolean(val)?),
+            //ASN1Data::Integer(val) => JsValue::Integer(env.create_int64(val)?),
+            ASN1Data::Integer(val) => JsValue::BigInt(asn1_integer_to_big_int(env, val)?),
+            ASN1Data::BigInt(val) => JsValue::BigInt(get_js_big_int_from_big_int(env, val)?),
+            ASN1Data::String(val) => JsValue::String(env.create_string(val.as_str())?),
+            ASN1Data::Bytes(val) => JsValue::Buffer(env.create_buffer_with_data(val)?.into_raw()),
+            ASN1Data::Date(val) => {
+                JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)
+            }
+            ASN1Data::Unknown(val) => JsValue::Unknown(
+                env.create_arraybuffer_with_data(val.into_bytes())?
+                    .into_unknown(),
+            ),
+            ASN1Data::Array(val) => JsValue::Sequence(get_js_obj_from_asn_data(env, val)?),
+            ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn_object(env, val)?),
+            ASN1Data::Null => JsValue::Null(env.get_null()?),
+        })
+    }
+}
+
+impl TryFrom<JsValue> for JsUnknown {
+    type Error = Error;
+
+    fn try_from(value: JsValue) -> Result<Self, Self::Error> {
+        Ok(match value {
+            JsValue::Boolean(val) => val.into_unknown(),
+            JsValue::Integer(val) => val.into_unknown(),
+            JsValue::BigInt(val) => val.into_unknown()?,
+            JsValue::String(val) => val.into_unknown(),
+            JsValue::Buffer(val) => val.into_unknown(),
+            JsValue::Sequence(val) => val.into_unknown(),
+            JsValue::Object(val) => val.into_unknown(),
+            JsValue::DateTime(val) => val.into_unknown(),
+            JsValue::Null(val) => val.into_unknown(),
+            JsValue::Unknown(val) => val.into_unknown(),
+            JsValue::Undefined(val) => val.into_unknown(),
+        })
+    }
+}
+
+impl TryFrom<JsUnknown> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: JsUnknown) -> Result<Self, Self::Error> {
+        Ok(match value.get_type()? {
+            ValueType::Boolean => ASN1Data::Boolean(get_boolean_from_js(value)?),
+            ValueType::BigInt => ASN1Data::BigInt(get_big_int_from_js(value)?),
+            ValueType::Number => ASN1Data::Integer(get_integer_from_js(value)?),
+            ValueType::String => ASN1Data::String(get_string_from_js(value)?),
+            ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
+            ValueType::Object if value.is_date()? => {
+                ASN1Data::Date(get_fixed_date_time_from_js(value)?)
+            }
+            ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
+            ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
+            _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
+        })
     }
 }
 
@@ -137,6 +234,17 @@ impl TryFrom<ASN1> for ASN1Number {
     }
 }
 
+impl TryFrom<ASN1Number> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: ASN1Number) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ASN1Number::Integer(val) => ASN1Data::Integer(val),
+            ASN1Number::BigInt(val) => ASN1Data::BigInt(val),
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use num_bigint::BigInt;
@@ -145,12 +253,12 @@ mod test {
 
     #[test]
     fn test_asn1number_try_from_asn1() {
-        let asn1 = ASN1::new(vec![2, 1, 42]).unwrap();
+        let asn1 = ASN1::new(vec![2, 1, 42]);
         let input = ASN1Number::try_from(asn1).unwrap();
 
         assert_eq!(input, ASN1Number::Integer(42));
 
-        let asn1 = ASN1::new(vec![2, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap();
+        let asn1 = ASN1::new(vec![2, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
         let input = ASN1Number::try_from(asn1).unwrap();
 
         assert_eq!(
