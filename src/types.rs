@@ -5,16 +5,16 @@ use napi::{
     JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
-use rasn::{types::Any, Tag};
+use rasn::{types::Any, AsnType, Decode, Encode, Tag};
 
 use crate::{
-    asn1::ASN1,
+    asn1::{ASNIterator, ASN1},
     asn1_integer_to_big_int, get_array_from_js, get_js_obj_from_asn_object, get_object_from_js,
     objects::ASN1Object,
     utils::{
-        get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_time_from_js,
+        get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_from_js,
         get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-        get_string_from_js, get_vec_from_asn_iter,
+        get_string_from_js,
     },
     ASN1NAPIError,
 };
@@ -50,18 +50,38 @@ pub enum JsValue {
     Undefined(JsUndefined),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(AsnType, Clone, Decode, Debug, Eq, PartialEq)]
+#[rasn(choice)]
 pub enum ASN1Data {
+    #[rasn(tag(1))]
     Boolean(bool),
+    #[rasn(tag(2))]
     Integer(i64),
+    #[rasn(tag(3))]
     BigInt(BigInt),
+    #[rasn(tag(4))]
     String(String),
+    #[rasn(tag(5))]
     Bytes(Vec<u8>),
+    #[rasn(tag(6))]
     Array(Vec<ASN1Data>),
+    #[rasn(tag(7))]
     Object(ASN1Object),
+    #[rasn(tag(8))]
     Date(DateTime<FixedOffset>),
+    #[rasn(tag(9))]
     Unknown(Any),
+    #[rasn(tag(10))]
     Null,
+}
+
+/// TODO
+/// ASN1 Application contexts
+#[derive(AsnType, Clone, Debug, Decode, Encode, Eq, PartialEq)]
+#[rasn(choice)]
+pub enum ASN1Contexts {
+    #[rasn(tag(0))]
+    A(Vec<Any>),
 }
 
 /// Integer or Big Integer
@@ -133,6 +153,34 @@ impl From<Tag> for JsType {
     }
 }
 
+impl From<ASN1Data> for Vec<ASN1Data> {
+    fn from(data: ASN1Data) -> Self {
+        match data {
+            ASN1Data::Array(data) => data,
+            data => vec![data],
+        }
+    }
+}
+
+impl From<Vec<ASN1Data>> for ASN1Data {
+    fn from(data: Vec<ASN1Data>) -> Self {
+        match data.get(0) {
+            Some(ASN1Data::Array(x)) if x.len() == 1 => ASN1Data::Array(x.to_owned()),
+            Some(x) if data.len() == 1 => x.to_owned(),
+            None => ASN1Data::Null,
+            _ => ASN1Data::Array(data),
+        }
+    }
+}
+
+impl TryFrom<&ASNIterator> for Vec<ASN1Data> {
+    type Error = Error;
+
+    fn try_from(value: &ASNIterator) -> Result<Self, Self::Error> {
+        value.to_owned().collect()
+    }
+}
+
 impl TryFrom<ASN1> for ASN1Data {
     type Error = Error;
 
@@ -143,7 +191,7 @@ impl TryFrom<ASN1> for ASN1Data {
             JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
             JsType::String => ASN1Data::String(value.into_string()?),
             JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
-            JsType::Sequence => ASN1Data::Array(get_vec_from_asn_iter(&value.into_iter())?),
+            JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
             JsType::Object => ASN1Data::Object(value.into_object()?),
             JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
             JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
@@ -209,9 +257,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
             ValueType::Number => ASN1Data::Integer(get_integer_from_js(value)?),
             ValueType::String => ASN1Data::String(get_string_from_js(value)?),
             ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
-            ValueType::Object if value.is_date()? => {
-                ASN1Data::Date(get_fixed_date_time_from_js(value)?)
-            }
+            ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
             ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
             ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
             _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),

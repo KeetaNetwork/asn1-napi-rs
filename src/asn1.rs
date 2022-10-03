@@ -12,7 +12,7 @@ use rasn::{
 };
 
 use crate::{
-    objects::{ASN1BitString, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
+    objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
     types::{ASN1Data, JsType},
     utils::{
         get_js_array_from_asn_iter, get_utc_date_time_from_asn1_milli, get_words_from_big_int,
@@ -110,6 +110,11 @@ impl ASN1 {
         self.decode::<BigInt>()
     }
 
+    /// Convert to an Context object.
+    pub fn into_context(&self) -> Result<ASN1Context> {
+        self.decode::<ASN1Context>()
+    }
+
     /// Convert to an integer.
     #[napi]
     pub fn into_integer(&self) -> Result<i64> {
@@ -171,10 +176,10 @@ impl ASN1 {
         self.decode::<ASN1Set>()
     }
 
-    /// Convert to an Context Tag object.
+    /// Convert to an Context object.
     #[napi]
-    pub fn into_context_tag(&self) -> Result<ASN1ContextTag> {
-        self.decode::<ASN1ContextTag>()
+    pub fn into_context_tag(&self, env: Env) -> Result<ASN1ContextTag> {
+        ASN1ContextTag::try_from((env, self.into_context()?))
     }
 
     /// Convert a Sequence to an Array.
@@ -221,16 +226,16 @@ impl IntoIterator for ASN1 {
     type IntoIter = ASNIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        let (length, sequence) = if let Ok(sequence) = decode::<Vec<Any>>(&self.data) {
-            (sequence.len(), sequence)
-        } else {
-            (0, vec![])
-        };
+        ASNIterator::from(decode::<Vec<Any>>(&self.data).unwrap_or_default())
+    }
+}
 
-        ASNIterator {
-            sequence,
+impl From<Vec<Any>> for ASNIterator {
+    fn from(sequence: Vec<Any>) -> Self {
+        Self {
+            length: sequence.len(),
             index: 0,
-            length,
+            sequence,
         }
     }
 }
@@ -286,6 +291,7 @@ mod test {
     //use crate::ASN1ContextTag;
     use crate::asn1::ASN1;
     use crate::objects::ASN1BitString;
+    use crate::objects::ASN1Context;
     use crate::objects::ASN1Object;
     use crate::objects::ASN1Set;
     use crate::objects::TypedObject;
@@ -438,18 +444,19 @@ mod test {
     #[ignore]
     #[test]
     fn test_asn1_into_context_tag() {
-        let encoded = base64::encode([
-            0xa0, 0x53, 0x30, 0x51, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
-            0x08, 0x30, 0x44, 0x04, 0x20, 0x13, 0x05, 0x77, 0x0e, 0x24, 0x9b, 0xd2, 0xe5, 0xd1,
-            0x1e, 0xdf, 0xdb, 0xf0, 0xdb, 0x3f, 0xe3, 0x14, 0xa6, 0x40, 0x9b, 0x83, 0x12, 0x7e,
-            0xbf, 0x5b, 0x21, 0xab, 0x92, 0xe2, 0x66, 0xe2, 0x14, 0x04, 0x20, 0x8d, 0x6d, 0x98,
-            0x2e, 0xd9, 0x8b, 0x9c, 0x7f, 0xda, 0x27, 0x8b, 0x9c, 0x94, 0xe3, 0xa2, 0xe3, 0x93,
-            0x34, 0x89, 0x43, 0x91, 0xdc, 0x5c, 0x0a, 0x88, 0x7b, 0x76, 0x01, 0x75, 0xa1, 0x77,
-            0x30,
-        ]);
+        let encoded = "oFMwUQYJYIZIAWUDBAIIMEQEICr/S0giG9GX2MTM\
+                             rxc3EIGys5PE8jr8r18mIzZ2zYQ6BCCDoM+00VOs\
+                             NOWyS0x0/VCAPCC3p6iC3JSwDdTpMH/5rw==";
         let obj = ASN1::from_base64(encoded.into()).unwrap();
 
-        println!("{:?}", obj.into_context_tag().unwrap());
+        println!("{:?}", obj.into_context().unwrap());
+        assert_eq!(
+            obj.into_context().unwrap(),
+            ASN1Context {
+                value: 0,
+                contains: Box::new(ASN1Data::Array(vec![]))
+            }
+        );
     }
 
     #[test]
@@ -496,8 +503,11 @@ mod test {
         assert_eq!(
             nested_sequence[1],
             ASN1Data::Bytes(
-                hex::decode("0003C194689E585C277B078EA244C2D732D9A63CE5B9BF7303D832BEB28DCAD41B91")
-                    .expect("hex")
+                hex::decode(
+                    "0003C194689E585C277B078EA244C2D732D9A63CE5B9BF7\
+                    303D832BEB28DCAD41B91"
+                )
+                .expect("hex")
             )
         );
         assert_eq!(nested_sequence[2], ASN1Data::Integer(10));
@@ -505,8 +515,14 @@ mod test {
         assert_eq!(
             sequence[7],
             ASN1Data::BigInt(
-            BigInt::from_str("12342084984267966262840258399369837191947502386530640049419263801438878759232954781610995155808851108259294273199446278227692318752971658125549615746397098")
-                .expect("BigInt"))
+                BigInt::from_str(
+                    "123420849842679662628402583993698371919475023\
+                    865306400494192638014388787592329547816109951\
+                    558088511082592942731994462782276923187529716\
+                    58125549615746397098"
+                )
+                .expect("BigInt")
+            )
         );
     }
 

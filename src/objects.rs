@@ -1,5 +1,5 @@
 use anyhow::{bail, Error, Result};
-use napi::{JsBuffer, JsObject, JsString, JsUnknown};
+use napi::{Env, JsBuffer, JsObject, JsString, JsUnknown};
 use num_bigint::BigInt;
 use rasn::{
     de::Error as rasnDeError,
@@ -9,9 +9,10 @@ use rasn::{
 };
 
 use crate::{
+    asn1::ASNIterator,
     constants::*,
-    types::ASN1Data,
-    utils::{get_buffer_from_js, get_integer_from_js},
+    types::{ASN1Contexts, ASN1Data},
+    utils::{get_integer_from_js, get_js_uknown_from_asn_data},
     ASN1NAPIError,
 };
 
@@ -52,12 +53,20 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
 };
 trait ASNAny: AsnType + Decode + Encode {}
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum ASN1Object {
     ASN1OID(ASN1OID),
     ASN1Set(ASN1Set),
     ASN1BitString(ASN1BitString),
-    ASN1ContextTag(ASN1ContextTag),
+    ASN1ContextTag(ASN1Context),
+}
+
+/// ANS1 Context.
+#[derive(AsnType, Clone, Eq, PartialEq, Debug)]
+pub struct ASN1Context {
+    pub value: i64,
+    #[rasn(choice)]
+    pub contains: Box<ASN1Data>,
 }
 
 /// ANS1 OID.
@@ -77,21 +86,20 @@ pub struct ASN1Set {
     pub value: String,
 }
 
-/// ANS1 Context Tag.
-#[napi(object, js_name = "ASN1ContextTag")]
-#[derive(Hash, Clone, Eq, PartialEq, Debug)]
-pub struct ASN1ContextTag {
-    pub r#type: &'static str,
-    pub value: i64,
-    pub data: Vec<u8>,
-}
-
 /// ANS1 bitstring.
 #[napi(object, js_name = "ASN1BitString")]
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1BitString {
     pub r#type: &'static str,
     pub value: Vec<u8>,
+}
+
+/// ANS1 Context.
+#[napi(object, js_name = "ASN1ContextTag")]
+pub struct ASN1ContextTag {
+    pub r#type: &'static str,
+    pub value: i64,
+    pub contains: JsUnknown,
 }
 
 /// ANS1 Sequence.
@@ -159,16 +167,12 @@ impl<'a> TypedObject<'a> for ASN1Sequence {
     const TYPE: &'a str = "sequence";
 }
 
-impl<'a> TypedObject<'a> for ASN1ContextTag {
+impl<'a> TypedObject<'a> for ASN1Context {
     const TYPE: &'a str = "context";
 }
 
-#[napi]
-impl ASN1ContextTag {
-    #[napi(getter)]
-    pub fn contains(&self) -> Result<u32> {
-        todo!()
-    }
+impl<'a> TypedObject<'a> for ASN1ContextTag {
+    const TYPE: &'a str = "context";
 }
 
 impl AsnType for ASN1Set {
@@ -181,14 +185,6 @@ impl AsnType for ASN1OID {
 
 impl AsnType for ASN1BitString {
     const TAG: Tag = Tag::BIT_STRING;
-}
-
-impl AsnType for ASN1ContextTag {
-    const TAG: Tag = Tag::SET;
-}
-
-impl AsnType for ASN1Data {
-    const TAG: Tag = Tag::SET;
 }
 
 impl AsnType for ASN1Object {
@@ -289,6 +285,30 @@ impl Encode for ASN1Object {
     }
 }
 
+impl Encode for ASN1Context {
+    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
+        todo!()
+    }
+}
+
+// TODO Finish
+impl Decode for ASN1Context {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
+        if let Ok(ASN1Contexts::A(contains)) = ASN1Contexts::decode(decoder) {
+            if let Ok(data) = Vec::<ASN1Data>::try_from(&ASNIterator::from(contains)) {
+                Ok(ASN1Context {
+                    value: 0,
+                    contains: Box::new(ASN1Data::from(data)),
+                })
+            } else {
+                Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
+            }
+        } else {
+            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
+        }
+    }
+}
+
 // TODO Figure out a better way to handle this
 impl Decode for ASN1Object {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
@@ -298,6 +318,8 @@ impl Decode for ASN1Object {
             Ok(ASN1Object::ASN1OID(obj))
         } else if let Ok(obj) = ASN1BitString::decode(decoder) {
             Ok(ASN1Object::ASN1BitString(obj))
+        } else if let Ok(obj) = ASN1Context::decode(decoder) {
+            Ok(ASN1Object::ASN1ContextTag(obj))
         } else {
             Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownObject))
         }
@@ -346,39 +368,8 @@ impl Encode for ASN1Data {
     }
 }
 
-impl Decode for ASN1Data {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
-        if let Ok(any) = decoder.decode_any() {
-            println!("{:?}", any);
-            todo!()
-        } else {
-            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownObject))
-        }
-    }
-}
-
-impl Encode for ASN1ContextTag {
-    fn encode_with_tag<E: Encoder>(&self, _encoder: &mut E, _tag: Tag) -> Result<(), E::Error> {
-        todo!()
-    }
-}
-
-impl Decode for ASN1ContextTag {
-    fn decode_with_tag<D: Decoder>(_decoder: &mut D, _tag: Tag) -> Result<Self, D::Error> {
-        todo!()
-    }
-}
-
 impl<'a> From<&'a [u8]> for ASN1BitString {
     /// Convert bytes into an ASN1BitString instance.
-    /// TODO
-    /// # Examples
-    ///
-    /// ## Basic usage
-    ///
-    /// ```
-    ///
-    /// ```
     fn from(value: &'a [u8]) -> Self {
         Self {
             r#type: Self::TYPE,
@@ -401,6 +392,19 @@ impl From<BitString> for ASN1BitString {
     /// Convert a BitString into an ASN1BitString instance.
     fn from(value: BitString) -> Self {
         Self::from(value.into_vec())
+    }
+}
+
+impl TryFrom<(Env, ASN1Context)> for ASN1ContextTag {
+    type Error = Error;
+
+    fn try_from(value: (Env, ASN1Context)) -> Result<Self, Self::Error> {
+        let (env, data) = value;
+        Ok(Self {
+            r#type: Self::TYPE,
+            value: data.value,
+            contains: get_js_uknown_from_asn_data(env, *data.contains)?,
+        })
     }
 }
 
@@ -518,15 +522,16 @@ impl TryFrom<JsObject> for ASN1Set {
     }
 }
 
-impl TryFrom<JsObject> for ASN1ContextTag {
+impl TryFrom<JsObject> for ASN1Context {
     type Error = Error;
 
-    /// Attempt to convert a JsObject instance into an ASN1ContextTag instance.
+    /// Attempt to convert a JsObject instance into an ASN1Context instance.
     fn try_from(value: JsObject) -> Result<Self, Self::Error> {
         Ok(Self {
-            r#type: Self::TYPE,
-            value: get_integer_from_js(value.get_named_property::<JsUnknown>("name")?)?,
-            data: get_buffer_from_js(value.get_named_property::<JsUnknown>("data")?)?,
+            value: get_integer_from_js(value.get_named_property::<JsUnknown>("value")?)?,
+            contains: Box::new(ASN1Data::try_from(
+                value.get_named_property::<JsUnknown>("contains")?,
+            )?),
         })
     }
 }

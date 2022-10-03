@@ -21,7 +21,7 @@ use num_bigint::BigInt;
 use rasn::ber::encode;
 use thiserror::Error;
 
-use objects::{ASN1BitString, ASN1ContextTag, ASN1Object, ASN1Set, TypedObject, ASN1OID};
+use objects::{ASN1BitString, ASN1Context, ASN1Object, ASN1Set, TypedObject, ASN1OID};
 use types::{ASN1Data, JsValue};
 use utils::{get_buffer_from_js, get_string_from_js, get_vec_from_js, get_words_from_big_int};
 
@@ -38,6 +38,8 @@ pub(crate) enum ASN1NAPIError {
     UnknownOid,
     #[error("The provided string is of an unknown format")]
     UnknownStringFormat,
+    #[error("The provided context is of an unknown format")]
+    UknownContext,
     #[error("The provided ASN1 data is malformed and cannot be decoded")]
     MalformedData,
     #[error("Cannot decoded Bitstring")]
@@ -110,7 +112,7 @@ fn get_object_from_js(data: JsUnknown) -> Result<ASN1Object> {
             ASN1OID::TYPE => ASN1Object::ASN1OID(ASN1OID::try_from(obj)?),
             ASN1BitString::TYPE => ASN1Object::ASN1BitString(ASN1BitString::try_from(obj)?),
             ASN1Set::TYPE => ASN1Object::ASN1Set(ASN1Set::try_from(obj)?),
-            ASN1ContextTag::TYPE => ASN1Object::ASN1ContextTag(ASN1ContextTag::try_from(obj)?),
+            ASN1Context::TYPE => ASN1Object::ASN1ContextTag(ASN1Context::try_from(obj)?),
             _ => bail!(ASN1NAPIError::UnknownFieldProperty),
         })
     } else {
@@ -162,7 +164,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
         ASN1Object::ASN1ContextTag(_val) => {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_TYPE_KEY,
-                env.create_string(ASN1ContextTag::TYPE)?,
+                env.create_string(ASN1Context::TYPE)?,
             )?;
             todo!()
         }

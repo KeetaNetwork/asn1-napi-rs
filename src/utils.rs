@@ -48,14 +48,9 @@ pub(crate) fn get_vec_from_js(data: JsUnknown) -> Result<Vec<u8>> {
     Ok(Vec::<u8>::from_unknown(data)?)
 }
 
-/// Get a Vec<ASN1Data> from an ASNIterator.
-pub(crate) fn get_vec_from_asn_iter(data: &ASNIterator) -> Result<Vec<ASN1Data>> {
-    data.to_owned().collect()
-}
-
 /// Get an Array from an ASNIterator.
 pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASNIterator) -> Result<Array> {
-    get_js_array_from_asn_data(env, get_vec_from_asn_iter(data)?)
+    get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(data)?)
 }
 
 /// Get an Array from a Vec<ASN1Data>.
@@ -63,10 +58,7 @@ pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Resul
     let mut array = env.create_array(data.len() as u32)?;
 
     for (i, data) in data.iter().enumerate() {
-        array.set(
-            i as u32,
-            JsUnknown::try_from(JsValue::try_from((env, data.to_owned()))?)?,
-        )?;
+        array.set(i as u32, get_js_uknown_from_asn_data(env, data.to_owned())?)?;
     }
 
     Ok(array)
@@ -76,7 +68,7 @@ pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Resul
 /// JavaScript Date objects are described in
 /// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)
 /// of the ECMAScript Language Specification.
-pub(crate) fn get_fixed_date_time_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
+pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
     let js_date = JsDate::try_from(data)?;
     let timestamp = js_date.value_of()? as i64;
     let naive = NaiveDateTime::from_timestamp(timestamp / 1000, (timestamp % 1000) as u32);
@@ -91,6 +83,10 @@ pub(crate) fn get_fixed_date_time_from_js(data: JsUnknown) -> Result<DateTime<Fi
 pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     let (sign, words) = data.to_u64_digits();
     (sign == Sign::Minus, words)
+}
+
+pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
+    JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
 /// Get a JsObject from a Vec<ASN1Data>.

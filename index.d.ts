@@ -14,16 +14,16 @@ export interface ASN1Set {
   name: ASN1OID
   value: string
 }
-/** ANS1 Context Tag. */
-export interface ASN1ContextTag {
-  type: string
-  value: number
-  data: Array<number>
-}
 /** ANS1 bitstring. */
 export interface ASN1BitString {
   type: string
   value: Array<number>
+}
+/** ANS1 Context. */
+export interface ASN1ContextTag {
+  type: string
+  value: number
+  contains: unknown
 }
 /** ANS1 Sequence. */
 export interface ASN1Sequence {
@@ -68,7 +68,7 @@ export class Asn1 {
   intoBitString(): ASN1BitString
   /** Convert to an Set object. */
   intoSet(): ASN1Set
-  /** Convert to an Context Tag object. */
+  /** Convert to an Context object. */
   intoContextTag(): ASN1ContextTag
   /** Convert a Sequence to an Array. */
   intoArray(): unknown[]
