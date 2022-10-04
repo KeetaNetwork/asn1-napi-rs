@@ -64,6 +64,15 @@ pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Resul
     Ok(array)
 }
 
+/// Get a Vec<u32> of the numbers in an OID string.
+pub(crate) fn get_oid_elements_from_string(value: &str) -> Result<Vec<u32>> {
+    Ok(value
+        .split('.')
+        .map(|v| str::parse::<u32>(v))
+        .map(|r| Ok(r?))
+        .collect::<Result<Vec<u32>>>()?)
+}
+
 /// Get an chrono datetime from a JsUnknown.
 /// JavaScript Date objects are described in
 /// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)

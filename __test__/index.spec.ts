@@ -12,12 +12,18 @@ const TEST_INTEGERS_ASN1 = [
 ]
 
 const TEST_BIG_INTEGERS = [
+  0n,
+  0x7fn,
+  0x80n,
   0x10203040506070809n,
   -0x10203040506070809n,
   0xd164be58602b598abf3e63d5503cc991598065832610344d74c2a47d27906bc4n,
   0xeba6dad102b4ef356bb21624385ddc39a5bad53d5c927f50ca6792044fb213b1093c39eb37a839e0ac416808d1545953de265ee2a4ed41f5d1a02921a02833aan,
 ]
 const TEST_BIG_INTEGERS_ASN1 = [
+  [0x02, 0x01, 0x00],
+  [0x02, 0x01, 0x7f],
+  [0x02, 0x02, 0x00, 0x80],
   [0x02, 0x09, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09],
   [0x02, 0x09, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8, 0xf7, 0xf7],
   [
@@ -31,6 +37,36 @@ const TEST_BIG_INTEGERS_ASN1 = [
     0x41, 0xf5, 0xd1, 0xa0, 0x29, 0x21, 0xa0, 0x28, 0x33, 0xaa,
   ],
 ]
+
+const TEST_STRINGS = ['test', 'This is a Test String!\uD83D\uDE03']
+
+const TEST_STRINGS_ASN1 = [
+  [0x13, 0x4, 0x74, 0x65, 0x73, 0x74],
+  [
+    0x13, 0x18, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x54, 0x65, 0x73, 0x74, 0x20, 0x53, 0x74,
+    0x72, 0x69, 0x6e, 0x67, 0x21, 0x3d, 0x03,
+  ],
+]
+
+const TEST_DATES = [new Date(0), new Date('2022-09-26T10:00:00.000+00:00')]
+
+const TEST_DATES_ASN1 = [
+  [0x18, 0x0f, 0x31, 0x39, 0x37, 0x30, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a],
+  [0x18, 0x0f, 0x32, 0x30, 0x32, 0x32, 0x30, 0x39, 0x32, 0x36, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a],
+]
+
+const TEST_OIDS = [
+  { type: 'oid', oid: 'sha256' },
+  { type: 'oid', oid: 'commonName' },
+  { type: 'oid', oid: '1.2.3.4' },
+]
+
+const TEST_OIDS_ASN1 = [
+  [0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01],
+  [0x06, 0x03, 0x55, 0x04, 0x03],
+  [0x06, 0x03, 0x2a, 0x03, 0x04],
+]
+
 const TEST_CONTEXT_TAGS = [
   {
     type: 'context',
@@ -69,6 +105,11 @@ const TEST_CONTEXT_TAGS = [
         ),
       ],
     ],
+  },
+  {
+    type: 'context',
+    value: 5,
+    contains: [{ type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' }, 100],
   },
 ]
 const TEST_CONTEXT_TAGS_ASN1 = [
@@ -112,7 +153,9 @@ test('JS BigInt to ASN1 conversion', (t) => {
 })
 
 test('JS string to ASN1 conversion', (t) => {
-  t.deepEqual(lib.JStoASN1('test'), [0x13, 0x4, 0x74, 0x65, 0x73, 0x74])
+  TEST_STRINGS.map((v, i) => {
+    t.deepEqual(lib.JStoASN1(v), TEST_STRINGS_ASN1[i])
+  })
 })
 
 test('JS number Array to ASN1 conversion', (t) => {
@@ -147,8 +190,9 @@ test('JS bit string to ASN1 conversion', (t) => {
 })
 
 test('JS ASN1OID to ASN1 conversion', (t) => {
-  const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
-  t.deepEqual(lib.JStoASN1(oid), [0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01])
+  TEST_OIDS.map((v, i) => {
+    t.deepEqual(lib.JStoASN1(v), TEST_OIDS_ASN1[i])
+  })
 })
 
 test('JS ASN1Set to ASN1 conversion', (t) => {
@@ -162,10 +206,9 @@ test('JS ASN1Set to ASN1 conversion', (t) => {
 })
 
 test('JS Date to ASN1 conversion', (t) => {
-  t.deepEqual(
-    lib.JStoASN1(new Date('2022-09-26T10:00:00.000+00:00')),
-    [0x18, 0xf, 0x32, 0x30, 0x32, 0x32, 0x30, 0x39, 0x32, 0x36, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a],
-  )
+  TEST_DATES.map((v, i) => {
+    t.deepEqual(lib.JStoASN1(v), TEST_DATES_ASN1[i])
+  })
 })
 
 test('JS Context Tag to ASN1 conversion', (t) => {
@@ -250,9 +293,9 @@ test('ASN1 to Js BigInt conversion round trip', (t) => {
 })
 
 test('ASN1 to Js string conversion from byte code', (t) => {
-  const obj = new lib.Asn1([0x13, 0x4, 0x74, 0x65, 0x73, 0x74])
-
-  t.deepEqual(obj.intoString(), 'test')
+  TEST_STRINGS_ASN1.map((v, i) => {
+    t.deepEqual(lib.ASN1toJS(v), TEST_STRINGS[i])
+  })
 })
 
 test('ASN1 to Js string conversion from base64', (t) => {
@@ -262,12 +305,12 @@ test('ASN1 to Js string conversion from base64', (t) => {
 })
 
 test('ASN1 to Js string conversion round trip', (t) => {
-  const input = 'test'
-  const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1)
+  TEST_STRINGS_ASN1.map((v, i) => {
+    const js = new lib.Asn1(v)
 
-  t.deepEqual(js.intoString(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input)), input)
+    t.deepEqual(js.intoString(), TEST_STRINGS[i])
+    t.deepEqual(lib.JStoASN1(lib.ASN1toJS(v)), TEST_STRINGS_ASN1[i])
+  })
 })
 
 test('ASN1 to Js Date conversion from byte code', (t) => {
@@ -314,18 +357,31 @@ test('ASN1 to Js Buffer conversion round trip', (t) => {
   t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input)), input)
 })
 
-// TODO NAPI will not return a Buffer
-// test('ASN1 to bit string conversion from byte code', (t) => {
-//   const obj = new lib.Asn1([0x03, 0x06, 0x00, 0xa, 0x10, 0x14, 0x20, 0x9])
+test('ASN1 to Js bit string conversion from byte code', (t) => {
+  const obj = new lib.Asn1([
+    0x03, 0x21, 0x00, 0xc5, 0xb8, 0xdd, 0xf7, 0x48, 0xe3, 0x07, 0x9e, 0xa1, 0x87, 0x86, 0x49, 0x35, 0xdd, 0xb8, 0x2,
+    0xea, 0x4e, 0xaa, 0x9c, 0xdf, 0x06, 0xaf, 0xe2, 0x3, 0xed, 0xb5, 0x5d, 0x6b, 0x38, 0x49, 0xb4,
+  ])
 
-//   t.deepEqual(obj.intoBitString(), { type: 'bitstring', value: Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9])) })
-// })
-//
-// test('ASN1 to Js bit string conversion from base64', (t) => {
-//   const obj = lib.Asn1.fromBase64('AwYAChAUIAk=')
+  t.deepEqual(obj.intoBitString(), {
+    type: 'bitstring',
+    value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+  })
+})
 
-//   t.deepEqual(obj.intoBitString(), { type: 'bitstring', value: Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9])) })
-// })
+test('ASN1 to Js bit string conversion from base64', (t) => {
+  const obj = lib.Asn1.fromBase64('AwYAChAUIAk=')
+
+  t.deepEqual(obj.intoBitString(), {
+    type: 'bitstring',
+    value: Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9])),
+  })
+})
+
+test('ASN1 to Js bit string conversion round trip', (t) => {
+  const input = { type: 'bitstring', value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64') }
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input)), input)
+})
 
 test('ASN1 to Js Context Tag conversion from byte code', (t) => {
   TEST_CONTEXT_TAGS_ASN1.map((v, i) => {
@@ -347,11 +403,6 @@ test('ASN1 to Js Context Tag conversion round trip', (t) => {
   TEST_CONTEXT_TAGS.map((v) => {
     t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v)), v)
   })
-})
-
-test('ASN1 to Js bit string conversion round trip', (t) => {
-  const input = { type: 'bitstring', value: Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9])) }
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input)), input)
 })
 
 test('ASN1 to Js ASN1OID conversion from byte code', (t) => {

@@ -11,7 +11,7 @@ use rasn::{
 use crate::{
     constants::*,
     types::{ASN1Data, TBSCertificateContexts},
-    utils::get_js_uknown_from_asn_data,
+    utils::{get_js_uknown_from_asn_data, get_oid_elements_from_string},
     ASN1NAPIError,
 };
 
@@ -238,7 +238,6 @@ impl TBSCertificateVersion {
 impl TBSCertificateExtension {
     pub fn new(data: Vec<ASN1Data>) -> Result<Self> {
         if let Some(ASN1Data::Array(data)) = data.get(0) {
-            println!("{:?}", data.get(2));
             let oid = if let Some(ASN1Data::Object(ASN1Object::Oid(oid))) = data.get(0) {
                 oid.to_owned()
             } else {
@@ -337,11 +336,20 @@ impl Decode for ASN1BitString {
 
 impl Encode for ASN1OID {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        if let Ok(result) = get_oid_from_name(&self.oid) {
-            encoder.encode_object_identifier(tag, result)?;
-            Ok(())
+        if self.oid.contains(['.']) {
+            if let Ok(result) = get_oid_elements_from_string(&self.oid) {
+                encoder.encode_object_identifier(tag, &result)?;
+                Ok(())
+            } else {
+                Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownOid))
+            }
         } else {
-            Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownOid))
+            if let Ok(result) = get_oid_from_name(&self.oid) {
+                encoder.encode_object_identifier(tag, result)?;
+                Ok(())
+            } else {
+                Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownOid))
+            }
         }
     }
 }
@@ -410,6 +418,7 @@ impl Encode for ASN1Context {
 
 impl Decode for ASN1Context {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
+        println!("{:?}", Vec::<Open>::decode(decoder)?);
         let contains = TBSCertificateContexts::decode(decoder)?;
         let value = i64::from(&contains);
 
@@ -560,9 +569,7 @@ impl<'a> TryFrom<&'a [u32]> for ASN1OID {
 
     /// Attempt to convert words into an ASN1OID instance.
     fn try_from(value: &'a [u32]) -> Result<Self, Self::Error> {
-        if value.is_empty() {
-            Ok(Self::default())
-        } else if let Some(oid) = Oid::new(value) {
+        if let Some(oid) = Oid::new(value) {
             Ok(Self::new(get_name_from_oid(oid)?))
         } else {
             bail!(ASN1NAPIError::UnknownOid)
@@ -594,7 +601,7 @@ impl TryFrom<JsObject> for ASN1OID {
     /// Attempt to convert a JsObject instance into an ASN1OID instance.
     fn try_from(value: JsObject) -> Result<Self, Self::Error> {
         let oid = value.get_named_property::<JsString>(ASN1OID::TYPE)?;
-        let name = oid.into_utf8()?;
+        let name = oid.into_utf16()?;
 
         Self::try_from(name.as_str()?)
     }
@@ -605,7 +612,9 @@ impl<'a> TryFrom<&'a str> for ASN1OID {
 
     /// Attempt to convert a string into an ASN1OID instance.
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if get_oid_from_name(value).is_ok() {
+        if value.contains(['.']) && Oid::new(&get_oid_elements_from_string(value)?).is_some() {
+            Ok(Self::new(value))
+        } else if get_oid_from_name(value).is_ok() {
             Ok(Self::new(value))
         } else {
             bail!(ASN1NAPIError::UnknownOid)
@@ -630,7 +639,7 @@ impl TryFrom<JsObject> for ASN1Set {
         let oid = ASN1OID::try_from(value.get_named_property::<JsObject>("name")?)?;
         let value = value
             .get_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY)?
-            .into_utf8()?;
+            .into_utf16()?;
 
         Ok(Self::new(oid, value.as_str()?))
     }
@@ -658,6 +667,11 @@ mod test {
     #[test]
     fn test_asn1oid_try_from_string() {
         let input = "sha3-256WithEcDSA";
+        let result = ASN1OID::new(input);
+
+        assert_eq!(ASN1OID::try_from(input).unwrap(), result);
+
+        let input = "1.2.3.4";
         let result = ASN1OID::new(input);
 
         assert_eq!(ASN1OID::try_from(input).unwrap(), result);
