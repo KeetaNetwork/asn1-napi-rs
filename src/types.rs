@@ -5,12 +5,15 @@ use napi::{
     JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
-use rasn::{types::Any, AsnType, Decode, Encode, Tag};
+use rasn::{
+    types::{Any, BitString, Class, Implicit, ObjectIdentifier, OctetString, Open, SequenceOf},
+    AsnType, Decode, Encode, Tag,
+};
 
 use crate::{
     asn1::{ASNIterator, ASN1},
     asn1_integer_to_big_int, get_array_from_js, get_js_obj_from_asn_object, get_object_from_js,
-    objects::ASN1Object,
+    objects::{ASN1BitString, ASN1Object, TBSCertificateExtension, TBSCertificateVersion, ASN1OID},
     utils::{
         get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_from_js,
         get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
@@ -50,38 +53,30 @@ pub enum JsValue {
     Undefined(JsUndefined),
 }
 
-#[derive(AsnType, Clone, Decode, Debug, Eq, PartialEq)]
-#[rasn(choice)]
+#[derive(AsnType, Clone, Debug, Eq, PartialEq)]
+#[rasn(enumerated)]
+#[rasn(automatic_tags)]
 pub enum ASN1Data {
-    #[rasn(tag(1))]
     Boolean(bool),
-    #[rasn(tag(2))]
     Integer(i64),
-    #[rasn(tag(3))]
     BigInt(BigInt),
-    #[rasn(tag(4))]
     String(String),
-    #[rasn(tag(5))]
     Bytes(Vec<u8>),
-    #[rasn(tag(6))]
     Array(Vec<ASN1Data>),
-    #[rasn(tag(7))]
     Object(ASN1Object),
-    #[rasn(tag(8))]
     Date(DateTime<FixedOffset>),
-    #[rasn(tag(9))]
     Unknown(Any),
-    #[rasn(tag(10))]
     Null,
 }
 
-/// TODO
-/// ASN1 Application contexts
+/// ASN1 X509 TBSCertificate Contexts
 #[derive(AsnType, Clone, Debug, Decode, Encode, Eq, PartialEq)]
 #[rasn(choice)]
-pub enum ASN1Contexts {
-    #[rasn(tag(0))]
-    A(Vec<Any>),
+pub enum TBSCertificateContexts {
+    #[rasn(tag(context, 0))]
+    Version(SequenceOf<TBSCertificateVersion>),
+    #[rasn(tag(context, 3))]
+    Extension(SequenceOf<TBSCertificateExtension>),
 }
 
 /// Integer or Big Integer
@@ -124,6 +119,16 @@ pub enum ASN1Number {
 //     BMPString = 0x1E,       // +
 // }
 
+impl TBSCertificateContexts {
+    pub fn new(value: i64, data: Vec<ASN1Data>) -> Result<Self> {
+        Ok(match value {
+            0 => Self::Version(vec![TBSCertificateVersion::new(data)?]),
+            3 => Self::Extension(vec![TBSCertificateExtension::new(data)?]),
+            _ => bail!(ASN1NAPIError::UknownContext),
+        })
+    }
+}
+
 impl From<Tag> for JsType {
     fn from(tag: Tag) -> Self {
         match tag {
@@ -148,8 +153,32 @@ impl From<Tag> for JsType {
             Tag::UTC_TIME => JsType::DateTime,
             Tag::OBJECT_IDENTIFIER => JsType::Object,
             Tag::SET => JsType::Object,
-            _ => JsType::Unknown,
+            context => match context.class {
+                Class::Universal => JsType::Unknown,
+                Class::Context => JsType::Object,
+                Class::Application => todo!(),
+                Class::Private => todo!(),
+            },
         }
+    }
+}
+
+impl TryFrom<ASN1> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+        Ok(match value.get_js_type() {
+            JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
+            JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
+            JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
+            JsType::String => ASN1Data::String(value.into_string()?),
+            JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
+            JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
+            JsType::Object => ASN1Data::Object(value.into_object()?),
+            JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
+            JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
+            JsType::Undefined | JsType::Null => ASN1Data::Null,
+        })
     }
 }
 
@@ -173,6 +202,112 @@ impl From<Vec<ASN1Data>> for ASN1Data {
     }
 }
 
+impl TryFrom<&Open> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(data: &Open) -> Result<Self, Self::Error> {
+        Ok(match data.to_owned() {
+            Open::BmpString(data) => ASN1Data::String(data.to_string()),
+            Open::Bool(data) => ASN1Data::Boolean(data),
+            Open::GeneralizedTime(data) => ASN1Data::Date(data),
+            Open::Ia5String(data) => ASN1Data::String(data.to_string()),
+            Open::Integer(data) => ASN1Data::BigInt(data),
+            Open::OctetString(data) => ASN1Data::Bytes(data.to_vec()),
+            Open::PrintableString(data) => ASN1Data::String(data.to_string()),
+            Open::UniversalString(data) => ASN1Data::String(data.to_string()),
+            Open::UtcTime(data) => ASN1Data::Date(DateTime::<FixedOffset>::from(data)),
+            Open::VisibleString(data) => ASN1Data::String(data.to_string()),
+            Open::InstanceOf(data) => ASN1Data::try_from(data.value)?,
+            Open::ObjectIdentifier(data) => {
+                ASN1Data::Object(ASN1Object::Oid(ASN1OID::try_from(data.to_vec())?))
+            }
+            Open::BitString(data) => {
+                ASN1Data::Object(ASN1Object::BitString(ASN1BitString::from(data)))
+            }
+            Open::Null => ASN1Data::Null,
+        })
+    }
+}
+
+impl TryFrom<Open> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(data: Open) -> Result<Self, Self::Error> {
+        Self::try_from(&data)
+    }
+}
+
+impl TryFrom<JsUnknown> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: JsUnknown) -> Result<Self, Self::Error> {
+        Ok(match value.get_type()? {
+            ValueType::Boolean => ASN1Data::Boolean(get_boolean_from_js(value)?),
+            ValueType::BigInt => ASN1Data::BigInt(get_big_int_from_js(value)?),
+            ValueType::Number => ASN1Data::Integer(get_integer_from_js(value)?),
+            ValueType::String => ASN1Data::String(get_string_from_js(value)?),
+            ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
+            ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
+            ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
+            ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
+            _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
+        })
+    }
+}
+
+impl TryFrom<ASN1Number> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: ASN1Number) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ASN1Number::Integer(val) => ASN1Data::Integer(val),
+            ASN1Number::BigInt(val) => ASN1Data::BigInt(val),
+        })
+    }
+}
+
+impl TryFrom<TBSCertificateContexts> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: TBSCertificateContexts) -> Result<Self, Self::Error> {
+        match value {
+            TBSCertificateContexts::Version(data) => ASN1Data::try_from(data),
+            TBSCertificateContexts::Extension(data) => ASN1Data::try_from(data),
+        }
+    }
+}
+
+impl TryFrom<Vec<TBSCertificateVersion>> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: Vec<TBSCertificateVersion>) -> Result<Self, Self::Error> {
+        if let Some(data) = value.get(0) {
+            Ok(ASN1Data::Array(vec![
+                ASN1Data::Object(ASN1Object::Oid(data.oid.to_owned())),
+                ASN1Data::Array(data.data.to_owned()),
+            ]))
+        } else {
+            bail!(ASN1NAPIError::UknownContext)
+        }
+    }
+}
+
+impl TryFrom<Vec<TBSCertificateExtension>> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: Vec<TBSCertificateExtension>) -> Result<Self, Self::Error> {
+        if let Some(data) = value.get(0) {
+            Ok(ASN1Data::Array(vec![ASN1Data::Array(vec![
+                ASN1Data::Object(ASN1Object::Oid(data.oid.to_owned())),
+                ASN1Data::Boolean(data.critical),
+                ASN1Data::Bytes(data.value.to_owned()),
+            ])]))
+        } else {
+            bail!(ASN1NAPIError::UknownContext)
+        }
+    }
+}
+
 impl TryFrom<&ASNIterator> for Vec<ASN1Data> {
     type Error = Error;
 
@@ -181,22 +316,33 @@ impl TryFrom<&ASNIterator> for Vec<ASN1Data> {
     }
 }
 
-impl TryFrom<ASN1> for ASN1Data {
+impl TryFrom<&ASN1Data> for Open {
     type Error = Error;
 
-    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
-        Ok(match value.get_js_type() {
-            JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
-            JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
-            JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
-            JsType::String => ASN1Data::String(value.into_string()?),
-            JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
-            JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
-            JsType::Object => ASN1Data::Object(value.into_object()?),
-            JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
-            JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
-            JsType::Undefined | JsType::Null => ASN1Data::Null,
+    fn try_from(data: &ASN1Data) -> Result<Self, Self::Error> {
+        Ok(match data.to_owned() {
+            ASN1Data::Boolean(data) => Open::Bool(data),
+            ASN1Data::Integer(data) => Open::Integer(BigInt::from(data)),
+            ASN1Data::BigInt(data) => Open::Integer(data),
+            ASN1Data::String(data) => Open::PrintableString(Implicit::new(data)),
+            ASN1Data::Bytes(data) => Open::OctetString(OctetString::from(data)),
+            ASN1Data::Date(data) => Open::GeneralizedTime(data),
+            ASN1Data::Object(data) => match data {
+                ASN1Object::BitString(data) => Open::BitString(BitString::from_vec(data.value)),
+                ASN1Object::Oid(data) => Open::ObjectIdentifier(ObjectIdentifier::from(data)),
+                _ => bail!(ASN1NAPIError::InvalidSimpleTypesOnly),
+            },
+            ASN1Data::Null => Open::Null,
+            _ => bail!(ASN1NAPIError::InvalidSimpleTypesOnly),
         })
+    }
+}
+
+impl TryFrom<ASN1Data> for Open {
+    type Error = Error;
+
+    fn try_from(data: ASN1Data) -> Result<Self, Self::Error> {
+        Self::try_from(&data)
     }
 }
 
@@ -247,24 +393,6 @@ impl TryFrom<JsValue> for JsUnknown {
     }
 }
 
-impl TryFrom<JsUnknown> for ASN1Data {
-    type Error = Error;
-
-    fn try_from(value: JsUnknown) -> Result<Self, Self::Error> {
-        Ok(match value.get_type()? {
-            ValueType::Boolean => ASN1Data::Boolean(get_boolean_from_js(value)?),
-            ValueType::BigInt => ASN1Data::BigInt(get_big_int_from_js(value)?),
-            ValueType::Number => ASN1Data::Integer(get_integer_from_js(value)?),
-            ValueType::String => ASN1Data::String(get_string_from_js(value)?),
-            ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
-            ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
-            ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
-            ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
-            _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
-        })
-    }
-}
-
 impl TryFrom<ASN1> for ASN1Number {
     type Error = Error;
 
@@ -280,14 +408,18 @@ impl TryFrom<ASN1> for ASN1Number {
     }
 }
 
-impl TryFrom<ASN1Number> for ASN1Data {
+impl TryFrom<JsObject> for TBSCertificateContexts {
     type Error = Error;
 
-    fn try_from(value: ASN1Number) -> Result<Self, Self::Error> {
-        Ok(match value {
-            ASN1Number::Integer(val) => ASN1Data::Integer(val),
-            ASN1Number::BigInt(val) => ASN1Data::BigInt(val),
-        })
+    fn try_from(obj: JsObject) -> Result<Self, Self::Error> {
+        let value = obj.get_named_property::<JsNumber>("value")?;
+        let data = obj.get_named_property::<JsUnknown>("contains")?;
+
+        if let Ok(ASN1Data::Array(data)) = ASN1Data::try_from(data) {
+            TBSCertificateContexts::new(value.get_int64()?, data)
+        } else {
+            bail!(ASN1NAPIError::InvalidContextNonSequence)
+        }
     }
 }
 

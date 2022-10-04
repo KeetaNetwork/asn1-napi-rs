@@ -53,8 +53,14 @@ impl ASN1 {
             n => n,
         } as u32;
 
+        let tag = if (0xa0..=0xbf).contains(&bit) {
+            Tag::new(Class::Context, bit)
+        } else {
+            Tag::new(Class::Universal, bit)
+        };
+
         ASN1 {
-            js_type: JsType::from(Tag::new(Class::Universal, bit)),
+            js_type: JsType::from(tag),
             data,
         }
     }
@@ -294,7 +300,6 @@ mod test {
     use crate::objects::ASN1Context;
     use crate::objects::ASN1Object;
     use crate::objects::ASN1Set;
-    use crate::objects::TypedObject;
     use crate::objects::ASN1OID;
     use crate::types::ASN1Data;
     use crate::types::JsType;
@@ -381,13 +386,7 @@ mod test {
         let encoded = "BglghkgBZQMEAgE=";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
-        assert_eq!(
-            obj.into_oid().unwrap(),
-            ASN1OID {
-                r#type: ASN1OID::TYPE,
-                oid: "sha256".into()
-            }
-        );
+        assert_eq!(obj.into_oid().unwrap(), ASN1OID::new("sha256"));
     }
 
     #[test]
@@ -397,14 +396,7 @@ mod test {
 
         assert_eq!(
             obj.into_set().unwrap(),
-            ASN1Set {
-                r#type: ASN1Set::TYPE,
-                name: ASN1OID {
-                    r#type: ASN1OID::TYPE,
-                    oid: "commonName".into()
-                },
-                value: "test".into()
-            }
+            ASN1Set::new(ASN1OID::new("commonName"), "test")
         );
     }
 
@@ -415,10 +407,7 @@ mod test {
 
         assert_eq!(
             obj.into_bit_string().unwrap(),
-            ASN1BitString {
-                r#type: ASN1BitString::TYPE,
-                value: vec![0xa, 0x10, 0x14, 0x20, 0x9]
-            }
+            ASN1BitString::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
         );
     }
 
@@ -429,33 +418,37 @@ mod test {
 
         assert_eq!(
             obj.into_set().unwrap(),
-            ASN1Set {
-                r#type: ASN1Set::TYPE,
-                name: ASN1OID {
-                    r#type: ASN1OID::TYPE,
-                    oid: "commonName".into()
-                },
-                value: "test".into()
-            }
+            ASN1Set::new(ASN1OID::new("commonName"), "test")
         );
     }
 
-    // TODO
-    #[ignore]
     #[test]
     fn test_asn1_into_context_tag() {
         let encoded = "oFMwUQYJYIZIAWUDBAIIMEQEICr/S0giG9GX2MTM\
                              rxc3EIGys5PE8jr8r18mIzZ2zYQ6BCCDoM+00VOs\
                              NOWyS0x0/VCAPCC3p6iC3JSwDdTpMH/5rw==";
         let obj = ASN1::from_base64(encoded.into()).unwrap();
+        let oid = ASN1Object::Oid(ASN1OID::new("sha3-256"));
 
-        println!("{:?}", obj.into_context().unwrap());
+        let contents = ASN1Data::Array(vec![
+            ASN1Data::Object(oid),
+            ASN1Data::Array(vec![
+                ASN1Data::Bytes(vec![
+                    0x2a, 0xff, 0x4b, 0x48, 0x22, 0x1b, 0xd1, 0x97, 0xd8, 0xc4, 0xcc, 0xaf, 0x17,
+                    0x37, 0x10, 0x81, 0xb2, 0xb3, 0x93, 0xc4, 0xf2, 0x3a, 0xfc, 0xaf, 0x5f, 0x26,
+                    0x23, 0x36, 0x76, 0xcd, 0x84, 0x3a,
+                ]),
+                ASN1Data::Bytes(vec![
+                    0x83, 0xa0, 0xcf, 0xb4, 0xd1, 0x53, 0xac, 0x34, 0xe5, 0xb2, 0x4b, 0x4c, 0x74,
+                    0xfd, 0x50, 0x80, 0x3c, 0x20, 0xb7, 0xa7, 0xa8, 0x82, 0xdc, 0x94, 0xb0, 0x0d,
+                    0xd4, 0xe9, 0x30, 0x7f, 0xf9, 0xaf,
+                ]),
+            ]),
+        ]);
+
         assert_eq!(
             obj.into_context().unwrap(),
-            ASN1Context {
-                value: 0,
-                contains: Box::new(ASN1Data::Array(vec![]))
-            }
+            ASN1Context::new(0, contents).expect("context")
         );
     }
 
@@ -534,7 +527,7 @@ mod test {
         assert_eq!(obj.get_js_type(), &JsType::Sequence);
         assert_eq!(
             sequence[0],
-            ASN1Data::Object(ASN1Object::ASN1OID(ASN1OID::try_from("sha3-256").unwrap()))
+            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("sha3-256")))
         );
 
         let nested_sequence: Vec<ASN1Data> = if let ASN1Data::Array(nested) = &sequence[1] {

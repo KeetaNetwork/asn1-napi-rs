@@ -15,7 +15,8 @@ pub use crate::asn1::ASN1;
 use anyhow::{bail, Result};
 use constants::{ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
-    bindgen_prelude::Buffer, Env, JsBigInt, JsBuffer, JsObject, JsString, JsUnknown, ValueType,
+    bindgen_prelude::Buffer, Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown,
+    ValueType,
 };
 use num_bigint::BigInt;
 use rasn::ber::encode;
@@ -23,13 +24,16 @@ use thiserror::Error;
 
 use objects::{ASN1BitString, ASN1Context, ASN1Object, ASN1Set, TypedObject, ASN1OID};
 use types::{ASN1Data, JsValue};
-use utils::{get_buffer_from_js, get_string_from_js, get_vec_from_js, get_words_from_big_int};
+use utils::{
+    get_buffer_from_js, get_js_uknown_from_asn_data, get_string_from_js, get_vec_from_js,
+    get_words_from_big_int,
+};
 
 /// Library errors
 #[derive(Error, Eq, PartialEq, Debug)]
 pub(crate) enum ASN1NAPIError {
-    #[error("Unable to handle JS input type")]
-    UnknownArgument,
+    #[error("Unable to handle this JS input type")]
+    UnknownJsArgument,
     #[error("Unable to handle this object")]
     UnknownObject,
     #[error("Unable to handle this objects type field")]
@@ -44,6 +48,12 @@ pub(crate) enum ASN1NAPIError {
     MalformedData,
     #[error("Cannot decoded Bitstring")]
     InvalidBitString,
+    #[error("Can only handle Universal simple types for this operation")]
+    InvalidSimpleTypesOnly,
+    #[error("Context data must be a sequence")]
+    InvalidContextNonSequence,
+    #[error("Sequence encountered an unexpected value")]
+    UnexpectedSequenceValue,
 }
 
 /// Helper to convert a JS BigInt to a JS Buffer
@@ -65,7 +75,7 @@ pub fn js_to_asn1(data: JsUnknown) -> Result<Vec<u8>> {
     if let Ok(data) = encode(&ASN1Data::try_from(data)?) {
         Ok(data)
     } else {
-        bail!(ASN1NAPIError::UnknownArgument)
+        bail!(ASN1NAPIError::UnknownJsArgument)
     }
 }
 
@@ -76,7 +86,7 @@ pub fn asn1_to_js(env: Env, data: JsUnknown) -> Result<JsUnknown> {
         ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,
         ValueType::Object if data.is_array()? => ASN1::new(get_vec_from_js(data)?),
         ValueType::Object if data.is_buffer()? => ASN1::new(get_buffer_from_js(data)?),
-        _ => bail!(ASN1NAPIError::UnknownArgument),
+        _ => bail!(ASN1NAPIError::UnknownJsArgument),
     };
 
     asn1_data_to_js_unknown(env, ASN1Data::try_from(asn1)?)
@@ -109,10 +119,10 @@ fn get_object_from_js(data: JsUnknown) -> Result<ASN1Object> {
         let name = get_string_from_js(field)?;
 
         Ok(match name.as_str() {
-            ASN1OID::TYPE => ASN1Object::ASN1OID(ASN1OID::try_from(obj)?),
-            ASN1BitString::TYPE => ASN1Object::ASN1BitString(ASN1BitString::try_from(obj)?),
-            ASN1Set::TYPE => ASN1Object::ASN1Set(ASN1Set::try_from(obj)?),
-            ASN1Context::TYPE => ASN1Object::ASN1ContextTag(ASN1Context::try_from(obj)?),
+            ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
+            ASN1BitString::TYPE => ASN1Object::BitString(ASN1BitString::try_from(obj)?),
+            ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
+            ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
             _ => bail!(ASN1NAPIError::UnknownFieldProperty),
         })
     } else {
@@ -121,18 +131,19 @@ fn get_object_from_js(data: JsUnknown) -> Result<ASN1Object> {
 }
 
 /// Get a JsObject from an ANS1Object.
+/// Note: Wrapping native objects results in empty JS objects.
 fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
     let mut obj = env.create_object()?;
 
     match data {
-        ASN1Object::ASN1OID(val) => {
+        ASN1Object::Oid(val) => {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_TYPE_KEY,
                 env.create_string(ASN1OID::TYPE)?,
             )?;
             obj.set_named_property::<JsString>(ASN1OID::TYPE, env.create_string(&val.oid)?)?;
         }
-        ASN1Object::ASN1Set(val) => {
+        ASN1Object::Set(val) => {
             let mut oid = env.create_object()?;
 
             oid.set_named_property::<JsString>(
@@ -151,7 +162,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
                 env.create_string(&val.value)?,
             )?;
         }
-        ASN1Object::ASN1BitString(val) => {
+        ASN1Object::BitString(val) => {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_TYPE_KEY,
                 env.create_string(ASN1BitString::TYPE)?,
@@ -161,12 +172,29 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
                 env.create_buffer_with_data(val.value)?.into_raw(),
             )?;
         }
-        ASN1Object::ASN1ContextTag(_val) => {
-            obj.set_named_property::<JsString>(
-                ASN1_OBJECT_TYPE_KEY,
-                env.create_string(ASN1Context::TYPE)?,
-            )?;
-            todo!()
+        ASN1Object::Context(val) => {
+            if let Ok(ASN1Data::Array(contents)) = ASN1Data::try_from(val.contains) {
+                let mut contains = env.create_array(0)?;
+
+                for (i, content) in contents.iter().enumerate() {
+                    contains.set(
+                        i as u32,
+                        get_js_uknown_from_asn_data(env, content.to_owned())?,
+                    )?;
+                }
+
+                obj.set_named_property::<JsString>(
+                    ASN1_OBJECT_TYPE_KEY,
+                    env.create_string(ASN1Context::TYPE)?,
+                )?;
+                obj.set_named_property::<JsNumber>(
+                    ASN1_OBJECT_VALUE_KEY,
+                    env.create_int64(val.value)?,
+                )?;
+                obj.set_named_property::<JsObject>("contains", contains.coerce_to_object()?)?;
+            } else {
+                bail!(ASN1NAPIError::InvalidContextNonSequence)
+            }
         }
     };
 
