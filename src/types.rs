@@ -13,7 +13,7 @@ use rasn::{
 use crate::{
     asn1::{ASNIterator, ASN1},
     asn1_integer_to_big_int, get_array_from_js, get_js_obj_from_asn_object, get_object_from_js,
-    objects::{ASN1BitString, ASN1Object, TBSCertificateExtension, TBSCertificateVersion, ASN1OID},
+    objects::{ASN1BitString, ASN1Object, ASN1OID},
     utils::{
         get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_from_js,
         get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
@@ -54,7 +54,7 @@ pub enum JsValue {
 }
 
 #[derive(AsnType, Clone, Debug, Eq, PartialEq)]
-#[rasn(enumerated)]
+#[rasn(choice)]
 #[rasn(automatic_tags)]
 pub enum ASN1Data {
     Boolean(bool),
@@ -69,14 +69,12 @@ pub enum ASN1Data {
     Null,
 }
 
-/// ASN1 X509 TBSCertificate Contexts
-#[derive(AsnType, Clone, Debug, Decode, Encode, Eq, PartialEq)]
+/// ANS1 Context.
+#[derive(AsnType, Clone, Eq, Decode, Encode, PartialEq, Debug)]
 #[rasn(choice)]
-pub enum TBSCertificateContexts {
+pub enum ASN1ContextChoice {
     #[rasn(tag(context, 0))]
-    Version(SequenceOf<TBSCertificateVersion>),
-    #[rasn(tag(context, 3))]
-    Extension(SequenceOf<TBSCertificateExtension>),
+    Sequence(SequenceOf<SequenceOf<Any>>),
 }
 
 /// Integer or Big Integer
@@ -84,49 +82,6 @@ pub enum TBSCertificateContexts {
 pub enum ASN1Number {
     Integer(i64),
     BigInt(BigInt),
-}
-
-/// TODO Native encoding without ASN1 dependencies
-// #[derive(Hash, Eq, PartialEq, Debug)]
-// pub enum UniversalTag {
-//     Boolean = 0x01,     // +
-//     Integer = 0x02,     // +
-//     BitString = 0x03,   // +
-//     OctetString = 0x04, // +
-//     Null = 0x05,        // +
-//     ObjectID = 0x06,    // +
-//     ObjectDescriptor = 0x07,
-//     External = 0x08,
-//     Real = 0x09,
-//     Enumerated = 0xA,
-//     EmbeddedPDV = 0xB,
-//     UTF8String = 0xC, // +
-//     RelativeObjectID = 0xD,
-//     Sequence = 0x10,        // +
-//     Set = 0x11,             // +
-//     NumericString = 0x12,   // +
-//     PrintableString = 0x13, // +
-//     TelexString = 0x14,     // +
-//     VideotexString = 0x15,  // +
-//     IA5String = 0x16,       // +
-//     UTCTime = 0x17,         // +
-//     GeneralizedTime = 0x18, // +
-//     GraphicString = 0x19,   // +
-//     VisibleString = 0x1A,   // +
-//     GeneralString = 0x1B,   // +
-//     UniversalString = 0x1C, // +
-//     ChracterString = 0x1D,  // +
-//     BMPString = 0x1E,       // +
-// }
-
-impl TBSCertificateContexts {
-    pub fn new(value: i64, data: Vec<ASN1Data>) -> Result<Self> {
-        Ok(match value {
-            0 => Self::Version(vec![TBSCertificateVersion::new(data)?]),
-            3 => Self::Extension(vec![TBSCertificateExtension::new(data)?]),
-            _ => bail!(ASN1NAPIError::UknownContext),
-        })
-    }
 }
 
 impl From<Tag> for JsType {
@@ -266,48 +221,6 @@ impl TryFrom<ASN1Number> for ASN1Data {
     }
 }
 
-impl TryFrom<TBSCertificateContexts> for ASN1Data {
-    type Error = Error;
-
-    fn try_from(value: TBSCertificateContexts) -> Result<Self, Self::Error> {
-        match value {
-            TBSCertificateContexts::Version(data) => ASN1Data::try_from(data),
-            TBSCertificateContexts::Extension(data) => ASN1Data::try_from(data),
-        }
-    }
-}
-
-impl TryFrom<Vec<TBSCertificateVersion>> for ASN1Data {
-    type Error = Error;
-
-    fn try_from(value: Vec<TBSCertificateVersion>) -> Result<Self, Self::Error> {
-        if let Some(data) = value.get(0) {
-            Ok(ASN1Data::Array(vec![
-                ASN1Data::Object(ASN1Object::Oid(data.oid.to_owned())),
-                ASN1Data::Array(data.data.to_owned()),
-            ]))
-        } else {
-            bail!(ASN1NAPIError::UknownContext)
-        }
-    }
-}
-
-impl TryFrom<Vec<TBSCertificateExtension>> for ASN1Data {
-    type Error = Error;
-
-    fn try_from(value: Vec<TBSCertificateExtension>) -> Result<Self, Self::Error> {
-        if let Some(data) = value.get(0) {
-            Ok(ASN1Data::Array(vec![ASN1Data::Array(vec![
-                ASN1Data::Object(ASN1Object::Oid(data.oid.to_owned())),
-                ASN1Data::Boolean(data.critical),
-                ASN1Data::Bytes(data.value.to_owned()),
-            ])]))
-        } else {
-            bail!(ASN1NAPIError::UknownContext)
-        }
-    }
-}
-
 impl TryFrom<&ASNIterator> for Vec<ASN1Data> {
     type Error = Error;
 
@@ -404,21 +317,6 @@ impl TryFrom<ASN1> for ASN1Number {
             Ok(ASN1Number::BigInt(num))
         } else {
             bail!(ASN1NAPIError::MalformedData)
-        }
-    }
-}
-
-impl TryFrom<JsObject> for TBSCertificateContexts {
-    type Error = Error;
-
-    fn try_from(obj: JsObject) -> Result<Self, Self::Error> {
-        let value = obj.get_named_property::<JsNumber>("value")?;
-        let data = obj.get_named_property::<JsUnknown>("contains")?;
-
-        if let Ok(ASN1Data::Array(data)) = ASN1Data::try_from(data) {
-            TBSCertificateContexts::new(value.get_int64()?, data)
-        } else {
-            bail!(ASN1NAPIError::InvalidContextNonSequence)
         }
     }
 }

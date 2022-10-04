@@ -4,15 +4,15 @@ use rasn::{
     ber::decode,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{BitString, Class, ConstOid, ObjectIdentifier, Oid, Open, PrintableString, SequenceOf},
+    types::{BitString, Class, ConstOid, ObjectIdentifier, Oid, Open, PrintableString},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
 use crate::{
     constants::*,
-    types::{ASN1Data, TBSCertificateContexts},
+    types::{ASN1ContextChoice, ASN1Data},
     utils::{get_js_uknown_from_asn_data, get_oid_elements_from_string},
-    ASN1NAPIError,
+    ASN1NAPIError, ASN1,
 };
 
 /// HashMap for names to OID
@@ -30,8 +30,6 @@ static NAME_TO_OID_MAP: phf::Map<&'static str, &'static [u32]> = phf_map! {
     "commonName" => &[2, 5, 4, 3],
     "hash" => &[1, 3, 6, 1, 4, 1, 8301, 3, 2, 2, 1, 1],
     "hashData" => &[2, 16, 840, 1, 101, 3, 3, 1, 3],
-    // Default
-    "sha3-256WithEd25519" => &[],
 };
 
 /// HashMap for an OID string to name
@@ -49,8 +47,6 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "2.5.4.3" => "commonName",
     "1.3.6.1.4.1.8301.3.2.2.1.1" => "hash",
     "2.16.840.1.101.3.3.1.3" => "hashData",
-    // Default
-    "" => "sha3-256WithEd25519",
 };
 trait ASNAny: AsnType + Decode + Encode {}
 
@@ -63,10 +59,11 @@ pub enum ASN1Object {
 }
 
 /// ANS1 Context.
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Clone, Eq, PartialEq, Debug)]
+#[rasn(tag(context, 0))]
 pub struct ASN1Context {
-    pub value: i64,
-    pub contains: TBSCertificateContexts,
+    pub value: u32,
+    pub contains: Box<ASN1Data>,
 }
 
 /// ANS1 OID.
@@ -99,7 +96,7 @@ pub struct ASN1BitString {
 #[napi(object, js_name = "ASN1ContextTag")]
 pub struct ASN1ContextTag {
     pub r#type: &'static str,
-    pub value: i64,
+    pub value: u32,
     pub contains: JsUnknown,
 }
 
@@ -107,21 +104,6 @@ pub struct ASN1ContextTag {
 #[napi(object, js_name = "ASN1Sequence")]
 pub struct ASN1Sequence {
     pub r#type: &'static str,
-}
-
-/// TBSCertificate Version
-#[derive(AsnType, Clone, Debug, Decode, Encode, Eq, PartialEq)]
-pub struct TBSCertificateVersion {
-    pub oid: ASN1OID,
-    pub data: SequenceOf<ASN1Data>,
-}
-
-/// TBSCertificate Extensions
-#[derive(AsnType, Clone, Debug, Decode, Encode, Eq, PartialEq)]
-pub struct TBSCertificateExtension {
-    pub oid: ASN1OID,
-    pub critical: bool,
-    pub value: Vec<u8>,
 }
 
 /// Get an oid as u32 words from a canonically named identifier.
@@ -150,7 +132,9 @@ fn get_name_from_oid(oid: &Oid) -> Result<&str> {
     }
 }
 
+/// TODO
 /// Get a canonical name from an Oid.
+#[allow(dead_code)]
 fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
     if let Some(name) = OID_TO_NAME_MAP.get(oid.as_ref()) {
         Ok(*name)
@@ -200,70 +184,10 @@ impl ASN1Set {
 
 impl ASN1Context {
     /// Create a new instance of an ASN1Context from an i64 and ASN1Data.
-    pub fn new(value: i64, data: ASN1Data) -> Result<Self> {
-        if let ASN1Data::Array(data) = data {
-            let contains = TBSCertificateContexts::new(value, data)?;
-
-            Ok(Self { value, contains })
-        } else {
-            bail!(ASN1NAPIError::InvalidContextNonSequence)
-        }
-    }
-}
-
-impl Default for ASN1OID {
-    /// Get a default implementation of an ASN1OID.
-    fn default() -> Self {
-        Self::new(get_name_from_oid_string("").expect("oid default"))
-    }
-}
-
-impl TBSCertificateVersion {
-    pub fn new(data: Vec<ASN1Data>) -> Result<Self> {
-        let oid = if let Some(ASN1Data::Object(ASN1Object::Oid(oid))) = data.get(0) {
-            oid.to_owned()
-        } else {
-            bail!(ASN1NAPIError::UnknownOid)
-        };
-
-        let data = if let Some(ASN1Data::Array(data)) = data.get(1) {
-            data.to_owned()
-        } else {
-            bail!(ASN1NAPIError::UnknownOid)
-        };
-
-        Ok(Self { oid, data })
-    }
-}
-
-impl TBSCertificateExtension {
-    pub fn new(data: Vec<ASN1Data>) -> Result<Self> {
-        if let Some(ASN1Data::Array(data)) = data.get(0) {
-            let oid = if let Some(ASN1Data::Object(ASN1Object::Oid(oid))) = data.get(0) {
-                oid.to_owned()
-            } else {
-                bail!(ASN1NAPIError::UnknownOid)
-            };
-
-            let critical = if let Some(ASN1Data::Boolean(data)) = data.get(1) {
-                *data
-            } else {
-                bail!(ASN1NAPIError::UnexpectedSequenceValue)
-            };
-
-            let value = if let Some(ASN1Data::Bytes(data)) = data.get(2) {
-                data.to_owned()
-            } else {
-                bail!(ASN1NAPIError::UnexpectedSequenceValue)
-            };
-
-            Ok(Self {
-                oid,
-                critical,
-                value,
-            })
-        } else {
-            bail!(ASN1NAPIError::UknownContext)
+    pub fn new(value: u32, data: ASN1Data) -> Self {
+        Self {
+            value,
+            contains: Box::new(data),
         }
     }
 }
@@ -306,10 +230,6 @@ impl AsnType for ASN1BitString {
 
 impl AsnType for ASN1Object {
     const TAG: Tag = Tag::SEQUENCE;
-}
-
-impl AsnType for ASN1Context {
-    const TAG: Tag = Tag::new(Class::Context, 0x0);
 }
 
 impl Encode for ASN1BitString {
@@ -413,17 +333,21 @@ impl Encode for ASN1Object {
 
 impl Encode for ASN1Context {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
-        self.contains.encode(encoder)
+        encoder.encode_explicit_prefix(Tag::new(Class::Context, self.value), &*self.contains)?;
+        Ok(())
     }
 }
 
 impl Decode for ASN1Context {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
-        println!("{:?}", Vec::<Open>::decode(decoder)?);
-        let contains = TBSCertificateContexts::decode(decoder)?;
-        let value = i64::from(&contains);
+        let data = decoder.decode_any()?;
+        let asn1 = ASN1::new(data.as_bytes().to_owned());
 
-        Ok(Self { value, contains })
+        if let Ok(context) = ASN1Context::try_from(asn1) {
+            Ok(context)
+        } else {
+            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
+        }
     }
 }
 
@@ -493,15 +417,6 @@ impl AsRef<[u32]> for ASN1OID {
     }
 }
 
-impl From<&TBSCertificateContexts> for i64 {
-    fn from(value: &TBSCertificateContexts) -> Self {
-        match value {
-            TBSCertificateContexts::Version(_) => 0,
-            TBSCertificateContexts::Extension(_) => 3,
-        }
-    }
-}
-
 impl From<ASN1OID> for ObjectIdentifier {
     fn from(data: ASN1OID) -> Self {
         if let Some(oid) = Oid::new(data.as_ref()) {
@@ -542,7 +457,7 @@ impl TryFrom<(Env, ASN1Context)> for ASN1ContextTag {
         Ok(Self {
             r#type: Self::TYPE,
             value: data.value,
-            contains: get_js_uknown_from_asn_data(env, ASN1Data::try_from(data.contains)?)?,
+            contains: get_js_uknown_from_asn_data(env, *data.contains)?,
         })
     }
 }
@@ -652,12 +567,59 @@ impl TryFrom<JsObject> for ASN1Context {
     /// Attempt to convert a JsObject instance into an ASN1Context instance.
     fn try_from(obj: JsObject) -> Result<Self, Self::Error> {
         let value = obj.get_named_property::<JsNumber>("value")?;
-        let context = TBSCertificateContexts::try_from(obj)?;
+        let contains = obj.get_named_property::<JsUnknown>("contains")?;
 
-        Ok(Self {
-            value: value.get_int64()?,
-            contains: context,
-        })
+        if let Ok(contains) = ASN1Data::try_from(contains) {
+            Ok(Self {
+                value: value.get_uint32()?,
+                contains: Box::new(contains),
+            })
+        } else {
+            bail!(ASN1NAPIError::InvalidContextNonSequence)
+        }
+    }
+}
+
+impl TryFrom<ASN1> for ASN1Context {
+    type Error = Error;
+
+    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+        Ok(Self::new(
+            value.get_tag().value / 0xa0,
+            ASN1Data::try_from(value)?,
+        ))
+    }
+}
+
+/// TODO Cleanup
+impl TryFrom<ASN1ContextChoice> for ASN1Data {
+    type Error = Error;
+
+    fn try_from(value: ASN1ContextChoice) -> Result<Self, Self::Error> {
+        let mut result = Vec::new();
+
+        match value {
+            ASN1ContextChoice::Sequence(val) => {
+                if let Some(data) = val.get(0) {
+                    for el in data {
+                        let asn1 = ASN1::new(el.as_bytes().to_owned());
+
+                        if let Ok(asn1data) = ASN1Data::try_from(asn1) {
+                            match asn1data {
+                                ASN1Data::Unknown(any) => result.push(ASN1Data::try_from(
+                                    ASN1::new(any.as_bytes().to_owned()),
+                                )?),
+                                item => result.push(item.to_owned()),
+                            }
+                        }
+                    }
+                } else {
+                    bail!(ASN1NAPIError::InvalidContextNonSequence)
+                }
+            }
+        };
+
+        Ok(ASN1Data::Array(result))
     }
 }
 
@@ -685,8 +647,8 @@ mod test {
 
         assert_eq!(ASN1OID::try_from(input).unwrap(), result);
 
-        let input = vec![];
-        let result = ASN1OID::new("sha3-256WithEd25519");
+        let input = vec![2, 5, 4, 5];
+        let result = ASN1OID::new("serialNumber");
 
         assert_eq!(ASN1OID::try_from(input).unwrap(), result);
     }

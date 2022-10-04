@@ -14,7 +14,7 @@ use rasn::{
 use crate::{
     get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
-    types::{ASN1Data, JsType},
+    types::{ASN1ContextChoice, ASN1Data, JsType},
     utils::{
         get_js_array_from_asn_iter, get_utc_date_time_from_asn1_milli, get_words_from_big_int,
     },
@@ -23,8 +23,9 @@ use crate::{
 
 /// Convert ASN1 BER encoded data to JS native types.
 #[napi(js_name = "Asn1")]
-#[derive(Hash, Eq, Clone, PartialEq, Debug)]
+#[derive(Eq, Clone, PartialEq, Debug)]
 pub struct ASN1 {
+    tag: Tag,
     js_type: JsType,
     data: Vec<u8>,
 }
@@ -62,6 +63,7 @@ impl ASN1 {
 
         ASN1 {
             js_type: JsType::from(tag),
+            tag,
             data,
         }
     }
@@ -69,6 +71,11 @@ impl ASN1 {
     /// Get the JsType of the encoded data.
     pub fn get_js_type(&self) -> &JsType {
         &self.js_type
+    }
+
+    /// Get the Tag of the encoded data.
+    pub fn get_tag(&self) -> &Tag {
+        &self.tag
     }
 
     /// Create an instance of ANS1 from a buffer.
@@ -119,7 +126,10 @@ impl ASN1 {
 
     /// Convert to an Context object.
     pub fn into_context(&self) -> Result<ASN1Context> {
-        self.decode::<ASN1Context>()
+        Ok(ASN1Context::new(
+            self.get_tag().value ^ 0xa0,
+            ASN1Data::try_from(self.decode::<ASN1ContextChoice>()?)?,
+        ))
     }
 
     /// Convert to a ASN1BitString object.
@@ -300,7 +310,6 @@ mod test {
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
     use num_bigint::BigInt;
 
-    //use crate::ASN1ContextTag;
     use crate::asn1::ASN1;
     use crate::objects::ASN1BitString;
     use crate::objects::ASN1Context;
@@ -452,10 +461,7 @@ mod test {
             ]),
         ]);
 
-        assert_eq!(
-            obj.into_context().unwrap(),
-            ASN1Context::new(0, contents).expect("context")
-        );
+        assert_eq!(obj.into_context().unwrap(), ASN1Context::new(0, contents));
     }
 
     #[test]

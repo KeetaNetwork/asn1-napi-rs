@@ -52,8 +52,6 @@ pub(crate) enum ASN1NAPIError {
     InvalidSimpleTypesOnly,
     #[error("Context data must be a sequence")]
     InvalidContextNonSequence,
-    #[error("Sequence encountered an unexpected value")]
-    UnexpectedSequenceValue,
 }
 
 /// Helper to convert a JS BigInt to a JS Buffer
@@ -173,25 +171,19 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             )?;
         }
         ASN1Object::Context(val) => {
-            if let Ok(ASN1Data::Array(contents)) = ASN1Data::try_from(val.contains) {
-                let mut contains = env.create_array(0)?;
-
-                for (i, content) in contents.iter().enumerate() {
-                    contains.set(
-                        i as u32,
-                        get_js_uknown_from_asn_data(env, content.to_owned())?,
-                    )?;
-                }
-
+            if let Ok(contents) = ASN1Data::try_from(*val.contains) {
                 obj.set_named_property::<JsString>(
                     ASN1_OBJECT_TYPE_KEY,
                     env.create_string(ASN1Context::TYPE)?,
                 )?;
                 obj.set_named_property::<JsNumber>(
                     ASN1_OBJECT_VALUE_KEY,
-                    env.create_int64(val.value)?,
+                    env.create_uint32(val.value)?,
                 )?;
-                obj.set_named_property::<JsObject>("contains", contains.coerce_to_object()?)?;
+                obj.set_named_property::<JsUnknown>(
+                    "contains",
+                    get_js_uknown_from_asn_data(env, contents)?,
+                )?;
             } else {
                 bail!(ASN1NAPIError::InvalidContextNonSequence)
             }
