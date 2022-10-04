@@ -91,6 +91,7 @@ pub struct ASN1Set {
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct ASN1BitString {
     pub r#type: &'static str,
+    #[napi(ts_type = "Buffer")]
     pub value: Vec<u8>,
 }
 

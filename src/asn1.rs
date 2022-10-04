@@ -2,7 +2,7 @@ use anyhow::{bail, Error, Result};
 use chrono::{DateTime, Utc};
 use napi::{
     bindgen_prelude::{Array, Buffer},
-    Env, JsBigInt,
+    Env, JsBigInt, JsObject,
 };
 use num_bigint::BigInt;
 use rasn::{
@@ -12,6 +12,7 @@ use rasn::{
 };
 
 use crate::{
+    get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
     types::{ASN1Data, JsType},
     utils::{
@@ -121,6 +122,11 @@ impl ASN1 {
         self.decode::<ASN1Context>()
     }
 
+    /// Convert to a ASN1BitString object.
+    pub fn into_raw_bit_string(&self) -> Result<ASN1BitString> {
+        self.decode::<ASN1BitString>()
+    }
+
     /// Convert to an integer.
     #[napi]
     pub fn into_integer(&self) -> Result<i64> {
@@ -170,10 +176,10 @@ impl ASN1 {
         self.decode::<ASN1OID>()
     }
 
-    /// Convert to a ASN1BitString object.
+    /// Convert to a JS ASN1BitString object.
     #[napi]
-    pub fn into_bit_string(&self) -> Result<ASN1BitString> {
-        self.decode::<ASN1BitString>()
+    pub fn into_bit_string(&self, env: Env) -> Result<JsObject> {
+        get_js_obj_from_asn_object(env, ASN1Object::BitString(self.into_raw_bit_string()?))
     }
 
     /// Convert to an Set object.
@@ -406,7 +412,7 @@ mod test {
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
-            obj.into_bit_string().unwrap(),
+            obj.into_raw_bit_string().unwrap(),
             ASN1BitString::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
         );
     }

@@ -17,7 +17,7 @@ export interface ASN1Set {
 /** ANS1 bitstring. */
 export interface ASN1BitString {
   type: string
-  value: Array<number>
+  value: Buffer
 }
 /** ANS1 Context. */
 export interface ASN1ContextTag {
@@ -64,8 +64,8 @@ export class Asn1 {
   intoBuffer(): Buffer
   /** Convert to an OID object. */
   intoOid(): ASN1OID
-  /** Convert to a ASN1BitString object. */
-  intoBitString(): ASN1BitString
+  /** Convert to a JS ASN1BitString object. */
+  intoBitString(): object
   /** Convert to an Set object. */
   intoSet(): ASN1Set
   /** Convert to an Context object. */
