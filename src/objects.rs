@@ -1,6 +1,7 @@
 use anyhow::{bail, Error, Result};
 use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown};
 use rasn::{
+    ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
     types::{BitString, Class, ConstOid, ObjectIdentifier, Oid, Open, PrintableString},
@@ -47,13 +48,17 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "1.3.6.1.4.1.8301.3.2.2.1.1" => "hash",
     "2.16.840.1.101.3.3.1.3" => "hashData",
 };
-trait ASNAny: AsnType + Decode + Encode {}
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Decode, Clone, Eq, PartialEq, Debug)]
+#[rasn(choice)]
 pub enum ASN1Object {
+    #[rasn(tag(universal, 6))]
     Oid(ASN1OID),
+    #[rasn(tag(universal, 17))]
     Set(ASN1Set),
+    #[rasn(tag(universal, 3))]
     BitString(ASN1BitString),
+    #[rasn(tag(context, 0))]
     Context(ASN1Context),
 }
 
@@ -67,7 +72,8 @@ pub struct ASN1Context {
 
 /// ANS1 OID.
 #[napi(object, js_name = "ASN1OID")]
-#[derive(Hash, Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
+#[rasn(tag(universal, 6))]
 pub struct ASN1OID {
     pub r#type: &'static str,
     pub oid: String,
@@ -75,7 +81,8 @@ pub struct ASN1OID {
 
 /// ANS1 Set.
 #[napi(object, js_name = "ASN1Set")]
-#[derive(Hash, Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
+#[rasn(tag(universal, 17))]
 pub struct ASN1Set {
     pub r#type: &'static str,
     pub name: ASN1OID,
@@ -84,7 +91,8 @@ pub struct ASN1Set {
 
 /// ANS1 bitstring.
 #[napi(object, js_name = "ASN1BitString")]
-#[derive(Hash, Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
+#[rasn(tag(universal, 3))]
 pub struct ASN1BitString {
     pub r#type: &'static str,
     #[napi(ts_type = "Buffer")]
@@ -215,22 +223,6 @@ impl<'a> TypedObject<'a> for ASN1ContextTag {
     const TYPE: &'a str = "context";
 }
 
-impl AsnType for ASN1Set {
-    const TAG: Tag = Tag::SET;
-}
-
-impl AsnType for ASN1OID {
-    const TAG: Tag = Tag::OBJECT_IDENTIFIER;
-}
-
-impl AsnType for ASN1BitString {
-    const TAG: Tag = Tag::BIT_STRING;
-}
-
-impl AsnType for ASN1Object {
-    const TAG: Tag = Tag::SEQUENCE;
-}
-
 impl Encode for ASN1BitString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         if let Ok(result) = BitString::try_from(self.value.clone()) {
@@ -326,31 +318,17 @@ impl Encode for ASN1Context {
 
 impl Decode for ASN1Context {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
-        let data = decoder.decode_any()?;
-        let asn1 = ASN1::new(data.as_bytes().to_owned());
+        let asn1 = ASN1::new(decoder.decode_any()?.as_bytes().to_owned());
+        let mut decoder = rasn::ber::de::Decoder::new(asn1.get_raw(), DecoderOptions::der());
+        let tag = *asn1.get_tag();
 
-        if let Ok(context) = ASN1Context::try_from(asn1) {
-            Ok(context)
-        } else {
-            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
+        if let Ok(ASN1Data::Unknown(any)) = decoder.decode_explicit_prefix::<ASN1Data>(tag) {
+            if let Ok(data) = ASN1Data::try_from(ASN1::new(any.as_bytes().to_owned())) {
+                return Ok(Self::new(tag.value, data));
+            };
         }
-    }
-}
 
-// TODO Figure out a better way to handle this
-impl Decode for ASN1Object {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
-        if let Ok(obj) = ASN1Set::decode_with_tag(decoder, ASN1Set::TAG) {
-            Ok(ASN1Object::Set(obj))
-        } else if let Ok(obj) = ASN1OID::decode_with_tag(decoder, ASN1OID::TAG) {
-            Ok(ASN1Object::Oid(obj))
-        } else if let Ok(obj) = ASN1BitString::decode_with_tag(decoder, ASN1BitString::TAG) {
-            Ok(ASN1Object::BitString(obj))
-        } else if let Ok(obj) = ASN1Context::decode(decoder) {
-            Ok(ASN1Object::Context(obj))
-        } else {
-            Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownObject))
-        }
+        Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
     }
 }
 

@@ -6,10 +6,7 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::{
-        de::{Decoder, DecoderOptions},
-        decode,
-    },
+    ber::decode,
     types::{Any, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -81,6 +78,11 @@ impl ASN1 {
         &self.tag
     }
 
+    /// Get the raw ASN.1 data.
+    pub fn get_raw(&self) -> &[u8] {
+        &self.data
+    }
+
     /// Create an instance of ANS1 from a buffer.
     #[napi]
     pub fn from_buffer(value: Buffer) -> Result<Self> {
@@ -129,16 +131,7 @@ impl ASN1 {
 
     /// Convert to an Context object.
     pub fn into_context(&self) -> Result<ASN1Context> {
-        let mut decoder = Decoder::new(&self.data, DecoderOptions::der());
-
-        if let Ok(ASN1Data::Object(ASN1Object::Context(mut context))) =
-            ASN1Data::decode_with_tag(&mut decoder, *self.get_tag())
-        {
-            context.value = self.get_tag().value;
-            Ok(context)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1Context>()
     }
 
     /// Convert to a ASN1BitString object.
