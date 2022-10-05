@@ -7,7 +7,7 @@ use napi::{
     Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown,
 };
 use num_bigint::{BigInt, Sign};
-use rasn::{types::Utf8String, Decode, Tag};
+use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
     asn1::ASNIterator,
@@ -36,6 +36,11 @@ pub(crate) fn get_big_int_from_js(data: JsUnknown) -> Result<BigInt> {
     Ok(BigInt::from_str(
         data.coerce_to_string()?.into_utf8()?.as_str()?,
     )?)
+}
+
+/// Get utf16 bytes from a string.
+pub(crate) fn get_utf16_from_string<T: AsRef<str>>(value: T) -> Vec<u16> {
+    value.as_ref().encode_utf16().collect::<Vec<u16>>()
 }
 
 /// Get a Vec<u8> via a JsBuffer from a JsUnknown.
@@ -98,7 +103,7 @@ pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOf
     ))
 }
 
-/// Get a Vec<u64> of words from a BigInt.
+/// Get a sign as a bool and a Vec<u64> of words from a BigInt.
 pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     let (sign, words) = data.to_u64_digits();
     (sign == Sign::Minus, words)
@@ -121,8 +126,7 @@ pub(crate) fn get_js_big_int_from_big_int(env: Env, data: BigInt) -> Result<JsBi
 
 /// Helper for handling date/times with milliseconds
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
-    let mut decoder: rasn::ber::de::Decoder =
-        rasn::ber::de::Decoder::new(data.as_ref(), rasn::ber::de::DecoderOptions::ber());
+    let mut decoder = rasn::ber::de::Decoder::new(data.as_ref(), DecoderOptions::ber());
 
     if let Ok(decoded) = Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME) {
         Ok(DateTime::<FixedOffset>::from_utc(

@@ -17,7 +17,7 @@ use crate::{
     utils::{
         get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_from_js,
         get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-        get_string_from_js,
+        get_string_from_js, get_utf16_from_string,
     },
     ASN1NAPIError,
 };
@@ -264,7 +264,9 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
             //ASN1Data::Integer(val) => JsValue::Integer(env.create_int64(val)?),
             ASN1Data::Integer(val) => JsValue::BigInt(asn1_integer_to_big_int(env, val)?),
             ASN1Data::BigInt(val) => JsValue::BigInt(get_js_big_int_from_big_int(env, val)?),
-            ASN1Data::String(val) => JsValue::String(env.create_string(val.as_str())?),
+            ASN1Data::String(val) => {
+                JsValue::String(env.create_string_utf16(get_utf16_from_string(val).as_ref())?)
+            }
             ASN1Data::Bytes(val) => JsValue::Buffer(env.create_buffer_with_data(val)?.into_raw()),
             ASN1Data::Date(val) => {
                 JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)

@@ -25,8 +25,8 @@ use thiserror::Error;
 use objects::{ASN1BitString, ASN1Context, ASN1Object, ASN1Set, TypedObject, ASN1OID};
 use types::{ASN1Data, JsValue};
 use utils::{
-    get_buffer_from_js, get_js_uknown_from_asn_data, get_string_from_js, get_vec_from_js,
-    get_words_from_big_int,
+    get_big_int_from_js, get_buffer_from_js, get_js_uknown_from_asn_data, get_string_from_js,
+    get_vec_from_js, get_words_from_big_int,
 };
 
 /// Library errors
@@ -56,8 +56,10 @@ pub(crate) enum ASN1NAPIError {
 
 /// Helper to convert a JS BigInt to a JS Buffer
 #[napi(strict, js_name = "ASN1BigIntToBuffer")]
-pub fn asn1_big_int_to_buffer(mut data: JsBigInt) -> Result<Buffer> {
-    Ok(data.get_i128()?.0.to_be_bytes().as_ref().into())
+pub fn asn1_big_int_to_buffer(data: JsBigInt) -> Result<Buffer> {
+    Ok(get_big_int_from_js(data.into_unknown()?)?
+        .to_signed_bytes_be()
+        .into())
 }
 
 /// Helper to convert a JS number to a JS BigInt

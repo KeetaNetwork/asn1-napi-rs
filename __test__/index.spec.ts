@@ -38,13 +38,15 @@ const TEST_BIG_INTEGERS_ASN1 = [
   ],
 ]
 
-const TEST_STRINGS = [
-  'test',
-  //'This is a Test String!\uD83D\uDE03'
-]
+const TEST_STRINGS = ['test', 'This is a Test String!\uD83D\uDE03']
 
 const TEST_STRINGS_ASN1 = [
   [0x13, 0x4, 0x74, 0x65, 0x73, 0x74],
+  [
+    0x13, 0x1a, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x54, 0x65, 0x73, 0x74, 0x20, 0x53, 0x74,
+    0x72, 0x69, 0x6e, 0x67, 0x21, 0xf0, 0x9f, 0x98, 0x83,
+  ],
+  // UTF-16
   // [
   //   0x13, 0x18, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x54, 0x65, 0x73, 0x74, 0x20, 0x53, 0x74,
   //   0x72, 0x69, 0x6e, 0x67, 0x21, 0x3d, 0x03,
@@ -494,18 +496,9 @@ test('JS integer to BigInt conversion helper', (t) => {
   t.deepEqual(lib.ASN1IntegerToBigInt(42), BigInt('42'))
 })
 
-test('JS BigInt to Buffer conversion helper', (t) => {
-  const input = BigInt('18591708106338011145')
-  const buffer = lib.ASN1BigIntToBuffer(input)
-
-  t.deepEqual(BigInt(`0x${buffer.subarray(0, buffer.length).toString('hex')}`), input)
-})
-
 test('Node ASN1 Tests', (t) => {
+  const integers = [-1, -0x7f, -0x80, -0xffffff, -0x7fffff]
   const input = [
-    BigInt(-1),
-    BigInt(-0x7f),
-    BigInt(-0x80),
     BigInt(-1),
     BigInt(-0xffffff),
     BigInt(-0x7fffff),
@@ -519,9 +512,9 @@ test('Node ASN1 Tests', (t) => {
     { type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' },
     Buffer.from('This is a Test String!\uD83D\uDE03'),
     'This is a Test String!',
-    // 'This is a Test String!\uD83D\uDE03',
+    'This is a Test String!\uD83D\uDE03',
     new Date(0),
-    //new Date(),
+    new Date('2022-09-26T10:00:00.000+00:00'),
     true,
     false,
     null,
@@ -536,8 +529,13 @@ test('Node ASN1 Tests', (t) => {
     t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v)), v)
   })
 
+  integers.map((v) => {
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v)), BigInt(v))
+  })
+
   const asn1 = lib.JStoASN1(input)
   const js = new lib.Asn1(asn1)
 
   t.deepEqual(js.intoArray(), input)
+  t.deepEqual(lib.ASN1toJS(asn1), input)
 })
