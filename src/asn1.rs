@@ -6,7 +6,10 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::decode,
+    ber::{
+        de::{Decoder, DecoderOptions},
+        decode,
+    },
     types::{Any, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -14,7 +17,7 @@ use rasn::{
 use crate::{
     get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
-    types::{ASN1ContextChoice, ASN1Data, JsType},
+    types::{ASN1Data, JsType},
     utils::{
         get_js_array_from_asn_iter, get_utc_date_time_from_asn1_milli, get_words_from_big_int,
     },
@@ -56,7 +59,7 @@ impl ASN1 {
         } as u32;
 
         let tag = if (0xa0..=0xbf).contains(&bit) {
-            Tag::new(Class::Context, bit)
+            Tag::new(Class::Context, bit ^ 0xa0)
         } else {
             Tag::new(Class::Universal, bit)
         };
@@ -126,10 +129,16 @@ impl ASN1 {
 
     /// Convert to an Context object.
     pub fn into_context(&self) -> Result<ASN1Context> {
-        Ok(ASN1Context::new(
-            self.get_tag().value ^ 0xa0,
-            ASN1Data::try_from(self.decode::<ASN1ContextChoice>()?)?,
-        ))
+        let mut decoder = Decoder::new(&self.data, DecoderOptions::der());
+
+        if let Ok(ASN1Data::Object(ASN1Object::Context(mut context))) =
+            ASN1Data::decode_with_tag(&mut decoder, *self.get_tag())
+        {
+            context.value = self.get_tag().value;
+            Ok(context)
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
     }
 
     /// Convert to a ASN1BitString object.

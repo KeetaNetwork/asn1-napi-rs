@@ -6,8 +6,8 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    types::{Any, BitString, Class, Implicit, ObjectIdentifier, OctetString, Open, SequenceOf},
-    AsnType, Decode, Encode, Tag,
+    types::{Any, BitString, Class, Implicit, ObjectIdentifier, OctetString, Open},
+    AsnType, Decode, Tag,
 };
 
 use crate::{
@@ -53,7 +53,7 @@ pub enum JsValue {
     Undefined(JsUndefined),
 }
 
-#[derive(AsnType, Clone, Debug, Eq, PartialEq)]
+#[derive(AsnType, Clone, Decode, Debug, Eq, PartialEq)]
 #[rasn(choice)]
 #[rasn(automatic_tags)]
 pub enum ASN1Data {
@@ -67,14 +67,6 @@ pub enum ASN1Data {
     Date(DateTime<FixedOffset>),
     Unknown(Any),
     Null,
-}
-
-/// ANS1 Context.
-#[derive(AsnType, Clone, Eq, Decode, Encode, PartialEq, Debug)]
-#[rasn(choice)]
-pub enum ASN1ContextChoice {
-    #[rasn(tag(context, 0))]
-    Sequence(SequenceOf<SequenceOf<Any>>),
 }
 
 /// Integer or Big Integer

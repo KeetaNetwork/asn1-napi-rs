@@ -66,11 +66,11 @@ pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Resul
 
 /// Get a Vec<u32> of the numbers in an OID string.
 pub(crate) fn get_oid_elements_from_string(value: &str) -> Result<Vec<u32>> {
-    Ok(value
+    value
         .split('.')
-        .map(|v| str::parse::<u32>(v))
+        .map(str::parse::<u32>)
         .map(|r| Ok(r?))
-        .collect::<Result<Vec<u32>>>()?)
+        .collect::<Result<Vec<u32>>>()
 }
 
 /// Get an chrono datetime from a JsUnknown.

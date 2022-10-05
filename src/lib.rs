@@ -171,22 +171,18 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             )?;
         }
         ASN1Object::Context(val) => {
-            if let Ok(contents) = ASN1Data::try_from(*val.contains) {
-                obj.set_named_property::<JsString>(
-                    ASN1_OBJECT_TYPE_KEY,
-                    env.create_string(ASN1Context::TYPE)?,
-                )?;
-                obj.set_named_property::<JsNumber>(
-                    ASN1_OBJECT_VALUE_KEY,
-                    env.create_uint32(val.value)?,
-                )?;
-                obj.set_named_property::<JsUnknown>(
-                    "contains",
-                    get_js_uknown_from_asn_data(env, contents)?,
-                )?;
-            } else {
-                bail!(ASN1NAPIError::InvalidContextNonSequence)
-            }
+            obj.set_named_property::<JsString>(
+                ASN1_OBJECT_TYPE_KEY,
+                env.create_string(ASN1Context::TYPE)?,
+            )?;
+            obj.set_named_property::<JsNumber>(
+                ASN1_OBJECT_VALUE_KEY,
+                env.create_uint32(val.value)?,
+            )?;
+            obj.set_named_property::<JsUnknown>(
+                "contains",
+                get_js_uknown_from_asn_data(env, *val.contains)?,
+            )?;
         }
     };
 
