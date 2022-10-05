@@ -65,12 +65,22 @@ pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Resul
 }
 
 /// Get a Vec<u32> of the numbers in an OID string.
-pub(crate) fn get_oid_elements_from_string(value: &str) -> Result<Vec<u32>> {
+pub(crate) fn get_oid_elements_from_string<T: AsRef<str>>(value: T) -> Result<Vec<u32>> {
     value
+        .as_ref()
         .split('.')
         .map(str::parse::<u32>)
         .map(|r| Ok(r?))
         .collect::<Result<Vec<u32>>>()
+}
+
+pub(crate) fn get_string_from_oid_elements<T: AsRef<[u32]>>(value: T) -> Result<String> {
+    Ok(value
+        .as_ref()
+        .iter()
+        .map(|v| v.to_string())
+        .collect::<Vec<String>>()
+        .join("."))
 }
 
 /// Get an chrono datetime from a JsUnknown.

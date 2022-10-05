@@ -66,6 +66,7 @@ pub enum ASN1Data {
     Object(ASN1Object),
     Date(DateTime<FixedOffset>),
     Unknown(Any),
+    #[rasn(tag(universal, 5))]
     Null,
 }
 
@@ -197,6 +198,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
             ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
             ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
             ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
+            ValueType::Null => ASN1Data::Null,
             _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
         })
     }

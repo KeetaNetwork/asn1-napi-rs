@@ -13,7 +13,7 @@ mod utils;
 pub use crate::asn1::ASN1;
 
 use anyhow::{bail, Result};
-use constants::{ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
+use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
     bindgen_prelude::Buffer, Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown,
     ValueType,
@@ -84,6 +84,7 @@ pub fn asn1_to_js(env: Env, data: JsUnknown) -> Result<JsUnknown> {
         ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,
         ValueType::Object if data.is_array()? => ASN1::new(get_vec_from_js(data)?),
         ValueType::Object if data.is_buffer()? => ASN1::new(get_buffer_from_js(data)?),
+        ValueType::Null => ASN1::new(ASN1_NULL.to_owned()),
         _ => bail!(ASN1NAPIError::UnknownJsArgument),
     };
 

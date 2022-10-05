@@ -11,7 +11,9 @@ use rasn::{
 use crate::{
     constants::*,
     types::ASN1Data,
-    utils::{get_js_uknown_from_asn_data, get_oid_elements_from_string},
+    utils::{
+        get_js_uknown_from_asn_data, get_oid_elements_from_string, get_string_from_oid_elements,
+    },
     ASN1NAPIError, ASN1,
 };
 
@@ -344,7 +346,7 @@ impl Encode for ASN1Object {
 }
 
 impl Encode for ASN1Data {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
         match self {
             ASN1Data::Array(arr) => arr.encode(encoder),
             ASN1Data::Object(obj) => match obj {
@@ -354,7 +356,6 @@ impl Encode for ASN1Data {
                 ASN1Object::Context(context) => context.encode(encoder),
             },
             ASN1Data::Unknown(any) => any.encode(encoder),
-            ASN1Data::Null => encoder.encode_null(tag).map(|_| ()),
             _ => {
                 if let Ok(open) = Open::try_from(self) {
                     open.encode(encoder)
@@ -443,7 +444,13 @@ impl<'a> TryFrom<&'a [u32]> for ASN1OID {
     /// Attempt to convert words into an ASN1OID instance.
     fn try_from(value: &'a [u32]) -> Result<Self, Self::Error> {
         if let Some(oid) = Oid::new(value) {
-            Ok(Self::new(get_name_from_oid(oid)?))
+            let value = if let Ok(val) = get_name_from_oid(oid) {
+                val.to_owned()
+            } else {
+                get_string_from_oid_elements(value)?
+            };
+
+            Ok(Self::new(value))
         } else {
             bail!(ASN1NAPIError::UnknownOid)
         }
