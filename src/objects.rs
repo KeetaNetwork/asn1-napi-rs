@@ -381,6 +381,7 @@ impl Encode for ASN1Data {
 
 impl AsRef<[u32]> for ASN1OID {
     fn as_ref(&self) -> &[u32] {
+        // TODO Handle unwrap
         get_oid_from_name(&self.oid).unwrap()
     }
 }

@@ -11,7 +11,7 @@ use rasn::{
 };
 
 use crate::{
-    asn1::{ASNIterator, ASN1},
+    asn1::{ASN1Iterator, ASN1},
     asn1_integer_to_big_int, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
     get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Object, ASN1OID},
@@ -195,10 +195,10 @@ impl TryFrom<ASN1Number> for ASN1Data {
     }
 }
 
-impl TryFrom<&ASNIterator> for Vec<ASN1Data> {
+impl TryFrom<&ASN1Iterator> for Vec<ASN1Data> {
     type Error = Error;
 
-    fn try_from(value: &ASNIterator) -> Result<Self, Self::Error> {
+    fn try_from(value: &ASN1Iterator) -> Result<Self, Self::Error> {
         value.to_owned().collect()
     }
 }

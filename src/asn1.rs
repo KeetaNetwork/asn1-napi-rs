@@ -31,7 +31,7 @@ pub struct ASN1 {
 
 #[napi]
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct ASNIterator {
+pub struct ASN1Iterator {
     sequence: Vec<Any>,
     length: usize,
     index: usize,
@@ -41,7 +41,7 @@ pub struct ASNIterator {
 pub struct ASN1Encoder(ASN1Data);
 
 #[napi]
-impl ASNIterator {
+impl ASN1Iterator {
     #[napi]
     pub fn len(&self) -> usize {
         self.length
@@ -246,23 +246,18 @@ impl ASN1 {
     /// Convert to a decoded Sequence.
     pub fn into_sequence(&self) -> Result<Vec<ASN1Data>> {
         if let Ok(sequence) = decode::<Vec<Any>>(&self.data) {
-            let mut result: Vec<ASN1Data> = Vec::new();
-
-            for ber in sequence {
-                let asn1 = ASN1::try_from(ber.as_bytes())?;
-                let data = ASN1Data::try_from(asn1)?;
-
-                result.push(data);
-            }
-
-            Ok(result)
+            sequence
+                .iter()
+                .map(|ber| ASN1::try_from(ber.as_bytes()))
+                .map(|asn1| ASN1Data::try_from(asn1?))
+                .collect()
         } else {
             bail!(ASN1NAPIError::MalformedData)
         }
     }
 }
 
-impl Iterator for ASNIterator {
+impl Iterator for ASN1Iterator {
     type Item = Result<ASN1Data>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -278,14 +273,14 @@ impl Iterator for ASNIterator {
 impl IntoIterator for ASN1 {
     type Item = Result<ASN1Data>;
 
-    type IntoIter = ASNIterator;
+    type IntoIter = ASN1Iterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        ASNIterator::from(decode::<Vec<Any>>(&self.data).unwrap_or_default())
+        ASN1Iterator::from(decode::<Vec<Any>>(&self.data).unwrap_or_default())
     }
 }
 
-impl From<Vec<Any>> for ASNIterator {
+impl From<Vec<Any>> for ASN1Iterator {
     fn from(sequence: Vec<Any>) -> Self {
         Self {
             length: sequence.len(),

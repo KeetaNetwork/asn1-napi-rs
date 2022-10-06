@@ -13,7 +13,7 @@ mod utils;
 pub use crate::asn1::ASN1;
 
 use anyhow::{bail, Result};
-use asn1::{ASN1Encoder, ASNIterator};
+use asn1::{ASN1Encoder, ASN1Iterator};
 use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
     bindgen_prelude::{Array, Buffer},
@@ -106,7 +106,7 @@ fn get_asn1_data_to_js_unknown(env: Env, data: ASN1Data) -> Result<JsUnknown> {
 }
 
 /// Get an Array from an ASNIterator.
-pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASNIterator) -> Result<Array> {
+pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASN1Iterator) -> Result<Array> {
     get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(data)?)
 }
 
