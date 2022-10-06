@@ -119,31 +119,31 @@ const TEST_CONTEXT_TAGS_ASN1 = [
 ]
 
 test('JS boolean to ASN1 conversion', (t) => {
-  t.deepEqual(lib.JStoASN1(true).toBer(), new Uint8Array([0x1, 0x1, 0xff]).buffer)
-  t.deepEqual(lib.JStoASN1(false).toBer(), new Uint8Array([0x1, 0x1, 0x0]).buffer)
+  t.deepEqual(lib.JStoASN1(true).toBER(), new Uint8Array([0x1, 0x1, 0xff]).buffer)
+  t.deepEqual(lib.JStoASN1(false).toBER(), new Uint8Array([0x1, 0x1, 0x0]).buffer)
 })
 
 test('JS integer to ASN1 conversion', (t) => {
   TEST_INTEGERS.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_INTEGERS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_INTEGERS_ASN1[i])
   })
 })
 
 test('JS BigInt to ASN1 conversion', (t) => {
   TEST_BIG_INTEGERS.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_BIG_INTEGERS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_BIG_INTEGERS_ASN1[i])
   })
 })
 
 test('JS string to ASN1 conversion', (t) => {
   TEST_STRINGS.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_STRINGS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_STRINGS_ASN1[i])
   })
 })
 
 test('JS number Array to ASN1 conversion', (t) => {
   t.deepEqual(
-    lib.JStoASN1([1n, 2n, 3n, 4n, 5n]).toBer(),
+    lib.JStoASN1([1n, 2n, 3n, 4n, 5n]).toBER(),
     new Uint8Array([
       0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03, 0x02, 0x01, 0x04, 0x02, 0x01, 0x05,
     ]).buffer,
@@ -155,7 +155,7 @@ test('JS mixed Array to ASN1 conversion', (t) => {
   const set: lib.ASN1Set = { type: 'set', name: oid, value: 'test' }
 
   t.deepEqual(
-    lib.JStoASN1([1, 'test', oid, set, 532434n]).toBer(),
+    lib.JStoASN1([1, 'test', oid, set, 532434n]).toBER(),
     new Uint8Array([
       0x30, 0x22, 0x02, 0x01, 0x01, 0x13, 0x04, 0x74, 0x65, 0x73, 0x74, 0x06, 0x03, 0x55, 0x04, 0x03, 0x31, 0x0d, 0x30,
       0x0b, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x04, 0x74, 0x65, 0x73, 0x74, 0x02, 0x03, 0x08, 0x1f, 0xd2,
@@ -165,7 +165,7 @@ test('JS mixed Array to ASN1 conversion', (t) => {
 
 test('JS Buffer to ASN1 conversion', (t) => {
   t.deepEqual(
-    lib.JStoASN1(Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))).toBer(),
+    lib.JStoASN1(Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))).toBER(),
     new Uint8Array([0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05]).buffer,
   )
 })
@@ -174,12 +174,12 @@ test('JS bit string to ASN1 conversion', (t) => {
   const data = Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9]))
   const input = { type: 'bitstring', value: data }
 
-  t.deepEqual(lib.JStoASN1(input).toBer(), new Uint8Array([0x03, 0x06, 0x00, 0xa, 0x10, 0x14, 0x20, 0x9]).buffer)
+  t.deepEqual(lib.JStoASN1(input).toBER(), new Uint8Array([0x03, 0x06, 0x00, 0xa, 0x10, 0x14, 0x20, 0x9]).buffer)
 })
 
 test('JS ASN1OID to ASN1 conversion', (t) => {
   TEST_OIDS.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_OIDS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_OIDS_ASN1[i])
   })
 })
 
@@ -188,20 +188,20 @@ test('JS ASN1Set to ASN1 conversion', (t) => {
   const set: lib.ASN1Set = { type: 'set', name: oid, value: 'test' }
 
   t.deepEqual(
-    lib.JStoASN1(set).toBer(),
+    lib.JStoASN1(set).toBER(),
     new Uint8Array([0x31, 0x0d, 0x30, 0x0b, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x04, 0x74, 0x65, 0x73, 0x74]).buffer,
   )
 })
 
 test('JS Date to ASN1 conversion', (t) => {
   TEST_DATES.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_DATES_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_DATES_ASN1[i])
   })
 })
 
 test('JS Context Tag to ASN1 conversion', (t) => {
   TEST_CONTEXT_TAGS.map((v, i) => {
-    t.deepEqual(lib.JStoASN1(v).toBer(), TEST_CONTEXT_TAGS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(v).toBER(), TEST_CONTEXT_TAGS_ASN1[i])
   })
 })
 
@@ -224,15 +224,15 @@ test('ASN1 to JS boolean conversion from base64', (t) => {
 test('ASN1 to Js boolean conversion round trip', (t) => {
   const input_true = true
   const input_false = false
-  const asn1_true = lib.JStoASN1(input_true).toBer()
-  const asn1_false = lib.JStoASN1(input_false).toBer()
+  const asn1_true = lib.JStoASN1(input_true).toBER()
+  const asn1_false = lib.JStoASN1(input_false).toBER()
   const js_true = new lib.Asn1(asn1_true)
   const js_false = new lib.Asn1(asn1_false)
 
   t.deepEqual(js_true.intoBool(), input_true)
   t.deepEqual(js_false.intoBool(), input_false)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input_true).toBer()), input_true)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input_false).toBer()), input_false)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input_true).toBER()), input_true)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input_false).toBER()), input_false)
 })
 
 test('ASN1 to Js integer conversion from byte code', (t) => {
@@ -249,7 +249,7 @@ test('ASN1 to Js integer conversion from base64', (t) => {
 
 test('ASN1 to Js integer conversion round trip', (t) => {
   TEST_INTEGERS.map((v) => {
-    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBer()), BigInt(v))
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), BigInt(v))
   })
 })
 
@@ -275,10 +275,10 @@ test('ASN1 to Js BigInt conversion from base64', (t) => {
 test('ASN1 to Js BigInt conversion round trip', (t) => {
   const input = BigInt('18591708106338011145')
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoBigInt(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js string conversion from byte code', (t) => {
@@ -299,7 +299,7 @@ test('ASN1 to Js string conversion round trip', (t) => {
     const js = new lib.Asn1(Array.from(data))
 
     t.deepEqual(js.intoString(), TEST_STRINGS[i])
-    t.deepEqual(lib.JStoASN1(lib.ASN1toJS(v)).toBer(), TEST_STRINGS_ASN1[i])
+    t.deepEqual(lib.JStoASN1(lib.ASN1toJS(v)).toBER(), TEST_STRINGS_ASN1[i])
   })
 })
 
@@ -320,10 +320,10 @@ test('ASN1 to Js Date conversion from base64', (t) => {
 test('ASN1 to Js Date conversion round trip', (t) => {
   const input = new Date('2022-09-26T10:00:00.000+00:00')
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoDate(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js Buffer conversion from byte code', (t) => {
@@ -341,10 +341,10 @@ test('ASN1 to Js Buffer conversion from base64', (t) => {
 test('ASN1 to Js Buffer conversion round trip', (t) => {
   const input = Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoBuffer(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js bit string conversion from byte code', (t) => {
@@ -370,7 +370,7 @@ test('ASN1 to Js bit string conversion from base64', (t) => {
 
 test('ASN1 to Js bit string conversion round trip', (t) => {
   const input = { type: 'bitstring', value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64') }
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js Context Tag conversion from byte code', (t) => {
@@ -392,7 +392,7 @@ test('ASN1 to Js Context Tag conversion from base64', (t) => {
 
 test('ASN1 to Js Context Tag conversion round trip', (t) => {
   TEST_CONTEXT_TAGS.map((v) => {
-    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBer()), v)
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), v)
   })
 })
 
@@ -414,11 +414,11 @@ test('ASN1 to Js ASN1OID conversion from base64', (t) => {
 
 test('ASN1 to Js ASN1OID conversion round trip', (t) => {
   const input: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
-  const asn1 = lib.JStoASN1(input).toBer()
+  const asn1 = lib.JStoASN1(input).toBER()
   const js = new lib.Asn1(asn1)
 
   t.deepEqual(js.intoOid(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js ASN1Set conversion from byte code', (t) => {
@@ -441,10 +441,10 @@ test('ASN1 to Js ASN1Set conversion round trip', (t) => {
   const oid: lib.ASN1OID = { type: 'oid', oid: 'commonName' }
   const input: lib.ASN1Set = { type: 'set', name: oid, value: 'test' }
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoSet(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js number array conversion from byte code', (t) => {
@@ -466,10 +466,10 @@ test('ASN1 to Js number array conversion from base64', (t) => {
 test('ASN1 to Js number array conversion round trip', (t) => {
   const input = [1n, 2n, 3n, 4n, 5n]
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoArray(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('ASN1 to Js mixed array conversion from byte code', (t) => {
@@ -497,10 +497,10 @@ test('ASN1 to Js mixed array conversion from base64', (t) => {
 test('ASN1 to Js mixed array conversion round trip', (t) => {
   const input = [1n, 2n, 3n, 4n, 5n]
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoArray(), input)
-  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBer()), input)
+  t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
 test('JS integer to BigInt conversion helper', (t) => {
@@ -537,16 +537,16 @@ test('Node ASN1 Tests', (t) => {
   ]
 
   input.map((v) => {
-    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBer()), v)
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), v)
   })
 
   integers.map((v) => {
-    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBer()), BigInt(v))
+    t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), BigInt(v))
   })
 
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBer())
+  const js = new lib.Asn1(asn1.toBER())
 
   t.deepEqual(js.intoArray(), input)
-  t.deepEqual(lib.ASN1toJS(asn1.toBer()), input)
+  t.deepEqual(lib.ASN1toJS(asn1.toBER()), input)
 })
