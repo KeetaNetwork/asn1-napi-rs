@@ -1,5 +1,5 @@
 use anyhow::{bail, Error, Result};
-use napi::{JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
+use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
     ber::de::DecoderOptions,
     de::Error as rasnDeError,
@@ -57,7 +57,7 @@ pub enum ASN1Object {
     #[rasn(tag(universal, 17))]
     Set(ASN1Set),
     #[rasn(tag(universal, 3))]
-    BitString(ASN1BitString),
+    BitString(ASN1BitStringData),
     #[rasn(tag(context, 0))]
     Context(ASN1Context),
 }
@@ -70,11 +70,26 @@ pub struct ASN1Context {
     pub contains: Box<ASN1Data>,
 }
 
+/// ANS1 Rust bitstring.
+#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
+#[rasn(tag(universal, 3))]
+pub struct ASN1BitStringData {
+    pub r#type: &'static str,
+    pub value: Vec<u8>,
+}
+
+/// ANS1 Sequence.
+#[napi(object, js_name = "ASN1Sequence")]
+pub struct ASN1Sequence {
+    pub r#type: &'static str,
+}
+
 /// ANS1 OID.
 #[napi(object, js_name = "ASN1OID")]
 #[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(universal, 6))]
 pub struct ASN1OID {
+    #[napi(ts_type = "'oid'")]
     pub r#type: &'static str,
     pub oid: String,
 }
@@ -84,34 +99,28 @@ pub struct ASN1OID {
 #[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(universal, 17))]
 pub struct ASN1Set {
+    #[napi(ts_type = "'set'")]
     pub r#type: &'static str,
     pub name: ASN1OID,
     pub value: String,
 }
 
-/// ANS1 bitstring.
-#[napi(object, js_name = "ASN1BitString")]
-#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
-#[rasn(tag(universal, 3))]
-pub struct ASN1BitString {
-    pub r#type: &'static str,
-    #[napi(ts_type = "Buffer")]
-    pub value: Vec<u8>,
-}
-
-/// ANS1 Context.
+/// ANS1 JS Context Tag.
 #[napi(object, js_name = "ASN1ContextTag")]
 pub struct ASN1ContextTag {
+    #[napi(ts_type = "'context'")]
     pub r#type: &'static str,
     pub value: u32,
     #[napi(ts_type = "any")]
     pub contains: JsUnknown,
 }
 
-/// ANS1 Sequence.
-#[napi(object, js_name = "ASN1Sequence")]
-pub struct ASN1Sequence {
+/// ANS1 JS bitstring.
+#[napi(object, js_name = "ASN1BitString")]
+pub struct ASN1BitString {
+    #[napi(ts_type = "'bitstring'")]
     pub r#type: &'static str,
+    pub value: JsBuffer,
 }
 
 /// Get an oid as u32 words from a canonically named identifier.
@@ -169,8 +178,8 @@ impl ASN1OID {
     }
 }
 
-impl ASN1BitString {
-    /// Create a new instance of ASNOID from a string.
+impl ASN1BitStringData {
+    /// Create a new instance of ASN1BitString from a string.
     pub fn new<T: AsRef<[u8]>>(value: T) -> Self {
         Self {
             r#type: Self::TYPE,
@@ -211,6 +220,23 @@ impl ASN1ContextTag {
     }
 }
 
+impl ASN1BitString {
+    /// Create a new instance of a ASN1JsBitString from a string.
+    pub fn new<T: AsRef<[u8]>>(env: Env, data: T) -> Self {
+        Self {
+            r#type: Self::TYPE,
+            value: env
+                .create_buffer_with_data(data.as_ref().to_vec())
+                .unwrap()
+                .into_raw(),
+        }
+    }
+}
+
+impl<'a> TypedObject<'a> for ASN1BitStringData {
+    const TYPE: &'a str = "bitstring";
+}
+
 impl<'a> TypedObject<'a> for ASN1BitString {
     const TYPE: &'a str = "bitstring";
 }
@@ -235,7 +261,7 @@ impl<'a> TypedObject<'a> for ASN1ContextTag {
     const TYPE: &'a str = "context";
 }
 
-impl Encode for ASN1BitString {
+impl Encode for ASN1BitStringData {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         if let Ok(result) = BitString::try_from(self.value.clone()) {
             encoder.encode_bit_string(tag, &result)?;
@@ -246,10 +272,10 @@ impl Encode for ASN1BitString {
     }
 }
 
-impl Decode for ASN1BitString {
+impl Decode for ASN1BitStringData {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         if let Ok(result) = decoder.decode_bit_string(tag) {
-            Ok(ASN1BitString::from(result))
+            Ok(ASN1BitStringData::from(result))
         } else {
             Err(<D as rasn::Decoder>::Error::custom(
                 ASN1NAPIError::InvalidBitString,
@@ -386,21 +412,21 @@ impl AsRef<[u32]> for ASN1OID {
     }
 }
 
-impl<'a> From<&'a [u8]> for ASN1BitString {
+impl<'a> From<&'a [u8]> for ASN1BitStringData {
     /// Convert bytes into an ASN1BitString instance.
     fn from(value: &'a [u8]) -> Self {
         Self::new(value)
     }
 }
 
-impl From<Vec<u8>> for ASN1BitString {
+impl From<Vec<u8>> for ASN1BitStringData {
     /// Convert an owned byte array into an ASN1BitString instance.
     fn from(value: Vec<u8>) -> Self {
         Self::new(value)
     }
 }
 
-impl From<BitString> for ASN1BitString {
+impl From<BitString> for ASN1BitStringData {
     /// Convert a BitString into an ASN1BitString instance.
     fn from(value: BitString) -> Self {
         Self::from(value.into_vec())
@@ -419,7 +445,7 @@ impl TryFrom<ASN1OID> for ObjectIdentifier {
     }
 }
 
-impl TryFrom<JsObject> for ASN1BitString {
+impl TryFrom<JsObject> for ASN1BitStringData {
     type Error = Error;
 
     /// Attempt to convert a JsObject instance into an ASN1BitString instance.
@@ -428,7 +454,7 @@ impl TryFrom<JsObject> for ASN1BitString {
     }
 }
 
-impl TryFrom<JsBuffer> for ASN1BitString {
+impl TryFrom<JsBuffer> for ASN1BitStringData {
     type Error = Error;
 
     /// Attempt to convert a JsBuffer instance into an ASN1BitString instance.
@@ -566,7 +592,7 @@ impl TryFrom<JsUnknown> for ASN1Object {
 
             Ok(match name.as_str() {
                 ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
-                ASN1BitString::TYPE => ASN1Object::BitString(ASN1BitString::try_from(obj)?),
+                ASN1BitStringData::TYPE => ASN1Object::BitString(ASN1BitStringData::try_from(obj)?),
                 ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
                 ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
                 _ => bail!(ASN1NAPIError::UnknownFieldProperty),

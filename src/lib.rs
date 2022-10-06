@@ -13,7 +13,7 @@ mod utils;
 pub use crate::asn1::ASN1;
 
 use anyhow::{bail, Result};
-use asn1::{ASN1Encoder, ASN1Iterator};
+use asn1::ASN1Encoder;
 use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
     bindgen_prelude::{Array, Buffer},
@@ -24,14 +24,14 @@ use rasn::ber::encode;
 use thiserror::Error;
 
 use objects::{
-    ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, TypedObject, ASN1OID,
+    ASN1BitStringData, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, TypedObject, ASN1OID,
 };
 use types::{ASN1Data, JsValue};
 use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
 
 /// Library errors
 #[derive(Error, Eq, PartialEq, Debug)]
-pub(crate) enum ASN1NAPIError {
+enum ASN1NAPIError {
     #[error("Unable to handle this JS input type")]
     UnknownJsArgument,
     #[error("Unable to handle this object")]
@@ -54,19 +54,24 @@ pub(crate) enum ASN1NAPIError {
     InvalidContextNonSequence,
 }
 
-/// Helper to convert a JS BigInt to a JS Buffer
-#[napi(strict, js_name = "ASN1BigIntToBuffer")]
-pub fn asn1_big_int_to_buffer(data: JsBigInt) -> Result<Buffer> {
+/// Helper to convert a JS bigint to a JS Buffer
+#[napi(strict, js_name = "BigIntToBuffer")]
+pub fn get_buffer_from_big_int(data: JsBigInt) -> Result<Buffer> {
     Ok(get_big_int_from_js(data.into_unknown()?)?
         .to_signed_bytes_be()
         .into())
 }
 
+/// Helper to convert a JS Buffer to a JS bigint
+#[napi(strict, js_name = "BufferToBigInt")]
+pub fn get_big_int_from_buffer(env: Env, data: Buffer) -> Result<JsBigInt> {
+    get_js_big_int_from_big_int(env, BigInt::from_signed_bytes_be(&data))
+}
+
 /// Helper to convert a JS number to a JS BigInt
-#[napi(strict, js_name = "ASN1IntegerToBigInt")]
-pub fn asn1_integer_to_big_int(env: Env, data: i64) -> Result<JsBigInt> {
-    let (bit, words) = get_words_from_big_int(BigInt::from(data));
-    Ok(env.create_bigint_from_words(bit, words)?)
+#[napi(strict, js_name = "IntegerToBigInt")]
+pub fn get_big_int_from_integer(env: Env, data: i64) -> Result<JsBigInt> {
+    get_js_big_int_from_big_int(env, BigInt::from(data))
 }
 
 /// Convert JS input into ASN1 BER encoded data.
@@ -103,11 +108,6 @@ pub fn asn1_to_js(
 /// Get a JsUnknown from an ASN1 object.
 fn get_asn1_data_to_js_unknown(env: Env, data: ASN1Data) -> Result<JsUnknown> {
     JsUnknown::try_from(JsValue::try_from((env, data))?)
-}
-
-/// Get an Array from an ASNIterator.
-pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASN1Iterator) -> Result<Array> {
-    get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(data)?)
 }
 
 /// Get an Array from a Vec<ASN1Data>.
@@ -160,7 +160,6 @@ pub(crate) fn get_js_context_tag_from_asn1_context(
     ))
 }
 
-/// TODO Convert to TryFrom in object module
 /// Get a JsObject from an ANS1Object.
 /// Note: Wrapping native objects results in empty JS objects.
 fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
@@ -196,7 +195,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
         ASN1Object::BitString(val) => {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_TYPE_KEY,
-                env.create_string(ASN1BitString::TYPE)?,
+                env.create_string(ASN1BitStringData::TYPE)?,
             )?;
             obj.set_named_property::<JsBuffer>(
                 ASN1_OBJECT_VALUE_KEY,

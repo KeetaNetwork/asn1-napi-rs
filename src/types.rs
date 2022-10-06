@@ -12,9 +12,9 @@ use rasn::{
 
 use crate::{
     asn1::{ASN1Iterator, ASN1},
-    asn1_integer_to_big_int, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
+    get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
     get_js_obj_from_asn_object,
-    objects::{ASN1BitString, ASN1Object, ASN1OID},
+    objects::{ASN1BitStringData, ASN1Object, ASN1OID},
     utils::{
         get_array_from_js, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
         get_fixed_date_from_js, get_integer_from_js, get_string_from_js, get_utf16_from_string,
@@ -118,13 +118,13 @@ impl TryFrom<ASN1> for ASN1Data {
         Ok(match value.get_js_type() {
             JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
             JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
-            JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
+            JsType::BigInt => ASN1Data::BigInt(value.get_big_integer()?),
             JsType::String => ASN1Data::String(value.into_string()?),
             JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
             JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
-            JsType::Object => ASN1Data::Object(value.into_object()?),
+            JsType::Object => ASN1Data::Object(value.get_object()?),
             JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
-            JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
+            JsType::Unknown => ASN1Data::Unknown(value.get_any()?),
             JsType::Undefined | JsType::Null => ASN1Data::Null,
         })
     }
@@ -150,7 +150,7 @@ impl TryFrom<&Open> for ASN1Data {
                 ASN1Data::Object(ASN1Object::Oid(ASN1OID::try_from(data.to_vec())?))
             }
             Open::BitString(data) => {
-                ASN1Data::Object(ASN1Object::BitString(ASN1BitString::from(data)))
+                ASN1Data::Object(ASN1Object::BitString(ASN1BitStringData::from(data)))
             }
             Open::Null => ASN1Data::Null,
         })
@@ -242,7 +242,7 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
         Ok(match data {
             ASN1Data::Boolean(val) => JsValue::Boolean(env.get_boolean(val)?),
             //ASN1Data::Integer(val) => JsValue::Integer(env.create_int64(val)?),
-            ASN1Data::Integer(val) => JsValue::BigInt(asn1_integer_to_big_int(env, val)?),
+            ASN1Data::Integer(val) => JsValue::BigInt(get_big_int_from_integer(env, val)?),
             ASN1Data::BigInt(val) => JsValue::BigInt(get_js_big_int_from_big_int(env, val)?),
             ASN1Data::String(val) => {
                 JsValue::String(env.create_string_utf16(get_utf16_from_string(val).as_ref())?)
@@ -289,7 +289,7 @@ impl TryFrom<ASN1> for ASN1Number {
     fn try_from(value: ASN1) -> Result<Self, Self::Error> {
         if let Ok(num) = value.into_integer() {
             Ok(ASN1Number::Integer(num))
-        } else if let Ok(num) = value.into_big_integer() {
+        } else if let Ok(num) = value.get_big_integer() {
             Ok(ASN1Number::BigInt(num))
         } else {
             bail!(ASN1NAPIError::MalformedData)

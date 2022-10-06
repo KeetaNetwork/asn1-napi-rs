@@ -2,7 +2,7 @@ use anyhow::{bail, Error, Result};
 use chrono::{DateTime, Utc};
 use napi::{
     bindgen_prelude::{Array, Buffer},
-    Env, JsArrayBuffer, JsBigInt, JsObject, JsUnknown,
+    Env, JsArrayBuffer, JsBigInt, JsUnknown,
 };
 use num_bigint::BigInt;
 use rasn::{
@@ -12,11 +12,13 @@ use rasn::{
 };
 
 use crate::{
-    get_js_array_buffer_from_asn1_data, get_js_array_from_asn_iter,
-    get_js_context_tag_from_asn1_context, get_js_obj_from_asn_object,
-    objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
+    get_js_array_buffer_from_asn1_data, get_js_array_from_asn_data, get_js_big_int_from_big_int,
+    get_js_context_tag_from_asn1_context,
+    objects::{
+        ASN1BitString, ASN1BitStringData, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID,
+    },
     types::{ASN1Data, JsType},
-    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown, get_words_from_big_int},
+    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
     ASN1NAPIError,
 };
 
@@ -73,7 +75,9 @@ impl ASN1Encoder {
 impl ASN1 {
     #[napi(constructor)]
     /// Js constructor
-    pub fn js_new(data: JsUnknown) -> Result<Self> {
+    pub fn js_new(
+        #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder")] data: JsUnknown,
+    ) -> Result<Self> {
         Ok(Self::new(get_vec_from_js_unknown(data)?))
     }
 
@@ -137,7 +141,7 @@ impl ASN1 {
     }
 
     /// Decode ASN1 encoded data.
-    pub fn decode<T: Decode>(&self) -> Result<T> {
+    pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
         if let Ok(data) = decode::<T>(&self.data) {
             Ok(data)
         } else {
@@ -146,28 +150,41 @@ impl ASN1 {
     }
 
     /// Decode into Any.
-    pub fn into_any(&self) -> Result<Any> {
+    pub(crate) fn get_any(&self) -> Result<Any> {
         self.decode::<Any>()
     }
 
     /// Decode an object to an ASN1Object.
-    pub fn into_object(&self) -> Result<ASN1Object> {
+    pub(crate) fn get_object(&self) -> Result<ASN1Object> {
         self.decode::<ASN1Object>()
     }
 
     /// Convert to a big integer.
-    pub fn into_big_integer(&self) -> Result<BigInt> {
+    pub(crate) fn get_big_integer(&self) -> Result<BigInt> {
         self.decode::<BigInt>()
     }
 
     /// Convert to an Context object.
-    pub fn into_context(&self) -> Result<ASN1Context> {
+    pub(crate) fn get_context(&self) -> Result<ASN1Context> {
         self.decode::<ASN1Context>()
     }
 
     /// Convert to a ASN1BitString object.
-    pub fn into_raw_bit_string(&self) -> Result<ASN1BitString> {
-        self.decode::<ASN1BitString>()
+    pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
+        self.decode::<ASN1BitStringData>()
+    }
+
+    /// Convert to a decoded Sequence.
+    pub fn into_sequence(&self) -> Result<Vec<ASN1Data>> {
+        if let Ok(sequence) = decode::<Vec<Any>>(&self.data) {
+            sequence
+                .iter()
+                .map(|ber| ASN1::try_from(ber.as_bytes()))
+                .map(|asn1| ASN1Data::try_from(asn1?))
+                .collect()
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
     }
 
     /// Convert to an integer.
@@ -179,8 +196,7 @@ impl ASN1 {
     /// Convert to a JS big integer.
     #[napi]
     pub fn into_big_int(&self, env: Env) -> Result<JsBigInt> {
-        let (bit, words) = get_words_from_big_int(self.decode::<BigInt>()?);
-        Ok(env.create_bigint_from_words(bit, words)?)
+        get_js_big_int_from_big_int(env, self.decode::<BigInt>()?)
     }
 
     /// Convert to a boolean.
@@ -221,8 +237,8 @@ impl ASN1 {
 
     /// Convert to a JS ASN1BitString object.
     #[napi]
-    pub fn into_bit_string(&self, env: Env) -> Result<JsObject> {
-        get_js_obj_from_asn_object(env, ASN1Object::BitString(self.into_raw_bit_string()?))
+    pub fn into_bit_string(&self, env: Env) -> Result<ASN1BitString> {
+        Ok(ASN1BitString::new(env, self.get_raw_bit_string()?.value))
     }
 
     /// Convert to an Set object.
@@ -234,26 +250,13 @@ impl ASN1 {
     /// Convert to an Context object.
     #[napi]
     pub fn into_context_tag(&self, env: Env) -> Result<ASN1ContextTag> {
-        get_js_context_tag_from_asn1_context(env, self.into_context()?)
+        get_js_context_tag_from_asn1_context(env, self.get_context()?)
     }
 
     /// Convert a Sequence to an Array.
-    #[napi]
+    #[napi(ts_return_type = "any[]")]
     pub fn into_array(&self, env: Env) -> Result<Array> {
-        get_js_array_from_asn_iter(env, &self.clone().into_iter())
-    }
-
-    /// Convert to a decoded Sequence.
-    pub fn into_sequence(&self) -> Result<Vec<ASN1Data>> {
-        if let Ok(sequence) = decode::<Vec<Any>>(&self.data) {
-            sequence
-                .iter()
-                .map(|ber| ASN1::try_from(ber.as_bytes()))
-                .map(|asn1| ASN1Data::try_from(asn1?))
-                .collect()
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(&self.clone().into_iter())?)
     }
 }
 
@@ -339,7 +342,7 @@ mod test {
     use num_bigint::BigInt;
 
     use crate::asn1::ASN1;
-    use crate::objects::ASN1BitString;
+    use crate::objects::ASN1BitStringData;
     use crate::objects::ASN1Context;
     use crate::objects::ASN1Object;
     use crate::objects::ASN1Set;
@@ -389,7 +392,7 @@ mod test {
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
-            obj.into_big_integer().unwrap(),
+            obj.get_big_integer().unwrap(),
             BigInt::from(18591708106338011145_i128)
         );
     }
@@ -449,8 +452,8 @@ mod test {
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
-            obj.into_raw_bit_string().unwrap(),
-            ASN1BitString::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
+            obj.get_raw_bit_string().unwrap(),
+            ASN1BitStringData::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
         );
     }
 
@@ -489,7 +492,7 @@ mod test {
             ]),
         ]);
 
-        assert_eq!(obj.into_context().unwrap(), ASN1Context::new(0, contents));
+        assert_eq!(obj.get_context().unwrap(), ASN1Context::new(0, contents));
     }
 
     #[test]

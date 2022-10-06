@@ -62,7 +62,7 @@ const TEST_DATES_ASN1 = [
     .buffer,
 ]
 
-const TEST_OIDS = [
+const TEST_OIDS: lib.ASN1OID[] = [
   { type: 'oid', oid: 'sha256' },
   { type: 'oid', oid: 'commonName' },
   { type: 'oid', oid: '1.2.3.4' },
@@ -74,7 +74,7 @@ const TEST_OIDS_ASN1 = [
   new Uint8Array([0x06, 0x03, 0x2a, 0x03, 0x04]).buffer,
 ]
 
-const TEST_CONTEXT_TAGS = [
+const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
   {
     type: 'context',
     value: 0,
@@ -103,6 +103,7 @@ const TEST_CONTEXT_TAGS = [
     contains: [{ type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' }, 100n],
   },
 ]
+
 const TEST_CONTEXT_TAGS_ASN1 = [
   new Uint8Array([
     0xa0, 0x53, 0x30, 0x51, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x08, 0x30, 0x44, 0x04, 0x20,
@@ -117,6 +118,51 @@ const TEST_CONTEXT_TAGS_ASN1 = [
     0x73, 0x74, 0x02, 0x01, 0x64,
   ]).buffer,
 ]
+
+function NodeASN1BigIntToBuffer(value: bigint | bigint): Buffer {
+  /**
+   * Convert value to Hex
+   */
+  let valueStr = value.toString(16)
+
+  /**
+   * Determine if the value is negative
+   */
+  let isNegative = false
+  if (valueStr[0] === '-') {
+    isNegative = true
+    valueStr = valueStr.slice(1)
+  }
+
+  /*
+   * Ensure there are an even number of hex digits
+   */
+  if (valueStr.length % 2 !== 0) {
+    valueStr = '0' + valueStr
+  }
+
+  /*
+   * Pad with a leading 0 byte if the MSB is 1 to avoid writing a
+   * negative number
+   */
+  const leader = valueStr.slice(0, 2)
+  const leaderValue = Number(`0x${leader}`)
+  if (!isNegative) {
+    if (leaderValue > 127) {
+      valueStr = '00' + valueStr
+    }
+  } else {
+    if (leaderValue <= 127) {
+      valueStr = 'FF' + valueStr
+    }
+  }
+
+  /*
+   * Convert to a buffer
+   */
+  const valueBuffer = Buffer.from(valueStr, 'hex')
+  return valueBuffer
+}
 
 test('JS boolean to ASN1 conversion', (t) => {
   t.deepEqual(lib.JStoASN1(true).toBER(), new Uint8Array([0x1, 0x1, 0xff]).buffer)
@@ -172,7 +218,7 @@ test('JS Buffer to ASN1 conversion', (t) => {
 
 test('JS bit string to ASN1 conversion', (t) => {
   const data = Buffer.from(new Uint8Array([0xa, 0x10, 20, 32, 9]))
-  const input = { type: 'bitstring', value: data }
+  const input: lib.ASN1BitString = { type: 'bitstring', value: data }
 
   t.deepEqual(lib.JStoASN1(input).toBER(), new Uint8Array([0x03, 0x06, 0x00, 0xa, 0x10, 0x14, 0x20, 0x9]).buffer)
 })
@@ -307,14 +353,18 @@ test('ASN1 to Js Date conversion from byte code', (t) => {
   const obj = new lib.Asn1([
     0x18, 0xf, 0x32, 0x30, 0x32, 0x32, 0x30, 0x39, 0x32, 0x36, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
   ])
+  const date = obj.intoDate()
 
-  t.deepEqual(obj.intoDate(), new Date('2022-09-26T10:00:00.000+00:00'))
+  t.true(date instanceof Date)
+  t.deepEqual(date, new Date('2022-09-26T10:00:00.000+00:00'))
 })
 
 test('ASN1 to Js Date conversion from base64', (t) => {
   const obj = lib.Asn1.fromBase64('GA8yMDIyMDkyNjEwMDAwMFo=')
+  const date = obj.intoDate()
 
-  t.deepEqual(obj.intoDate(), new Date('2022-09-26T10:00:00.000+00:00'))
+  t.true(date instanceof Date)
+  t.deepEqual(date, new Date('2022-09-26T10:00:00.000+00:00'))
 })
 
 test('ASN1 to Js Date conversion round trip', (t) => {
@@ -369,7 +419,10 @@ test('ASN1 to Js bit string conversion from base64', (t) => {
 })
 
 test('ASN1 to Js bit string conversion round trip', (t) => {
-  const input = { type: 'bitstring', value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64') }
+  const input: lib.ASN1BitString = {
+    type: 'bitstring',
+    value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+  }
   t.deepEqual(lib.ASN1toJS(lib.JStoASN1(input).toBER()), input)
 })
 
@@ -504,7 +557,21 @@ test('ASN1 to Js mixed array conversion round trip', (t) => {
 })
 
 test('JS integer to BigInt conversion helper', (t) => {
-  t.deepEqual(lib.ASN1IntegerToBigInt(42), BigInt('42'))
+  t.deepEqual(lib.IntegerToBigInt(42), BigInt('42'))
+})
+
+test('JS BigInt to Buffer conversion helper', (t) => {
+  TEST_BIG_INTEGERS.map((v) => {
+    const buffer = lib.BigIntToBuffer(v)
+    const nodeFuncVal = NodeASN1BigIntToBuffer(v)
+
+    // Node function has a bug with negative numbers.
+    if (v > 0) {
+      t.deepEqual(nodeFuncVal, buffer)
+    }
+
+    t.deepEqual(lib.BufferToBigInt(buffer), v)
+  })
 })
 
 test('Node ASN1 Tests', (t) => {
@@ -517,10 +584,13 @@ test('Node ASN1 Tests', (t) => {
     BigInt(0x7f),
     BigInt(0x80),
     BigInt('0x8bcbbf49c554d3f1b26e39005546b9f5910a12c5a61dc4cff707367a548264c2'),
-    { type: 'oid', oid: '1.2.3.4' },
-    { type: 'context', value: 3, contains: 42n },
-    { type: 'bitstring', value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64') },
-    { type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' },
+    { type: 'oid', oid: '1.2.3.4' } as lib.ASN1OID,
+    { type: 'context', value: 3, contains: 42n } as lib.ASN1ContextTag,
+    {
+      type: 'bitstring',
+      value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+    } as lib.ASN1BitString,
+    { type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' } as lib.ASN1Set,
     Buffer.from('This is a Test String!\uD83D\uDE03'),
     'This is a Test String!',
     'This is a Test String!\uD83D\uDE03',
@@ -533,7 +603,7 @@ test('Node ASN1 Tests', (t) => {
       type: 'context',
       value: 5,
       contains: [{ type: 'set', name: { type: 'oid', oid: '2.15216.1.999' }, value: 'Test' }, 100n],
-    },
+    } as lib.ASN1ContextTag,
   ]
 
   input.map((v) => {
@@ -549,4 +619,10 @@ test('Node ASN1 Tests', (t) => {
 
   t.deepEqual(js.intoArray(), input)
   t.deepEqual(lib.ASN1toJS(asn1.toBER()), input)
+})
+
+test('Error handling', (t) => {
+  const js = new lib.Asn1(Buffer.from('Never gonna give you up'))
+
+  t.throws(js.intoString)
 })
