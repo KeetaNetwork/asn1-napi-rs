@@ -2,7 +2,7 @@ use anyhow::{bail, Error, Result};
 use chrono::{DateTime, Utc};
 use napi::{
     bindgen_prelude::{Array, Buffer},
-    Env, JsBigInt, JsObject,
+    Env, JsArrayBuffer, JsBigInt, JsObject, JsUnknown,
 };
 use num_bigint::BigInt;
 use rasn::{
@@ -12,12 +12,11 @@ use rasn::{
 };
 
 use crate::{
-    get_js_obj_from_asn_object,
+    get_js_array_buffer_from_asn1_data, get_js_array_from_asn_iter,
+    get_js_context_tag_from_asn1_context, get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
     types::{ASN1Data, JsType},
-    utils::{
-        get_js_array_from_asn_iter, get_utc_date_time_from_asn1_milli, get_words_from_big_int,
-    },
+    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown, get_words_from_big_int},
     ASN1NAPIError,
 };
 
@@ -30,6 +29,7 @@ pub struct ASN1 {
     data: Vec<u8>,
 }
 
+#[napi]
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ASNIterator {
     sequence: Vec<Any>,
@@ -37,16 +37,47 @@ pub struct ASNIterator {
     index: usize,
 }
 
+#[napi]
+pub struct ASN1Encoder(ASN1Data);
+
+#[napi]
 impl ASNIterator {
+    #[napi]
     pub fn len(&self) -> usize {
         self.length
     }
 }
 
 #[napi]
-impl ASN1 {
+impl ASN1Encoder {
     /// Create a new ANS1toJS instance from ASN1 encoded data.
     #[napi(constructor)]
+    pub fn new(
+        #[napi(
+            ts_arg_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+        )]
+        data: JsUnknown,
+    ) -> Result<Self> {
+        Ok(Self(ASN1Data::try_from(data)?))
+    }
+
+    /// Encode the ASN.1 data as an array buffer.
+    #[napi(js_name = "toBer")]
+    #[allow(unused_variables)]
+    pub fn to_ber(&self, env: Env, size_only: Option<bool>) -> Result<JsArrayBuffer> {
+        get_js_array_buffer_from_asn1_data(env, &self.0)
+    }
+}
+
+#[napi]
+impl ASN1 {
+    #[napi(constructor)]
+    /// Js constructor
+    pub fn js_new(data: JsUnknown) -> Result<Self> {
+        Ok(Self::new(get_vec_from_js_unknown(data)?))
+    }
+
+    /// Create a new ANS1toJS instance from ASN1 encoded data.
     pub fn new(data: Vec<u8>) -> Self {
         // Match constructed Sequence/Set tag
         let bit = match *data.first().unwrap_or(&0x5) as u32 {
@@ -203,7 +234,7 @@ impl ASN1 {
     /// Convert to an Context object.
     #[napi]
     pub fn into_context_tag(&self, env: Env) -> Result<ASN1ContextTag> {
-        ASN1ContextTag::try_from((env, self.into_context()?))
+        get_js_context_tag_from_asn1_context(env, self.into_context()?)
     }
 
     /// Convert a Sequence to an Array.

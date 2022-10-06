@@ -13,21 +13,21 @@ mod utils;
 pub use crate::asn1::ASN1;
 
 use anyhow::{bail, Result};
+use asn1::{ASN1Encoder, ASNIterator};
 use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
-    bindgen_prelude::Buffer, Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown,
-    ValueType,
+    bindgen_prelude::{Array, Buffer},
+    Env, JsArrayBuffer, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
 use rasn::ber::encode;
 use thiserror::Error;
 
-use objects::{ASN1BitString, ASN1Context, ASN1Object, ASN1Set, TypedObject, ASN1OID};
-use types::{ASN1Data, JsValue};
-use utils::{
-    get_big_int_from_js, get_buffer_from_js, get_js_uknown_from_asn_data, get_string_from_js,
-    get_vec_from_js, get_words_from_big_int,
+use objects::{
+    ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, TypedObject, ASN1OID,
 };
+use types::{ASN1Data, JsValue};
+use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
 
 /// Library errors
 #[derive(Error, Eq, PartialEq, Debug)]
@@ -71,66 +71,95 @@ pub fn asn1_integer_to_big_int(env: Env, data: i64) -> Result<JsBigInt> {
 
 /// Convert JS input into ASN1 BER encoded data.
 #[napi(strict, js_name = "JStoASN1")]
-pub fn js_to_asn1(data: JsUnknown) -> Result<Vec<u8>> {
-    if let Ok(data) = encode(&ASN1Data::try_from(data)?) {
-        Ok(data)
+pub fn js_to_asn1(
+    #[napi(
+        ts_arg_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+    )]
+    data: JsUnknown,
+) -> Result<ASN1Encoder> {
+    ASN1Encoder::new(data)
+}
+
+/// Convert ASN1 BER encoded data to JS native types.
+#[napi(
+    strict,
+    js_name = "ASN1toJS",
+    ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+)]
+pub fn asn1_to_js(
+    env: Env,
+    #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
+) -> Result<JsUnknown> {
+    let asn1 = match data.get_type()? {
+        ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,
+        ValueType::Null => ASN1::new(ASN1_NULL.to_owned()),
+        _ => ASN1::new(get_vec_from_js_unknown(data)?),
+    };
+
+    get_asn1_data_to_js_unknown(env, ASN1Data::try_from(asn1)?)
+}
+
+/// Get a JsUnknown from an ASN1 object.
+fn get_asn1_data_to_js_unknown(env: Env, data: ASN1Data) -> Result<JsUnknown> {
+    JsUnknown::try_from(JsValue::try_from((env, data))?)
+}
+
+/// Get an Array from an ASNIterator.
+pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASNIterator) -> Result<Array> {
+    get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(data)?)
+}
+
+/// Get an Array from a Vec<ASN1Data>.
+pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<Array> {
+    let mut array = env.create_array(data.len() as u32)?;
+
+    for (i, data) in data.iter().enumerate() {
+        array.set(i as u32, get_js_uknown_from_asn_data(env, data.to_owned())?)?;
+    }
+
+    Ok(array)
+}
+
+/// Get JsUnknown from an ASN1Data.
+pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
+    JsUnknown::try_from(JsValue::try_from((env, data))?)
+}
+
+/// Get a JsObject from a Vec<ASN1Data>.
+pub(crate) fn get_js_obj_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<JsObject> {
+    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
+}
+
+/// Get a JsBigInt from a BigInt.
+pub(crate) fn get_js_big_int_from_big_int(env: Env, data: BigInt) -> Result<JsBigInt> {
+    let (negative, words) = get_words_from_big_int(data);
+    Ok(env.create_bigint_from_words(negative, words)?)
+}
+
+/// Get a JsArrayBuffer from an ASN1 object.
+pub(crate) fn get_js_array_buffer_from_asn1_data(
+    env: Env,
+    data: &ASN1Data,
+) -> Result<JsArrayBuffer> {
+    if let Ok(data) = encode(data) {
+        Ok(env.create_arraybuffer_with_data(data)?.into_raw())
     } else {
         bail!(ASN1NAPIError::UnknownJsArgument)
     }
 }
 
-/// Convert ASN1 BER encoded data to JS native types.
-#[napi(strict, js_name = "ASN1toJS")]
-pub fn asn1_to_js(env: Env, data: JsUnknown) -> Result<JsUnknown> {
-    let asn1 = match data.get_type()? {
-        ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,
-        ValueType::Object if data.is_array()? => ASN1::new(get_vec_from_js(data)?),
-        ValueType::Object if data.is_buffer()? => ASN1::new(get_buffer_from_js(data)?),
-        ValueType::Null => ASN1::new(ASN1_NULL.to_owned()),
-        _ => bail!(ASN1NAPIError::UnknownJsArgument),
-    };
-
-    asn1_data_to_js_unknown(env, ASN1Data::try_from(asn1)?)
+/// Get an ASN1ContextTag from an ASN1Context.
+pub(crate) fn get_js_context_tag_from_asn1_context(
+    env: Env,
+    data: ASN1Context,
+) -> Result<ASN1ContextTag> {
+    Ok(ASN1ContextTag::new(
+        data.value,
+        get_js_uknown_from_asn_data(env, *data.contains)?,
+    ))
 }
 
-/// Get a JSUnknown from an ASN1 object.
-fn asn1_data_to_js_unknown(env: Env, data: ASN1Data) -> Result<JsUnknown> {
-    JsUnknown::try_from(JsValue::try_from((env, data))?)
-}
-
-/// Get a Vec<ASN1Data> from a JsUnknown.
-fn get_array_from_js(data: JsUnknown) -> Result<Vec<ASN1Data>> {
-    let obj = data.coerce_to_object()?;
-    let len = obj.get_array_length()?;
-    let mut result = Vec::new();
-
-    for i in 0..len {
-        result.push(ASN1Data::try_from(obj.get_element::<JsUnknown>(i)?)?);
-    }
-
-    Ok(result)
-}
-
-/// Get an ASN1Object from a JsUnknown.
-fn get_object_from_js(data: JsUnknown) -> Result<ASN1Object> {
-    let obj = data.coerce_to_object()?;
-    let field = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_TYPE_KEY)?;
-
-    if let Ok(ValueType::String) = field.get_type() {
-        let name = get_string_from_js(field)?;
-
-        Ok(match name.as_str() {
-            ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
-            ASN1BitString::TYPE => ASN1Object::BitString(ASN1BitString::try_from(obj)?),
-            ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
-            ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
-            _ => bail!(ASN1NAPIError::UnknownFieldProperty),
-        })
-    } else {
-        bail!(ASN1NAPIError::UnknownObject)
-    }
-}
-
+/// TODO Convert to TryFrom in object module
 /// Get a JsObject from an ANS1Object.
 /// Note: Wrapping native objects results in empty JS objects.
 fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {

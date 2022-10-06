@@ -23,7 +23,7 @@ export interface ASN1BitString {
 export interface ASN1ContextTag {
   type: string
   value: number
-  contains: unknown
+  contains: any
 }
 /** ANS1 Sequence. */
 export interface ASN1Sequence {
@@ -34,14 +34,44 @@ export function ASN1BigIntToBuffer(data: bigint): Buffer
 /** Helper to convert a JS number to a JS BigInt */
 export function ASN1IntegerToBigInt(data: number): bigint
 /** Convert JS input into ASN1 BER encoded data. */
-export function JStoASN1(data: unknown): Array<number>
+export function JStoASN1(
+  data:
+    | BigInt
+    | bigint
+    | number
+    | Date
+    | Buffer
+    | ASN1OID
+    | ASN1Set
+    | ASN1ContextTag
+    | ASN1BitString
+    | string
+    | boolean
+    | any[]
+    | null,
+): Asn1Encoder
 /** Convert ASN1 BER encoded data to JS native types. */
-export function ASN1toJS(data: unknown): unknown
+export function ASN1toJS(
+  data: string | null | number[] | Buffer | ArrayBuffer,
+):
+  | BigInt
+  | bigint
+  | number
+  | Date
+  | Buffer
+  | ASN1OID
+  | ASN1Set
+  | ASN1ContextTag
+  | ASN1BitString
+  | string
+  | boolean
+  | any[]
+  | null
 export type ASN1 = Asn1
 /** Convert ASN1 BER encoded data to JS native types. */
 export class Asn1 {
-  /** Create a new ANS1toJS instance from ASN1 encoded data. */
-  constructor(data: Array<number>)
+  /** Js constructor */
+  constructor(data: unknown)
   /** Create an instance of ANS1 from a buffer. */
   static fromBuffer(value: Buffer): this
   /** Create an instance of ANS1 from Base64 encoded data. */
@@ -72,4 +102,30 @@ export class Asn1 {
   intoContextTag(): ASN1ContextTag
   /** Convert a Sequence to an Array. */
   intoArray(): unknown[]
+}
+export type ASNIterator = AsnIterator
+export class AsnIterator {
+  len(): bigint
+}
+export type ASN1Encoder = Asn1Encoder
+export class Asn1Encoder {
+  /** Create a new ANS1toJS instance from ASN1 encoded data. */
+  constructor(
+    data:
+      | BigInt
+      | bigint
+      | number
+      | Date
+      | Buffer
+      | ASN1OID
+      | ASN1Set
+      | ASN1ContextTag
+      | ASN1BitString
+      | string
+      | boolean
+      | any[]
+      | null,
+  )
+  /** Encode the ASN.1 data as an array buffer. */
+  toBer(sizeOnly?: boolean | undefined | null): JsArrayBuffer
 }

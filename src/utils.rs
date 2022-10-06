@@ -3,18 +3,13 @@ use std::str::FromStr;
 use anyhow::{bail, Result};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-    bindgen_prelude::{Array, FromNapiValue},
-    Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown,
+    bindgen_prelude::FromNapiValue, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
+    JsUnknown, ValueType,
 };
 use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
-use crate::{
-    asn1::ASNIterator,
-    constants::ANS1_DATE_TIME_UTC_FORMAT,
-    types::{ASN1Data, JsValue},
-    ASN1NAPIError,
-};
+use crate::{constants::ANS1_DATE_TIME_UTC_FORMAT, types::ASN1Data, ASN1NAPIError};
 
 /// Get an ASN1 boolean from a JsUnknown.
 pub(crate) fn get_boolean_from_js(data: JsUnknown) -> Result<bool> {
@@ -48,25 +43,14 @@ pub(crate) fn get_buffer_from_js(data: JsUnknown) -> Result<Vec<u8>> {
     Ok(JsBuffer::from_unknown(data)?.into_value()?.to_vec())
 }
 
+/// Get a Vec<u8> via a JsArrayBuffer from a JsUnknown.
+pub(crate) fn get_array_buffer_from_js(data: JsUnknown) -> Result<Vec<u8>> {
+    Ok(JsArrayBuffer::from_unknown(data)?.into_value()?.to_vec())
+}
+
 /// Get a Vec<u8> from a JsUnknown.
 pub(crate) fn get_vec_from_js(data: JsUnknown) -> Result<Vec<u8>> {
     Ok(Vec::<u8>::from_unknown(data)?)
-}
-
-/// Get an Array from an ASNIterator.
-pub(crate) fn get_js_array_from_asn_iter(env: Env, data: &ASNIterator) -> Result<Array> {
-    get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(data)?)
-}
-
-/// Get an Array from a Vec<ASN1Data>.
-pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<Array> {
-    let mut array = env.create_array(data.len() as u32)?;
-
-    for (i, data) in data.iter().enumerate() {
-        array.set(i as u32, get_js_uknown_from_asn_data(env, data.to_owned())?)?;
-    }
-
-    Ok(array)
 }
 
 /// Get a Vec<u32> of the numbers in an OID string.
@@ -109,21 +93,6 @@ pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     (sign == Sign::Minus, words)
 }
 
-pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
-    JsUnknown::try_from(JsValue::try_from((env, data))?)
-}
-
-/// Get a JsObject from a Vec<ASN1Data>.
-pub(crate) fn get_js_obj_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<JsObject> {
-    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
-}
-
-/// Get a JsBigInt from a BigInt.
-pub(crate) fn get_js_big_int_from_big_int(env: Env, data: BigInt) -> Result<JsBigInt> {
-    let (negative, words) = get_words_from_big_int(data);
-    Ok(env.create_bigint_from_words(negative, words)?)
-}
-
 /// Helper for handling date/times with milliseconds
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
     let mut decoder = rasn::ber::de::Decoder::new(data.as_ref(), DecoderOptions::ber());
@@ -137,6 +106,30 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
     } else {
         bail!(ASN1NAPIError::MalformedData)
     }
+}
+
+/// Get a Vec<ASN1Data> from a JsUnknown.
+pub(crate) fn get_array_from_js(data: JsUnknown) -> Result<Vec<ASN1Data>> {
+    let obj = data.coerce_to_object()?;
+    let len = obj.get_array_length()?;
+    let mut result = Vec::new();
+
+    for i in 0..len {
+        result.push(ASN1Data::try_from(obj.get_element::<JsUnknown>(i)?)?);
+    }
+
+    Ok(result)
+}
+
+/// Get a Vec<u8> from a JsUnknown.
+pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
+    Ok(match data.get_type()? {
+        ValueType::Object if data.is_array()? => get_vec_from_js(data)?,
+        ValueType::Object if data.is_buffer()? => get_buffer_from_js(data)?,
+        // There is no check for is_array_buffer in NAPI
+        // TODO create a pull request for them
+        _ => get_array_buffer_from_js(data)?,
+    })
 }
 
 #[cfg(test)]

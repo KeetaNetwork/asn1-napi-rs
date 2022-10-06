@@ -12,12 +12,12 @@ use rasn::{
 
 use crate::{
     asn1::{ASNIterator, ASN1},
-    asn1_integer_to_big_int, get_array_from_js, get_js_obj_from_asn_object, get_object_from_js,
+    asn1_integer_to_big_int, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
+    get_js_obj_from_asn_object,
     objects::{ASN1BitString, ASN1Object, ASN1OID},
     utils::{
-        get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_fixed_date_from_js,
-        get_integer_from_js, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-        get_string_from_js, get_utf16_from_string,
+        get_array_from_js, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
+        get_fixed_date_from_js, get_integer_from_js, get_string_from_js, get_utf16_from_string,
     },
     ASN1NAPIError,
 };
@@ -102,8 +102,8 @@ impl From<Tag> for JsType {
             Tag::OBJECT_IDENTIFIER => JsType::Object,
             Tag::SET => JsType::Object,
             context => match context.class {
-                Class::Universal => JsType::Unknown,
                 Class::Context => JsType::Object,
+                Class::Universal => JsType::Unknown,
                 Class::Application => todo!(),
                 Class::Private => todo!(),
             },
@@ -127,26 +127,6 @@ impl TryFrom<ASN1> for ASN1Data {
             JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
             JsType::Undefined | JsType::Null => ASN1Data::Null,
         })
-    }
-}
-
-impl From<ASN1Data> for Vec<ASN1Data> {
-    fn from(data: ASN1Data) -> Self {
-        match data {
-            ASN1Data::Array(data) => data,
-            data => vec![data],
-        }
-    }
-}
-
-impl From<Vec<ASN1Data>> for ASN1Data {
-    fn from(data: Vec<ASN1Data>) -> Self {
-        match data.get(0) {
-            Some(ASN1Data::Array(x)) if x.len() == 1 => ASN1Data::Array(x.to_owned()),
-            Some(x) if data.len() == 1 => x.to_owned(),
-            None => ASN1Data::Null,
-            _ => ASN1Data::Array(data),
-        }
     }
 }
 
@@ -197,7 +177,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
             ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
             ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
             ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
-            ValueType::Object => ASN1Data::Object(get_object_from_js(value)?),
+            ValueType::Object => ASN1Data::Object(ASN1Object::try_from(value)?),
             ValueType::Null => ASN1Data::Null,
             _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
         })
@@ -236,7 +216,7 @@ impl TryFrom<&ASN1Data> for Open {
             ASN1Data::Date(data) => Open::GeneralizedTime(data),
             ASN1Data::Object(data) => match data {
                 ASN1Object::BitString(data) => Open::BitString(BitString::from_vec(data.value)),
-                ASN1Object::Oid(data) => Open::ObjectIdentifier(ObjectIdentifier::from(data)),
+                ASN1Object::Oid(data) => Open::ObjectIdentifier(ObjectIdentifier::try_from(data)?),
                 _ => bail!(ASN1NAPIError::InvalidSimpleTypesOnly),
             },
             ASN1Data::Null => Open::Null,

@@ -1,19 +1,17 @@
 use anyhow::{bail, Error, Result};
-use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown};
+use napi::{JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
     ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{BitString, Class, ConstOid, ObjectIdentifier, Oid, Open, PrintableString},
+    types::{BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
 use crate::{
     constants::*,
     types::ASN1Data,
-    utils::{
-        get_js_uknown_from_asn_data, get_oid_elements_from_string, get_string_from_oid_elements,
-    },
+    utils::{get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements},
     ASN1NAPIError, ASN1,
 };
 
@@ -106,6 +104,7 @@ pub struct ASN1BitString {
 pub struct ASN1ContextTag {
     pub r#type: &'static str,
     pub value: u32,
+    #[napi(ts_type = "any")]
     pub contains: JsUnknown,
 }
 
@@ -192,11 +191,22 @@ impl ASN1Set {
 }
 
 impl ASN1Context {
-    /// Create a new instance of an ASN1Context from an i64 and ASN1Data.
+    /// Create a new instance of an ASN1Context from a number and ASN1Data.
     pub fn new(value: u32, data: ASN1Data) -> Self {
         Self {
             value,
             contains: Box::new(data),
+        }
+    }
+}
+
+impl ASN1ContextTag {
+    /// Create a new instance of an ASN1ContextTag from a number and JsUnknown.
+    pub fn new(value: u32, contains: JsUnknown) -> Self {
+        Self {
+            r#type: Self::TYPE,
+            value,
+            contains,
         }
     }
 }
@@ -375,16 +385,6 @@ impl AsRef<[u32]> for ASN1OID {
     }
 }
 
-impl From<ASN1OID> for ObjectIdentifier {
-    fn from(data: ASN1OID) -> Self {
-        if let Some(oid) = Oid::new(data.as_ref()) {
-            ObjectIdentifier::from(oid)
-        } else {
-            ObjectIdentifier::from(ConstOid(&[0]))
-        }
-    }
-}
-
 impl<'a> From<&'a [u8]> for ASN1BitString {
     /// Convert bytes into an ASN1BitString instance.
     fn from(value: &'a [u8]) -> Self {
@@ -406,17 +406,15 @@ impl From<BitString> for ASN1BitString {
     }
 }
 
-impl TryFrom<(Env, ASN1Context)> for ASN1ContextTag {
+impl TryFrom<ASN1OID> for ObjectIdentifier {
     type Error = Error;
 
-    fn try_from(value: (Env, ASN1Context)) -> Result<Self, Self::Error> {
-        let (env, data) = value;
-
-        Ok(Self {
-            r#type: Self::TYPE,
-            value: data.value,
-            contains: get_js_uknown_from_asn_data(env, *data.contains)?,
-        })
+    fn try_from(data: ASN1OID) -> Result<Self, Self::Error> {
+        if let Some(oid) = Oid::new(data.as_ref()) {
+            Ok(ObjectIdentifier::from(oid))
+        } else {
+            bail!(ASN1NAPIError::UnknownOid)
+        }
     }
 }
 
@@ -552,6 +550,29 @@ impl TryFrom<ASN1> for ASN1Context {
             value.get_tag().value / 0xa0,
             ASN1Data::try_from(value)?,
         ))
+    }
+}
+
+impl TryFrom<JsUnknown> for ASN1Object {
+    type Error = Error;
+
+    fn try_from(value: JsUnknown) -> Result<Self, Self::Error> {
+        let obj = value.coerce_to_object()?;
+        let field = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_TYPE_KEY)?;
+
+        if let Ok(ValueType::String) = field.get_type() {
+            let name = get_string_from_js(field)?;
+
+            Ok(match name.as_str() {
+                ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
+                ASN1BitString::TYPE => ASN1Object::BitString(ASN1BitString::try_from(obj)?),
+                ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
+                ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
+                _ => bail!(ASN1NAPIError::UnknownFieldProperty),
+            })
+        } else {
+            bail!(ASN1NAPIError::UnknownObject)
+        }
     }
 }
 
