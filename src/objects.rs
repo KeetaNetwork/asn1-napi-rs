@@ -385,13 +385,19 @@ impl Encode for ASN1Data {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
         match self {
             ASN1Data::Array(arr) => arr.encode(encoder),
+            ASN1Data::Unknown(any) => any.encode(encoder),
             ASN1Data::Object(obj) => match obj {
                 ASN1Object::Oid(oid) => oid.encode(encoder),
                 ASN1Object::BitString(bstring) => bstring.encode(encoder),
                 ASN1Object::Set(set) => set.encode(encoder),
                 ASN1Object::Context(context) => context.encode(encoder),
             },
-            ASN1Data::Unknown(any) => any.encode(encoder),
+            // rasn library does not encode milliseconds
+            // TODO make a pull request for them
+            ASN1Data::Date(date) => date
+                .format(ANS1_DATE_TIME_UTC_FORMAT)
+                .to_string()
+                .encode_with_tag(encoder, Tag::GENERALIZED_TIME),
             _ => {
                 if let Ok(open) = Open::try_from(self) {
                     open.encode(encoder)

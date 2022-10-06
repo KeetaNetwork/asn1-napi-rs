@@ -42,7 +42,9 @@ pub(crate) fn get_string_from_oid_elements<T: AsRef<[u32]>>(value: T) -> Result<
 pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
     let js_date = JsDate::try_from(data)?;
     let timestamp = js_date.value_of()? as i64;
-    let naive = NaiveDateTime::from_timestamp(timestamp / 1000, (timestamp % 1000) as u32);
+    let ts_secs = timestamp / 1000;
+    let ts_ns = ((timestamp % 1000) * 1_000_000) as u32;
+    let naive = NaiveDateTime::from_timestamp(ts_secs, ts_ns);
 
     Ok(DateTime::<FixedOffset>::from_utc(
         naive,
