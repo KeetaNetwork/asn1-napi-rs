@@ -88,7 +88,8 @@ pub fn js_to_asn1(
 )]
 pub fn asn1_to_js(
     env: Env,
-    #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
+    #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder")]
+    data: JsUnknown,
 ) -> Result<JsUnknown> {
     let asn1 = match data.get_type()? {
         ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,

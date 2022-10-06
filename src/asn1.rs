@@ -62,8 +62,8 @@ impl ASN1Encoder {
     }
 
     /// Encode the ASN.1 data as an array buffer.
-    #[napi(js_name = "toBer")]
     #[allow(unused_variables)]
+    #[napi(js_name = "toBER", ts_return_type = "ArrayBuffer")]
     pub fn to_ber(&self, env: Env, size_only: Option<bool>) -> Result<JsArrayBuffer> {
         get_js_array_buffer_from_asn1_data(env, &self.0)
     }
@@ -116,19 +116,19 @@ impl ASN1 {
 
     /// Create an instance of ANS1 from a buffer.
     #[napi]
-    pub fn from_buffer(value: Buffer) -> Result<Self> {
+    pub fn from_buffer(value: Buffer) -> Result<ASN1> {
         Self::try_from(Vec::<u8>::from(value))
     }
 
     /// Create an instance of ANS1 from Base64 encoded data.
     #[napi]
-    pub fn from_base64(value: String) -> Result<Self> {
+    pub fn from_base64(value: String) -> Result<ASN1> {
         Self::try_from(value)
     }
 
     /// Create an instance of ANS1 from hex encoded data
     #[napi]
-    pub fn from_hex(value: String) -> Result<Self> {
+    pub fn from_hex(value: String) -> Result<ASN1> {
         if let Ok(result) = hex::decode(value) {
             Self::try_from(result.as_slice())
         } else {
