@@ -1,7 +1,7 @@
 name: Publish
 env:
-  SCOPE_NAME: "@keetapay"
-on:  
+  SCOPE_NAME: '@keetapay'
+on:
   push:
     tags:
       - '1.*'
@@ -9,17 +9,9 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       contents: read
-      packages: write 
-    needs:
-      - build-freebsd
-      - test-macOS-windows-binding
-      - test-linux-x64-gnu-binding
-      - test-linux-x64-musl-binding
-      - test-linux-aarch64-gnu-binding
-      - test-linux-aarch64-musl-binding
-      - test-linux-arm-gnueabihf-binding
+      packages: write
     steps:
       - uses: actions/checkout@v3
       - name: Setup node
@@ -29,7 +21,7 @@ jobs:
           check-latest: true
           cache: yarn
           registry-url: 'https://npm.pkg.github.com'
-          scope: "$SCOPE_NAME"
+          scope: '$SCOPE_NAME'
       - name: Cache NPM dependencies
         uses: actions/cache@v3
         with:
