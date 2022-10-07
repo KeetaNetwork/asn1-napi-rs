@@ -35,10 +35,12 @@ export function BigIntToBuffer(data: bigint): Buffer
 export function BufferToBigInt(data: Buffer): bigint
 /** Helper to convert a JS number to a JS BigInt */
 export function IntegerToBigInt(data: number): bigint
+/** Helper to convert a JS string to a JS BigInt */
+export function StringToBigInt(data: string): bigint
 /** Convert JS input into ASN1 BER encoded data. */
 export function JStoASN1(data: BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null): Asn1Encoder
 /** Convert ASN1 BER encoded data to JS native types. */
-export function ASN1toJS(data: string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder): BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null
+export function ASN1toJS(data: string | null | number[] | Buffer | ArrayBuffer): BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null
 export type ASN1 = Asn1
 /** Convert ASN1 BER encoded data to JS native types. */
 export class Asn1 {

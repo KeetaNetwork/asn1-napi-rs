@@ -218,8 +218,17 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { Asn1, Asn1Iterator, Asn1Encoder, BigIntToBuffer, BufferToBigInt, IntegerToBigInt, JStoASN1, ASN1toJS } =
-  nativeBinding
+const {
+  Asn1,
+  Asn1Iterator,
+  Asn1Encoder,
+  BigIntToBuffer,
+  BufferToBigInt,
+  IntegerToBigInt,
+  StringToBigInt,
+  JStoASN1,
+  ASN1toJS,
+} = nativeBinding
 
 module.exports.Asn1 = Asn1
 module.exports.Asn1Iterator = Asn1Iterator
@@ -227,5 +236,6 @@ module.exports.Asn1Encoder = Asn1Encoder
 module.exports.BigIntToBuffer = BigIntToBuffer
 module.exports.BufferToBigInt = BufferToBigInt
 module.exports.IntegerToBigInt = IntegerToBigInt
+module.exports.StringToBigInt = StringToBigInt
 module.exports.JStoASN1 = JStoASN1
 module.exports.ASN1toJS = ASN1toJS

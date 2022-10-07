@@ -578,6 +578,57 @@ test('JS BigInt to Buffer conversion helper', (t) => {
   })
 })
 
+test('JS string to BigInt conversion helper', (t) => {
+  TEST_BIG_INTEGERS.map((v) => {
+    t.deepEqual(lib.StringToBigInt(v.toString()), v)
+  })
+})
+
+test('Complex structure', (t) => {
+  const input = [
+    [
+      { type: 'context', value: 0, contains: 2n } as lib.ASN1ContextTag,
+      1n,
+      [{ type: 'oid', oid: 'sha3-256WithEcDSA' } as lib.ASN1OID],
+      [
+        {
+          type: 'set',
+          name: { type: 'oid', oid: 'commonName' } as lib.ASN1OID,
+          value: 'keeta_aaaervzquo7sam2j4vrnmbwpln6dugaty37qqlduylti6pejpuu3xeohxxbupge',
+        } as lib.ASN1Set,
+      ],
+      [new Date('2022-09-26T10:10:32.420+00:00')],
+      [{ type: 'set', name: { type: 'oid', oid: 'serialNumber' } as lib.ASN1OID, value: '1' }],
+      [
+        [{ type: 'oid', oid: 'ecdsa' } as lib.ASN1OID, { type: 'oid', oid: 'secp256k1' } as lib.ASN1OID],
+        {
+          type: 'bitstring',
+          value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+        } as lib.ASN1BitString,
+      ],
+      {
+        type: 'context',
+        value: 3,
+        contains: [
+          { type: 'oid', oid: 'sha3-256WithEcDSA' } as lib.ASN1OID,
+          true,
+          Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+        ],
+      } as lib.ASN1ContextTag,
+    ],
+    [{ type: 'oid', oid: 'sha3-256WithEcDSA' }],
+    {
+      type: 'bitstring',
+      value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+    } as lib.ASN1BitString,
+  ]
+
+  const ber = lib.JStoASN1(input).toBER()
+  const data = lib.ASN1toJS(ber)
+
+  t.deepEqual(data, input)
+})
+
 test('Node ASN1 Tests', (t) => {
   const integers = [-1, -0x7f, -0x80, -0xffffff, -0x7fffff]
   const input = [

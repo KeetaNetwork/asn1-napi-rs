@@ -10,6 +10,8 @@ mod objects;
 mod types;
 mod utils;
 
+use std::str::FromStr;
+
 pub use crate::asn1::ASN1;
 
 use anyhow::{bail, Result};
@@ -74,6 +76,12 @@ pub fn get_big_int_from_integer(env: Env, data: i64) -> Result<JsBigInt> {
     get_js_big_int_from_big_int(env, BigInt::from(data))
 }
 
+/// Helper to convert a JS string to a JS BigInt
+#[napi(strict, js_name = "StringToBigInt")]
+pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
+    get_js_big_int_from_big_int(env, BigInt::from_str(&data)?)
+}
+
 /// Convert JS input into ASN1 BER encoded data.
 #[napi(strict, js_name = "JStoASN1")]
 pub fn js_to_asn1(
@@ -101,11 +109,11 @@ pub fn asn1_to_js(
         _ => ASN1::new(get_vec_from_js_unknown(data)?),
     };
 
-    get_asn1_data_to_js_unknown(env, ASN1Data::try_from(asn1)?)
+    get_js_unknown_from_asn1_data(env, ASN1Data::try_from(asn1)?)
 }
 
 /// Get a JsUnknown from an ASN1 object.
-fn get_asn1_data_to_js_unknown(env: Env, data: ASN1Data) -> Result<JsUnknown> {
+fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
     JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
