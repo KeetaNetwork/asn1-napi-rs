@@ -6,4 +6,5 @@ cargo fmt
 cargo test --all
 cargo clippy --fix --allow-staged
 cargo doc --no-deps
+yarn build
 yarn test
