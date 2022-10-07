@@ -19,8 +19,10 @@ hex = "0.4.3"
 phf = { version = "0.11.1", features = ["macros"] }
 num-bigint = "0.4.3"
 
-[dev-dependencies]
-cargo-husky = {version = "1.5.0", features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]}
+[dev-dependencies.cargo-husky]
+version = "1.5.0"
+default-features = false
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
 
 [build-dependencies]
 napi-build = "2"
