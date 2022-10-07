@@ -5,6 +5,7 @@
   "author": "Tanveer Wahid <twahid@keeta.com>",
   "description": "KeetaPay ASN.1 TypeScript-Rust NAPI library",
   "main": "index.js",
+  "types": "index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/KeetaPay/asn1-napi-rs.git"
