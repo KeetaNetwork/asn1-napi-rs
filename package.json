@@ -1,9 +1,12 @@
 {
   "name": "@keetapay/asn1-napi-rs",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Template project for writing node package with napi-rs",
   "main": "index.js",
-  "repository": "git@github.com:KeetaPay/asn1-napi-rs.git",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/KeetaPay/asn1-napi-rs.git"
+  },
   "license": "MIT",
   "keywords": [],
   "files": [
@@ -33,7 +36,7 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "access": "restricted"
   },
   "scripts": {
     "artifacts": "napi artifacts",
@@ -97,5 +100,10 @@
   "packageManager": "yarn@3.2.3",
   "dependencies": {
     "@napi-rs/package-template": "^1.0.0"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/KeetaPay/asn1-napi-rs/issues"
+  },
+  "homepage": "https://github.com/KeetaPay/asn1-napi-rs#readme",
+  "author": "Tanveer Wahid <twahid@keeta.com>"
 }
