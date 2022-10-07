@@ -500,7 +500,9 @@ jobs:
         run: ls -R ./npm
         shell: bash
       - name: Configure NPM
-        run: echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
+          echo "npmAuthToken: \"$NODE_AUTH_TOKEN\"" >> .yarnrc.yml
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
