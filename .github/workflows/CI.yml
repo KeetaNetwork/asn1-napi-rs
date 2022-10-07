@@ -504,6 +504,6 @@ jobs:
       - name: Publish
         run: |
           yarn
-          npm publish
+          yarn npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
