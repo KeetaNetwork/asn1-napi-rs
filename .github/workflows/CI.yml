@@ -482,7 +482,6 @@ jobs:
           node-version: 16
           check-latest: true
           cache: yarn
-          registry-url: 'https://npm.pkg.github.com'
           scope: '$SCOPE_NAME'
       - name: Cache NPM dependencies
         uses: actions/cache@v3
@@ -505,6 +504,6 @@ jobs:
       - name: Publish
         run: |
           yarn
-          yarn publish
+          npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
