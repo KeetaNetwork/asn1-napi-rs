@@ -139,8 +139,17 @@ mod test {
     use chrono::{TimeZone, Utc};
     use num_bigint::BigInt;
 
+    use super::get_oid_elements_from_string;
     use super::get_utc_date_time_from_asn1_milli;
     use super::get_words_from_big_int;
+
+    #[test]
+    fn test_get_oid_elements_from_string() {
+        assert_eq!(
+            get_oid_elements_from_string("2.5.4.5").unwrap(),
+            vec![2, 5, 4, 5]
+        );
+    }
 
     #[test]
     fn test_get_words_from_big_int() {
