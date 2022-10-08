@@ -6,6 +6,7 @@ extern crate phf;
 
 mod asn1;
 mod constants;
+mod macros;
 mod objects;
 mod types;
 mod utils;
