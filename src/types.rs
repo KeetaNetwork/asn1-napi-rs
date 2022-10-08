@@ -118,13 +118,13 @@ impl TryFrom<ASN1> for ASN1Data {
         Ok(match value.get_js_type() {
             JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
             JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
-            JsType::BigInt => ASN1Data::BigInt(value.get_big_integer()?),
+            JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
             JsType::String => ASN1Data::String(value.into_string()?),
             JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
             JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
-            JsType::Object => ASN1Data::Object(value.get_object()?),
+            JsType::Object => ASN1Data::Object(value.into_object()?),
             JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
-            JsType::Unknown => ASN1Data::Unknown(value.get_any()?),
+            JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
             JsType::Undefined | JsType::Null => ASN1Data::Null,
         })
     }
@@ -289,7 +289,7 @@ impl TryFrom<ASN1> for ASN1Number {
     fn try_from(value: ASN1) -> Result<Self, Self::Error> {
         if let Ok(num) = value.into_integer() {
             Ok(ASN1Number::Integer(num))
-        } else if let Ok(num) = value.get_big_integer() {
+        } else if let Ok(num) = value.into_big_integer() {
             Ok(ASN1Number::BigInt(num))
         } else {
             bail!(ASN1NAPIError::MalformedData)

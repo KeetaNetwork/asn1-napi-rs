@@ -73,8 +73,8 @@ impl ASN1Encoder {
 
 #[napi]
 impl ASN1 {
-    #[napi(constructor)]
     /// Js constructor
+    #[napi(constructor)]
     pub fn js_new(
         #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder")] data: JsUnknown,
     ) -> Result<Self> {
@@ -150,27 +150,27 @@ impl ASN1 {
     }
 
     /// Decode into Any.
-    pub(crate) fn get_any(&self) -> Result<Any> {
+    pub(crate) fn into_any(self) -> Result<Any> {
         self.decode::<Any>()
     }
 
     /// Decode an object to an ASN1Object.
-    pub(crate) fn get_object(&self) -> Result<ASN1Object> {
+    pub(crate) fn into_object(self) -> Result<ASN1Object> {
         self.decode::<ASN1Object>()
     }
 
     /// Convert to a big integer.
-    pub(crate) fn get_big_integer(&self) -> Result<BigInt> {
+    pub(crate) fn into_big_integer(self) -> Result<BigInt> {
         self.decode::<BigInt>()
     }
 
     /// Convert to an Context object.
-    pub(crate) fn get_context(&self) -> Result<ASN1Context> {
+    pub(crate) fn into_context(&self) -> Result<ASN1Context> {
         self.decode::<ASN1Context>()
     }
 
     /// Convert to a ASN1BitString object.
-    pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
+    pub(crate) fn into_raw_bit_string(&self) -> Result<ASN1BitStringData> {
         self.decode::<ASN1BitStringData>()
     }
 
@@ -205,7 +205,6 @@ impl ASN1 {
         self.decode::<bool>()
     }
 
-    /// Convert to a string.
     #[napi]
     pub fn into_string(&self) -> Result<String> {
         Ok(self.decode::<PrintableString>()?.as_str().into())
@@ -238,7 +237,7 @@ impl ASN1 {
     /// Convert to a JS ASN1BitString object.
     #[napi]
     pub fn into_bit_string(&self, env: Env) -> Result<ASN1BitString> {
-        Ok(ASN1BitString::new(env, self.get_raw_bit_string()?.value))
+        Ok(ASN1BitString::new(env, self.into_raw_bit_string()?.value))
     }
 
     /// Convert to an Set object.
@@ -250,7 +249,7 @@ impl ASN1 {
     /// Convert to an Context object.
     #[napi]
     pub fn into_context_tag(&self, env: Env) -> Result<ASN1ContextTag> {
-        get_js_context_tag_from_asn1_context(env, self.get_context()?)
+        get_js_context_tag_from_asn1_context(env, self.into_context()?)
     }
 
     /// Convert a Sequence to an Array.
@@ -392,7 +391,7 @@ mod test {
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
-            obj.get_big_integer().unwrap(),
+            obj.into_big_integer().unwrap(),
             BigInt::from(18591708106338011145_i128)
         );
     }
@@ -452,7 +451,7 @@ mod test {
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
-            obj.get_raw_bit_string().unwrap(),
+            obj.into_raw_bit_string().unwrap(),
             ASN1BitStringData::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
         );
     }
@@ -492,7 +491,7 @@ mod test {
             ]),
         ]);
 
-        assert_eq!(obj.get_context().unwrap(), ASN1Context::new(0, contents));
+        assert_eq!(obj.into_context().unwrap(), ASN1Context::new(0, contents));
     }
 
     #[test]
