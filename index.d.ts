@@ -75,7 +75,9 @@ export type ASN1 = Asn1
 /** Convert ASN1 BER encoded data to JS native types. */
 export class Asn1 {
   /** Js constructor */
-  constructor(data: string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder)
+  constructor(
+    data: string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder,
+  )
   /** Create an instance of ANS1 from a buffer. */
   static fromBuffer(value: Buffer): Asn1
   /** Create an instance of ANS1 from Base64 encoded data. */
