@@ -205,6 +205,7 @@ impl ASN1 {
         self.decode::<bool>()
     }
 
+    /// Convert to a string.
     #[napi]
     pub fn into_string(&self) -> Result<String> {
         Ok(self.decode::<PrintableString>()?.as_str().into())

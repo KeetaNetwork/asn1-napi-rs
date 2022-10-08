@@ -88,7 +88,6 @@ export class Asn1 {
   intoBigInt(): bigint
   /** Convert to a boolean. */
   intoBool(): boolean
-  /** Convert to a string. */
   intoString(): string
   /** Convert to a date. */
   intoDate(): Date
