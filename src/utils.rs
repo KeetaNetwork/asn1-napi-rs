@@ -139,9 +139,16 @@ mod test {
     use chrono::{TimeZone, Utc};
     use num_bigint::BigInt;
 
+    use crate::utils::get_utf16_from_string;
+
     use super::get_oid_elements_from_string;
     use super::get_utc_date_time_from_asn1_milli;
     use super::get_words_from_big_int;
+
+    #[test]
+    fn test_get_utf16_from_string() {
+        assert_eq!(get_utf16_from_string("test"), vec![0x74, 0x65, 0x73, 0x74]);
+    }
 
     #[test]
     fn test_get_oid_elements_from_string() {
