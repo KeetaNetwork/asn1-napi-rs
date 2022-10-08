@@ -142,6 +142,7 @@ mod test {
     use crate::utils::get_utf16_from_string;
 
     use super::get_oid_elements_from_string;
+    use super::get_string_from_oid_elements;
     use super::get_utc_date_time_from_asn1_milli;
     use super::get_words_from_big_int;
 
@@ -155,6 +156,14 @@ mod test {
         assert_eq!(
             get_oid_elements_from_string("2.5.4.5").unwrap(),
             vec![2, 5, 4, 5]
+        );
+    }
+
+    #[test]
+    fn test_get_string_from_oid_elements() {
+        assert_eq!(
+            get_string_from_oid_elements(&[2, 5, 4, 5]).unwrap(),
+            "2.5.4.5"
         );
     }
 
