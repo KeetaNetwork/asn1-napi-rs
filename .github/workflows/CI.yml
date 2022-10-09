@@ -502,8 +502,7 @@ jobs:
       - name: Publish
         run: |
           yarn config set npmAuthToken "$NPM_TOKEN"
-          echo "//npm.pkg.github.com/:_authToken=$NPM_TOKEN" >> .npmrc
-          yes | cp -f .npmrc ~/.npmrc
-          npm publish --registry=https://npm.pkg.github.com --access restricted
+          yarn prepublishOnly
+          yarn npm publish
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
