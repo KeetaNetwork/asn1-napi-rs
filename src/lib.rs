@@ -4,6 +4,9 @@ extern crate napi_derive;
 #[macro_use]
 extern crate phf;
 
+#[macro_use]
+extern crate anyhow;
+
 mod asn1;
 mod constants;
 mod macros;
@@ -15,7 +18,7 @@ use std::str::FromStr;
 
 pub use crate::asn1::ASN1;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use asn1::ASN1Encoder;
 use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
@@ -118,25 +121,44 @@ fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> 
     JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
+/// Get a JsObject from an iterator of ASN1Data.
+pub(crate) fn get_js_obj_from_asn_data<T: Iterator<Item = ASN1Data>>(
+    env: Env,
+    data: T,
+) -> Result<JsObject> {
+    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
+}
+
+/// Get an Array from an ASN1Iterator.
+pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
+    env: Env,
+    data: T,
+) -> Result<Array> {
+    get_js_array_from_asn_data(
+        env,
+        data.map(|result| Ok(result?)) // Safety check
+            .map(|result: Result<ASN1Data>| cast_data!(result, Result::Ok)),
+    )
+}
+
 /// Get an Array from a Vec<ASN1Data>.
-pub(crate) fn get_js_array_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<Array> {
-    let mut array = env.create_array(data.len() as u32)?;
+pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
+    env: Env,
+    data: T,
+) -> Result<Array> {
+    data.map(|data| get_js_uknown_from_asn_data(env, data))
+        .enumerate()
+        .fold(Ok(env.create_array(0)?), |arr, (i, unknown)| {
+            let mut arr = arr.unwrap();
 
-    for (i, data) in data.iter().enumerate() {
-        array.set(i as u32, get_js_uknown_from_asn_data(env, data.to_owned())?)?;
-    }
-
-    Ok(array)
+            arr.set(i as u32, unknown?)?;
+            Ok(arr)
+        })
 }
 
 /// Get JsUnknown from an ASN1Data.
 pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
     JsUnknown::try_from(JsValue::try_from((env, data))?)
-}
-
-/// Get a JsObject from a Vec<ASN1Data>.
-pub(crate) fn get_js_obj_from_asn_data(env: Env, data: Vec<ASN1Data>) -> Result<JsObject> {
-    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
 }
 
 /// Get a JsBigInt from a BigInt.

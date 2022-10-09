@@ -74,10 +74,10 @@
   },
   "lint-staged": {
     "*.@(js|ts|tsx)": [
-      "eslint -c .eslintrc.yml --fix"
+      "eslint . -c ./.eslintrc.yml --fix"
     ],
     "*.@(js|ts|tsx|yml|yaml|md|json)": [
-      "prettier --write"
+      "prettier . -w"
     ]
   },
   "ava": {

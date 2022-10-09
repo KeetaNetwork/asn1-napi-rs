@@ -255,7 +255,9 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
                 env.create_arraybuffer_with_data(val.into_bytes())?
                     .into_unknown(),
             ),
-            ASN1Data::Array(val) => JsValue::Sequence(get_js_obj_from_asn_data(env, val)?),
+            ASN1Data::Array(val) => {
+                JsValue::Sequence(get_js_obj_from_asn_data(env, val.into_iter())?)
+            }
             ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn_object(env, val)?),
             ASN1Data::Null => JsValue::Null(env.get_null()?),
         })

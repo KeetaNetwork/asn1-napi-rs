@@ -12,8 +12,8 @@ use rasn::{
 };
 
 use crate::{
-    cast_data, get_js_array_buffer_from_asn1_data, get_js_array_from_asn_data,
-    get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
+    get_js_array_buffer_from_asn1_data, get_js_array_from_asn_iter, get_js_big_int_from_big_int,
+    get_js_context_tag_from_asn1_context,
     objects::{
         ASN1BitString, ASN1BitStringData, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID,
     },
@@ -174,19 +174,6 @@ impl ASN1 {
         self.decode::<BigInt>()
     }
 
-    /// Convert to a decoded Sequence.
-    pub fn into_sequence(&self) -> Result<impl Iterator<Item = ASN1Data>> {
-        if let Ok(sequence) = decode::<Vec<Any>>(&self.data) {
-            Ok(sequence
-                .into_iter()
-                .map(|ber| ASN1::try_from(ber.as_bytes()))
-                .map(|asn1| ASN1Data::try_from(asn1?))
-                .map(|data| cast_data!(data, Result::Ok)))
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
-    }
-
     /// Convert to an integer.
     #[napi]
     pub fn into_integer(&self) -> Result<i64> {
@@ -256,7 +243,7 @@ impl ASN1 {
     /// Convert a Sequence to an Array.
     #[napi(ts_return_type = "any[]")]
     pub fn into_array(&self, env: Env) -> Result<Array> {
-        get_js_array_from_asn_data(env, Vec::<ASN1Data>::try_from(&self.clone().into_iter())?)
+        get_js_array_from_asn_iter(env, self.clone().into_iter())
     }
 }
 
@@ -278,6 +265,32 @@ impl IntoIterator for ASN1 {
 
     type IntoIter = ASN1Iterator;
 
+    /// Convert to an iterator for ASN1Data. Use this if you plan to apply
+    /// functions to each result to maintain O(n) time complexity.
+    ///
+    /// # Examples
+    ///
+    /// ## Basic usage
+    ///
+    /// ```
+    /// #[macro_use]
+    /// extern crate asn1_napi_rs;
+    /// use asn1_napi_rs::asn1::ASN1;
+    ///
+    /// fn sum_sequence(data: Vec<u8>) -> Result<i64, Box<dyn std::error::Error>> {
+    ///     Ok(ASN1::new(data)
+    ///         .into_iter()?
+    ///         .map(|data| cast_data!(data, ASN1Data::Integer))
+    ///         .fold(0, |total, num| total + num))
+    /// }
+    ///
+    /// let data = vec![
+    ///     0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03,
+    ///     0x02, 0x01, 0x04, 0x02, 0x01, 0x05,
+    /// ];
+    ///
+    /// assert_eq!(sum_sequence(data).unwrap(), [1, 2, 3, 4, 5].iter().sum());
+    /// ```
     fn into_iter(self) -> Self::IntoIter {
         ASN1Iterator::from(decode::<Vec<Any>>(&self.data).unwrap_or_default())
     }
@@ -470,6 +483,24 @@ mod test {
     }
 
     #[test]
+    fn test_asn1_into_sequence() {
+        fn sum_sequence(data: Vec<u8>) -> Result<i64, Box<dyn std::error::Error>> {
+            Ok(ASN1::new(data)
+                .into_iter()
+                .map(|result| cast_data!(result, Result::Ok))
+                .map(|data| cast_data!(data, ASN1Data::Integer))
+                .fold(0, |total, num| total + num))
+        }
+
+        let data = vec![
+            0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03, 0x02, 0x01, 0x04,
+            0x02, 0x01, 0x05,
+        ];
+
+        assert_eq!(sum_sequence(data).unwrap(), [1, 2, 3, 4, 5].iter().sum());
+    }
+
+    #[test]
     fn test_asn1_into_context_tag() {
         let encoded = "oFMwUQYJYIZIAWUDBAIIMEQEICr/S0giG9GX2MTM\
                              rxc3EIGys5PE8jr8r18mIzZ2zYQ6BCCDoM+00VOs\
@@ -542,29 +573,13 @@ mod test {
             ),
         ];
 
-        let sequence: Vec<ASN1Data> = obj.into_sequence().unwrap().collect();
+        let js_type = *obj.get_js_type();
 
-        assert_eq!(obj.get_js_type(), &JsType::Sequence);
+        assert_eq!(js_type, JsType::Sequence);
 
-        assert_eq!(sequence[0], block[0]);
-        assert_eq!(sequence[1], block[1]);
-        assert_eq!(sequence[2], block[2]);
-        assert_eq!(sequence[3], block[3]);
-        assert_eq!(sequence[4], block[4]);
-        assert_eq!(sequence[5], block[5]);
-
-        let nested_block_data =
-            cast_data!(&cast_data!(&block[6], ASN1Data::Array)[0], ASN1Data::Array);
-        let nested_sequence = cast_data!(
-            &cast_data!(&sequence[6], ASN1Data::Array)[0],
-            ASN1Data::Array
-        );
-
-        assert_eq!(nested_sequence[0], nested_block_data[0]);
-        assert_eq!(nested_sequence[1], nested_block_data[1]);
-        assert_eq!(nested_sequence[2], nested_block_data[2]);
-
-        assert_eq!(sequence[7], block[7]);
+        obj.into_iter().enumerate().for_each(|(i, data)| {
+            assert_eq!(data.unwrap(), block[i]);
+        });
     }
 
     #[test]
@@ -590,15 +605,12 @@ mod test {
             ]),
         ];
 
-        let sequence: Vec<ASN1Data> = obj.into_sequence().unwrap().collect();
+        let js_type = *obj.get_js_type();
 
-        assert_eq!(obj.get_js_type(), &JsType::Sequence);
-        assert_eq!(sequence[0], vote[0]);
+        assert_eq!(js_type, JsType::Sequence);
 
-        let nested_vote = cast_data!(&vote[1], ASN1Data::Array);
-        let nested_sequence = cast_data!(&sequence[1], ASN1Data::Array);
-
-        assert_eq!(nested_sequence[0], nested_vote[0]);
-        assert_eq!(nested_sequence[1], nested_vote[1]);
+        obj.into_iter().enumerate().for_each(|(i, data)| {
+            assert_eq!(data.unwrap(), vote[i]);
+        });
     }
 }
