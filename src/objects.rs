@@ -49,7 +49,7 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "2.16.840.1.101.3.3.1.3" => "hashData",
 };
 
-#[derive(AsnType, Decode, Clone, Eq, PartialEq, Debug)]
+#[derive(AsnType, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 #[rasn(choice)]
 pub enum ASN1Object {
     #[rasn(tag(universal, 6))]
@@ -361,17 +361,6 @@ impl Decode for ASN1Context {
         }
 
         Err(<D as Decoder>::Error::custom(ASN1NAPIError::UknownContext))
-    }
-}
-
-impl Encode for ASN1Object {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
-        match self {
-            ASN1Object::Oid(obj) => obj.encode(encoder),
-            ASN1Object::Set(obj) => obj.encode(encoder),
-            ASN1Object::BitString(obj) => obj.encode(encoder),
-            ASN1Object::Context(obj) => obj.encode(encoder),
-        }
     }
 }
 
