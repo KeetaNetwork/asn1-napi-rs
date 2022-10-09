@@ -116,11 +116,6 @@ pub fn asn1_to_js(
     get_js_unknown_from_asn1_data(env, ASN1Data::try_from(asn1)?)
 }
 
-/// Get a JsUnknown from an ASN1 object.
-fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
-    JsUnknown::try_from(JsValue::try_from((env, data))?)
-}
-
 /// Get a JsObject from an iterator of ASN1Data.
 pub(crate) fn get_js_obj_from_asn_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
@@ -189,6 +184,11 @@ pub(crate) fn get_js_context_tag_from_asn1_context(
         data.value,
         get_js_uknown_from_asn_data(env, *data.contains)?,
     ))
+}
+
+/// Get a JsUnknown from an ASN1 object.
+fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
+    JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
 /// Get a JsObject from an ANS1Object.
