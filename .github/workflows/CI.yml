@@ -501,9 +501,11 @@ jobs:
         shell: bash
       - name: Configure Yarn/NPM Publish
         run: |
+          echo "$SCOPE:registry=https://npm.pkg.github.com" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
           yarn config set npmAuthToken "$NODE_AUTH_TOKEN"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCOPE: '@keetapay'
       - name: Publish
         run: npm publish --access restricted
