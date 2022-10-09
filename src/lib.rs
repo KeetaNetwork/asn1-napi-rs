@@ -124,7 +124,7 @@ pub(crate) fn get_js_obj_from_asn_data<T: Iterator<Item = ASN1Data>>(
     Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
 }
 
-/// Get an Array from an ASN1Iterator.
+/// Get an Array from an iterator of ASN1Data.
 pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
     env: Env,
     data: T,
@@ -137,7 +137,7 @@ pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
     )
 }
 
-/// Get an Array from a Vec<ASN1Data>.
+/// Get an Array from an iterator of ASN1Data.
 pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
     data: T,

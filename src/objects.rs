@@ -142,16 +142,10 @@ fn get_oid_string_from_oid(oid: &Oid) -> String {
 
 /// Get a canonical name from an Oid.
 fn get_name_from_oid(oid: &Oid) -> Result<&str> {
-    if let Some(name) = OID_TO_NAME_MAP.get(&get_oid_string_from_oid(oid)) {
-        Ok(*name)
-    } else {
-        bail!(ASN1NAPIError::UnknownOid)
-    }
+    get_name_from_oid_string(&get_oid_string_from_oid(oid))
 }
 
-/// TODO
 /// Get a canonical name from an Oid.
-#[allow(dead_code)]
 fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
     if let Some(name) = OID_TO_NAME_MAP.get(oid.as_ref()) {
         Ok(*name)
