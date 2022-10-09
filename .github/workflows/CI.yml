@@ -501,9 +501,10 @@ jobs:
         shell: bash
       - name: Configure Yarn/NPM Publish
         run: |
-          echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
-          yarn config set npmAuthToken "$NODE_AUTH_TOKEN"
+          echo "//npm.pkg.github.com/:_authToken=$NPM_TOKEN" >> .npmrc
+          yes | cp -f .npmrc ~/.npmrc
+          yarn config set npmAuthToken "$NPM_TOKEN"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
         run: npm publish --access restricted
