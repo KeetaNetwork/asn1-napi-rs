@@ -9,15 +9,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 napi = {version = "2.9.1", features = ["chrono_date", "error_anyhow", "napi7"] }
-napi-derive = "2"
+phf = { version = "0.11.1", features = ["macros"] }
+napi-derive = "2.9.1"
 rasn = "0.6.1"
-base64 = "0.13.0"
+num-bigint = "0.4.3"
 chrono = "0.4.22"
+base64 = "0.13.0"
+hex = "0.4.3"
 anyhow = "1.0.65"
 thiserror = "1.0.36"
-hex = "0.4.3"
-phf = { version = "0.11.1", features = ["macros"] }
-num-bigint = "0.4.3"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"
@@ -25,7 +25,7 @@ default-features = false
 features = ["user-hooks"]
 
 [build-dependencies]
-napi-build = "2"
+napi-build = "2.0.1"
 
 [profile.release]
 lto = true
