@@ -489,7 +489,7 @@ mod test {
                 .into_iter()
                 .map(|result| cast_data!(result, Result::Ok))
                 .map(|data| cast_data!(data, ASN1Data::Integer))
-                .fold(0, |total, num| total + num))
+                .sum())
         }
 
         let data = vec![

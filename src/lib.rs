@@ -136,7 +136,7 @@ pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
 ) -> Result<Array> {
     get_js_array_from_asn_data(
         env,
-        data.map(|result| Ok(result?)) // Safety check
+        data // Safety check
             .map(|result: Result<ASN1Data>| cast_data!(result, Result::Ok)),
     )
 }
