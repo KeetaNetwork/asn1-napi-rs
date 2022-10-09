@@ -6,7 +6,10 @@
   "description": "KeetaPay ASN.1 TypeScript-Rust NAPI library",
   "main": "index.js",
   "types": "index.d.ts",
-  "repository": "git@github.com/KeetaPay/asn1-napi-rs.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KeetaPay/asn1-napi-rs.git"
+  },
   "license": "MIT",
   "keywords": [],
   "files": [
