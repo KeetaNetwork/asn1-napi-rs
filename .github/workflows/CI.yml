@@ -498,6 +498,8 @@ jobs:
         run: |
           yarn artifacts
           cp npm/*/*.node ./
+          rm -rf artifacts/
+          rm -rf npm/
       - name: List packages
         run: ls -R ./npm
         shell: bash

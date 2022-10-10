@@ -1,6 +1,6 @@
 {
   "name": "@keetapay/asn1-napi-rs-linux-x64-gnu",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "os": [
     "linux"
   ],
