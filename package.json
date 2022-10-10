@@ -123,20 +123,5 @@
   },
   "bugs": {
     "url": "https://github.com/KeetaPay/asn1-napi-rs/issues"
-  },
-  "optionalDependencies": {
-    "@keetapay/asn1-napi-rs-win32-x64-msvc": "1.0.0",
-    "@keetapay/asn1-napi-rs-darwin-x64": "1.0.0",
-    "@keetapay/asn1-napi-rs-linux-x64-gnu": "1.0.0",
-    "@keetapay/asn1-napi-rs-linux-x64-musl": "1.0.0",
-    "@keetapay/asn1-napi-rs-linux-arm64-gnu": "1.0.0",
-    "@keetapay/asn1-napi-rs-win32-ia32-msvc": "1.0.0",
-    "@keetapay/asn1-napi-rs-linux-arm-gnueabihf": "1.0.0",
-    "@keetapay/asn1-napi-rs-darwin-arm64": "1.0.0",
-    "@keetapay/asn1-napi-rs-android-arm64": "1.0.0",
-    "@keetapay/asn1-napi-rs-freebsd-x64": "1.0.0",
-    "@keetapay/asn1-napi-rs-linux-arm64-musl": "1.0.0",
-    "@keetapay/asn1-napi-rs-win32-arm64-msvc": "1.0.0",
-    "@keetapay/asn1-napi-rs-android-arm-eabi": "1.0.0"
   }
 }
