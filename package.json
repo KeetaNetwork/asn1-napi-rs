@@ -65,7 +65,7 @@
     "format:prettier": "prettier . -w",
     "format:rs": "cargo fmt",
     "lint": "eslint . -c ./.eslintrc.yml",
-    "prepublishOnly": "napi prepublish -t npm",
+    "prepublishOnly": "napi prepublish -t npm --skip-gh-release",
     "test": "ava",
     "version": "napi version"
   },
@@ -118,9 +118,6 @@
     "arrowParens": "always"
   },
   "packageManager": "yarn@3.2.3",
-  "dependencies": {
-    "@napi-rs/package-template": "^1.0.0"
-  },
   "bugs": {
     "url": "https://github.com/KeetaPay/asn1-napi-rs/issues"
   }

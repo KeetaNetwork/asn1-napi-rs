@@ -1,5 +1,5 @@
 {
-  "name": "@napi-rs/package-template-linux-x64-gnu",
+  "name": "@keetapay/asn1-napi-rs-linux-x64-gnu",
   "version": "1.0.0",
   "os": [
     "linux"
