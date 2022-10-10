@@ -1,6 +1,6 @@
 # `@keetapay/asn1-napi-rs`
 
-![https://github.com/napi-rs/package-template/actions](https://github.com/napi-rs/package-template/workflows/CI/badge.svg)
+![https://github.com/KeetaPay/asn1-napi-rs/actions](https://github.com/KeetaPay/asn1-napi-rs/workflows/CI/badge.svg)
 
 > Template project for writing node packages with napi-rs.
 
@@ -41,7 +41,7 @@ yarn add @keetapay/asn1-napi-rs
 
 ### Build
 
-After `yarn build/npm run build` command, you can see `package-template.[darwin|win32|linux].node` file in project root. This is the native addon built from [lib.rs](./src/lib.rs).
+After `yarn build/npm run build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from [lib.rs](./src/lib.rs).
 
 ### Test
 

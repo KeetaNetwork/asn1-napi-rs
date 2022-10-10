@@ -507,5 +507,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
         run: |
-          yarn prepublishOnly
+          napi prepublish -t npm --skip-gh-release
           yarn npm publish --access restricted
