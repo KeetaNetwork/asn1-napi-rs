@@ -506,4 +506,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
-        run: yarn npm publish
+        run: |
+          yarn prepublishOnly
+          yarn npm publish --access restricted
