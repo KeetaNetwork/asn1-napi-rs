@@ -15,7 +15,7 @@
   "files": [
     "index.d.ts",
     "index.js",
-    "npm/"
+    "*.node"
   ],
   "napi": {
     "name": "asn1-napi-rs",
