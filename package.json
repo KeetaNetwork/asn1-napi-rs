@@ -14,8 +14,7 @@
   "keywords": [],
   "files": [
     "index.d.ts",
-    "index.js",
-    "*.node"
+    "index.js"
   ],
   "napi": {
     "name": "asn1-napi-rs",
