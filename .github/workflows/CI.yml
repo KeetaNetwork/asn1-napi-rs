@@ -512,4 +512,4 @@ jobs:
       - name: Publish
         run: |
           yarn dlx @napi-rs/cli prepublish --skip-gh-release -t npm
-          npm publish --access restricted
+          yarn npm publish --access restricted
