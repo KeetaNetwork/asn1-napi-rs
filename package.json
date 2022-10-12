@@ -42,7 +42,7 @@
     "access": "restricted"
   },
   "scripts": {
-    "setup": "yarn build && cargo test && yarn test",
+    "setup": "yarn && yarn build && cargo test && yarn test",
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
     "build": "napi build --platform --release --pipe \"prettier -w\"",
@@ -62,7 +62,7 @@
     "@types/node": "^18.8.3",
     "@typescript-eslint/eslint-plugin": "^5.35.1",
     "@typescript-eslint/parser": "^5.35.1",
-    "asn1js": "2.2.0",
+    "asn1js": "^2.2.0",
     "ava": "^4.3.3",
     "benny": "^3.7.1",
     "chalk": "^5.0.1",

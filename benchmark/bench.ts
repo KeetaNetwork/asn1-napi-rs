@@ -247,7 +247,7 @@ function JStoASN1(input: ASN1AnyJS): ASN1AnyASN {
   } else if (typeof input === 'bigint' || input instanceof BigInt) {
     const valueHex = BigIntToBuffer(input as bigint)
 
-    return new asn1js.Integer({ isHexOnly: true, valueHex })
+    return new asn1js.Integer({ valueHex })
   } else if (typeof input === 'number') {
     return new asn1js.Integer({ value: input })
   } else if (input instanceof Date) {
