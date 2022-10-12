@@ -1,25 +1,35 @@
 # `@keetapay/asn1-napi-rs`
 
-![https://github.com/KeetaPay/asn1-napi-rs/actions](https://github.com/KeetaPay/asn1-napi-rs/workflows/CI/badge.svg)
+[ci_status]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/CI.yml/badge.svg
+[ci]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/CI.yml
+[lint_status]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/lint.yml/badge.svg
+[lint]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/lint.yml
 
-> Template project for writing node packages with napi-rs.
+[![ci_status]][ci] [![lint_status]][lint]
 
-# Usage
+# About
 
-1. Click **Use this template**.
-2. **Clone** your project.
-3. Run `yarn install` to install dependencies.
-4. Run `npx napi rename -n [name]` command under the project folder to rename your package.
+This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build native Rust functionality that can be consumed in NodeJS. This library specifically addresses ASN.1 encoding and decoding for the [@keetapay/node](https://github.com/KeetaPay/node) project. It contains all critical functionality for encoding/decoding ASN.1 BER for all KeetaNet node functionality.
 
-## Install this test package
+## Install this package
 
-```
+`NPM` will choose which native package should download from `registry` automatically. You can see [npm](./npm) dir for details. And you can also run `yarn add @keetapay/asn1-napi-rs` to see how it works.
+
+```bash
+# Yarn
 yarn add @keetapay/asn1-napi-rs
+
+# NPM
+npm install @keetapay/asn1-napi-rs
 ```
 
-## Support matrix
+Note: You will need a [GitHub personal access token](https://github.com/settings/tokens) added to your `~/.npmrc` file like so:
 
-### Operating Systems
+```
+//npm.pkg.github.com/:_authToken=YOUR_TOKEN
+```
+
+## Supported Environments
 
 |                  | node14 | node16 | node18 |
 | ---------------- | ------ | ------ | ------ |
@@ -37,69 +47,122 @@ yarn add @keetapay/asn1-napi-rs
 | Android armv7    | ✓      | ✓      | ✓      |
 | FreeBSD x64      | ✓      | ✓      | ✓      |
 
-## Ability
+## Local Development
 
-### Build
+Library development was done using rustc v1.64.0, yarn v3.2.3, nodejs v14.19.0 in Visual Studio Code.
 
-After `yarn build/npm run build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from [lib.rs](./src/lib.rs).
+## Requirements
 
-### Test
+- Install the latest [Rust](https://www.rust-lang.org/tools/install)
+- Install [Node.js@14+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) which fully supported `Node-API`
+- Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install)
 
-With [ava](https://github.com/avajs/ava), run `yarn test/npm run test` to testing native addon. You can also switch to another testing framework if you want.
+### Setup
 
-### CI
+Once prerequisites are installed, you can setup the initial project easily using:
 
-With GitHub Actions, each commit and pull request will be built and tested automatically in [`node@14`, `node@16`, `@node18`] x [`macOS`, `Linux`, `Windows`] matrix. You will never be afraid of the native addon broken in these platforms.
+```bash
+yarn setup
+```
 
-### Release
+### Building
 
-Release native package is very difficult in old days. Native packages may ask developers who use it to install `build toolchain` like `gcc/llvm`, `node-gyp` or something more.
+You can build the entire project or just the rust using the following:
 
-With `GitHub actions`, we can easily prebuild a `binary` for major platforms. And with `N-API`, we should never be afraid of **ABI Compatible**.
+```bash
+# Project
+yarn build
 
-The other problem is how to deliver prebuild `binary` to users. Downloading it in `postinstall` script is a common way that most packages do it right now. The problem with this solution is it introduced many other packages to download binary that has not been used by `runtime codes`. The other problem is some users may not easily download the binary from `GitHub/CDN` if they are behind a private network (But in most cases, they have a private NPM mirror).
+# Rust
+cargo build
+```
 
-In this package, we choose a better way to solve this problem. We release different `npm packages` for different platforms. And add it to `optionalDependencies` before releasing the `Major` package to npm.
+When running the `yarn build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from the rust code. These files should not be committed and are already in the `.gitignore` file.
 
-`NPM` will choose which native package should download from `registry` automatically. You can see [npm](./npm) dir for details. And you can also run `yarn add @keetapay/asn1-napi-rs` to see how it works.
+### Testing
 
-## Develop requirements
+All JavaScript/TypeScript tests are located in the `tests` directory within the project root. All Rust tests are located in a `test` module in the file containing the code to be tested. With [ava](https://github.com/avajs/ava), run `yarn test` to testing native addon.
 
-- Install the latest `Rust`
-- Install `Node.js@10+` which fully supported `Node-API`
-- Install `yarn@1.x`
-
-## Test in local
-
-- yarn
-- yarn build
-- yarn test
+```bash
+yarn build && yarn test
+```
 
 And you will see:
 
 ```bash
-$ ava --verbose
+$ yarn test
 
-  ✔ sync function from native code
-  ✔ sleep function from native code (201ms)
-  ─
+  ✔ integer › JS number to ASN1 conversion
+  ✔ integer › ASN1 to Js number conversion from byte code
+  ✔ integer › ASN1 to Js number conversion from base64
+  ✔ integer › ASN1 to Js number conversion round trip
+  ...
 
-  2 tests passed
-✨  Done in 1.12s.
+  [number] tests passed
 ```
 
-## Release package
+With [cargo](https://doc.rust-lang.org/cargo/commands/cargo-test.html), run `cargo test` to run the Rust tests.
 
-Ensure you have set your **NPM_TOKEN** in the `GitHub` project setting.
-
-In `Settings -> Secrets`, add **NPM_TOKEN** into it.
-
-When you want to release the package:
-
-```
-npm version [<newversion> | major | minor | patch | premajor | preminor | prepatch | prerelease [--preid=<prerelease-id>] | from-git]
-
-git push
+```bash
+cargo test
 ```
 
-GitHub actions will do the rest job for you.
+And you will see:
+
+```bash
+running [number] tests
+test asn1::test::test_asn1_into_bytes ... ok
+test asn1::test::test_asn1_into_date ... ok
+...
+```
+
+### Benchmarking
+
+There are a few benchmarks of critical functionality available which tests the Rust implementations of functions against their TypeScript counterparts. You can run these tests using:
+
+```bash
+yarn bench
+```
+
+And you will see:
+
+```bash
+Running "Encode/Decode Block from Buffer" suite...
+Progress: 100%
+
+  Rust ASN1toJS - JStoASN1 Test Block:
+    25 048 ops/s, ±3.18%   | fastest
+
+  JavaScript ASN1toJS - JStoASN1 Test Block:
+    1 817 ops/s, ±4.89%    | slowest, 92.75% slower
+
+Finished 2 cases!
+  Fastest: Rust ASN1toJS - JStoASN1 Test Block
+  Slowest: JavaScript ASN1toJS - JStoASN1 Test Block
+...
+```
+
+## Functionality
+
+Key function exports:
+
+- JStoASN1
+- ASN1toJS
+- BigIntToBuffer
+
+## CI/CD
+
+With GitHub Actions, each commit and pull request will be built and tested automatically in [`node@14`, `node@16`, `@node18`] x [`macOS`, `Linux`, `Windows`] matrix.
+
+### Release
+
+Releases are managed through GitHub actions. Once ready, tag a release like so using the [semantic versioning](https://semver.org) style prefixed with a "v":
+
+```bash
+# Creates an annotated tag
+git tag -s -a "v1.x.x" -m ":bookmark: v1.x.x"
+# Pushes tags to remote
+git push --tags
+```
+
+Then, create a release in GitHub which will trigger the GitHub action and deploy new GitHub NPM packages for the release. The NAPI template allows us to release different `npm packages` for different platforms. This project's `packages.json` file is updated during the release process to add `optionalDependencies` before releasing the main package to GitHub NPM.

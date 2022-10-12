@@ -42,6 +42,7 @@
     "access": "restricted"
   },
   "scripts": {
+    "setup": "yarn build && cargo test && yarn test",
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
     "build": "napi build --platform --release --pipe \"prettier -w\"",
