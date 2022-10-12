@@ -90,11 +90,11 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 #[napi(strict, js_name = "JStoASN1")]
 pub fn js_to_asn1(
     #[napi(
-        ts_arg_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+        ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
     )]
     data: JsUnknown,
 ) -> Result<ASN1Encoder> {
-    ASN1Encoder::new(data)
+    ASN1Encoder::js_new(data)
 }
 
 /// Convert ASN1 BER encoded data to JS native types.

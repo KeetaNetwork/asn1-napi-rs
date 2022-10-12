@@ -6,7 +6,7 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::decode,
+    ber::{decode, encode},
     types::{Any, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -52,15 +52,20 @@ impl ASN1Iterator {
 
 #[napi]
 impl ASN1Encoder {
-    /// Create a new ANS1toJS instance from ASN1 encoded data.
+    /// Create a new ASN1Encoder instance from any ASN1 encodable type.
     #[napi(constructor)]
-    pub fn new(
+    pub fn js_new(
         #[napi(
-            ts_arg_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+            ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
         )]
         data: JsUnknown,
     ) -> Result<Self> {
         Ok(Self(ASN1Data::try_from(data)?))
+    }
+
+    /// Create a new ANS1toJS instance from ASN1Data.
+    pub fn new(data: ASN1Data) -> Self {
+        Self(data)
     }
 
     /// Encode the ASN.1 data as an array buffer.
@@ -69,6 +74,16 @@ impl ASN1Encoder {
     pub fn to_ber(&self, env: Env, size_only: Option<bool>) -> Result<JsArrayBuffer> {
         get_js_array_buffer_from_asn1_data(env, &self.0)
     }
+
+    /// Encode the ASN.1 data to a ASN.1 encoded base64 encoded string.
+    #[napi(js_name = "toBase64")]
+    pub fn to_base64(&self) -> Result<String> {
+        if let Ok(data) = encode(&self.0) {
+            Ok(base64::encode(data))
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
+    }
 }
 
 #[napi]
@@ -76,7 +91,7 @@ impl ASN1 {
     /// Js constructor
     #[napi(constructor)]
     pub fn js_new(
-        #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder")] data: JsUnknown,
+        #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
     ) -> Result<Self> {
         Ok(Self::new(get_vec_from_js_unknown(data)?))
     }
@@ -354,6 +369,7 @@ mod test {
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
     use num_bigint::BigInt;
 
+    use crate::asn1::ASN1Encoder;
     use crate::asn1::ASN1;
     use crate::cast_data;
     use crate::objects::ASN1BitStringData;
@@ -375,6 +391,73 @@ mod test {
                               aW61T1ckn9QymeSBE+yE7EJPDnrN6g54KxBaAjRVFlT3i\
                               Ze4qTtQfXRoCkhoCgzqg==";
 
+    fn fixture_get_test_vote() -> Vec<ASN1Data> {
+        vec![
+            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("sha3-256"))),
+            ASN1Data::Array(vec![
+                ASN1Data::Bytes(
+                    hex::decode(
+                        "9bd0f26570e214781647f2f35e39b63da60c70\
+                            fba3d487a92eea7f64f555580e",
+                    )
+                    .expect("hex"),
+                ),
+                ASN1Data::Bytes(
+                    hex::decode(
+                        "7b484e62d8dbb23c89aaac799bb0fc\
+                            88ffa2e9d2c14dc16c97f930c5491a3b59",
+                    )
+                    .expect("hex"),
+                ),
+            ]),
+        ]
+    }
+
+    fn fixture_get_test_block() -> Vec<ASN1Data> {
+        vec![
+            ASN1Data::Integer(0),
+            ASN1Data::Integer(456),
+            ASN1Data::Integer(123),
+            ASN1Data::Date(DateTime::<FixedOffset>::from(
+                Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 210),
+            )),
+            ASN1Data::Bytes(
+                hex::decode(
+                    "0002C4FD23DEAEBBA3CAC51E2597AD8A5BBAD1578E6\
+                     76F4CDEFC94B2318F76A6A0B2",
+                )
+                .expect("hex"),
+            ),
+            ASN1Data::Bytes(
+                hex::decode(
+                    "B8FE9ADDF32B3662D5CD7A6D99487423C3ADBB94B77\
+                     D7E0F5960436D6C4477E2",
+                )
+                .expect("hex"),
+            ),
+            ASN1Data::Array(vec![ASN1Data::Array(vec![
+                ASN1Data::Integer(0),
+                ASN1Data::Bytes(
+                    hex::decode(
+                        "0003C194689E585C277B078EA244C2D732D9A63CE5B9BF7\
+                         303D832BEB28DCAD41B91",
+                    )
+                    .expect("hex"),
+                ),
+                ASN1Data::Integer(10),
+            ])]),
+            ASN1Data::BigInt(
+                BigInt::from_str(
+                    "123420849842679662628402583993698371919475023\
+                     865306400494192638014388787592329547816109951\
+                     558088511082592942731994462782276923187529716\
+                     58125549615746397098",
+                )
+                .expect("BigInt"),
+            ),
+        ]
+    }
+
     #[test]
     fn test_asn1_into_bool() {
         let encoded_true = "AQH/";
@@ -388,7 +471,7 @@ mod test {
     }
 
     #[test]
-    fn test_asn_into_integer() {
+    fn test_asn1_into_integer() {
         let encoded = "AgEq";
         let obj = ASN1::from_base64(encoded.into()).expect("base64");
 
@@ -529,50 +612,8 @@ mod test {
 
     #[test]
     fn test_asn1_block_into_sequence() {
+        let block = fixture_get_test_block();
         let obj = ASN1::from_base64(TEST_BLOCK.into()).expect("base64");
-        let block = vec![
-            ASN1Data::Integer(0),
-            ASN1Data::Integer(456),
-            ASN1Data::Integer(123),
-            ASN1Data::Date(DateTime::<FixedOffset>::from(
-                Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 210),
-            )),
-            ASN1Data::Bytes(
-                hex::decode(
-                    "0002C4FD23DEAEBBA3CAC51E2597AD8A5BBAD1578E6\
-                     76F4CDEFC94B2318F76A6A0B2",
-                )
-                .expect("hex"),
-            ),
-            ASN1Data::Bytes(
-                hex::decode(
-                    "B8FE9ADDF32B3662D5CD7A6D99487423C3ADBB94B77\
-                     D7E0F5960436D6C4477E2",
-                )
-                .expect("hex"),
-            ),
-            ASN1Data::Array(vec![ASN1Data::Array(vec![
-                ASN1Data::Integer(0),
-                ASN1Data::Bytes(
-                    hex::decode(
-                        "0003C194689E585C277B078EA244C2D732D9A63CE5B9BF7\
-                         303D832BEB28DCAD41B91",
-                    )
-                    .expect("hex"),
-                ),
-                ASN1Data::Integer(10),
-            ])]),
-            ASN1Data::BigInt(
-                BigInt::from_str(
-                    "123420849842679662628402583993698371919475023\
-                     865306400494192638014388787592329547816109951\
-                     558088511082592942731994462782276923187529716\
-                     58125549615746397098",
-                )
-                .expect("BigInt"),
-            ),
-        ];
-
         let js_type = *obj.get_js_type();
 
         assert_eq!(js_type, JsType::Sequence);
@@ -584,27 +625,8 @@ mod test {
 
     #[test]
     fn test_asn1_vote_into_sequence() {
+        let vote = fixture_get_test_vote();
         let obj = ASN1::from_base64(TEST_VOTE.into()).expect("base64");
-        let vote = vec![
-            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("sha3-256"))),
-            ASN1Data::Array(vec![
-                ASN1Data::Bytes(
-                    hex::decode(
-                        "9bd0f26570e214781647f2f35e39b63da60c70\
-                         fba3d487a92eea7f64f555580e",
-                    )
-                    .expect("hex"),
-                ),
-                ASN1Data::Bytes(
-                    hex::decode(
-                        "7b484e62d8dbb23c89aaac799bb0fc\
-                         88ffa2e9d2c14dc16c97f930c5491a3b59",
-                    )
-                    .expect("hex"),
-                ),
-            ]),
-        ];
-
         let js_type = *obj.get_js_type();
 
         assert_eq!(js_type, JsType::Sequence);
@@ -612,5 +634,13 @@ mod test {
         obj.into_iter().enumerate().for_each(|(i, data)| {
             assert_eq!(data.unwrap(), vote[i]);
         });
+    }
+
+    #[test]
+    fn test_asn1_encoder_to_base64() {
+        let block = fixture_get_test_block();
+        let encoder = ASN1Encoder::new(ASN1Data::Array(block));
+
+        assert_eq!(encoder.to_base64().unwrap(), TEST_BLOCK);
     }
 }

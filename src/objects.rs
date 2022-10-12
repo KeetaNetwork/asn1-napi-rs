@@ -351,7 +351,7 @@ impl Encode for ASN1Context {
 impl Decode for ASN1Context {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
         let asn1 = ASN1::new(decoder.decode_any()?.as_bytes().to_owned());
-        let mut decoder = rasn::ber::de::Decoder::new(asn1.get_raw(), DecoderOptions::der());
+        let mut decoder = rasn::ber::de::Decoder::new(asn1.get_raw(), DecoderOptions::ber());
         let tag = *asn1.get_tag();
 
         if let Ok(ASN1Data::Unknown(any)) = decoder.decode_explicit_prefix::<ASN1Data>(tag) {

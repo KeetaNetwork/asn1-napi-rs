@@ -44,6 +44,7 @@ export function JStoASN1(
     | bigint
     | number
     | Date
+    | ArrayBufferLike
     | Buffer
     | ASN1OID
     | ASN1Set
@@ -75,9 +76,7 @@ export type ASN1 = Asn1
 /** Convert ASN1 BER encoded data to JS native types. */
 export class Asn1 {
   /** Js constructor */
-  constructor(
-    data: string | null | number[] | Buffer | ArrayBuffer | Asn1Encoder,
-  )
+  constructor(data: string | null | number[] | Buffer | ArrayBuffer)
   /** Create an instance of ANS1 from a buffer. */
   static fromBuffer(value: Buffer): Asn1
   /** Create an instance of ANS1 from Base64 encoded data. */
@@ -115,13 +114,14 @@ export class Asn1Iterator {
 }
 export type ASN1Encoder = Asn1Encoder
 export class Asn1Encoder {
-  /** Create a new ANS1toJS instance from ASN1 encoded data. */
+  /** Create a new ASN1Encoder instance from any ASN1 encodable type. */
   constructor(
     data:
       | BigInt
       | bigint
       | number
       | Date
+      | ArrayBufferLike
       | Buffer
       | ASN1OID
       | ASN1Set
@@ -134,4 +134,6 @@ export class Asn1Encoder {
   )
   /** Encode the ASN.1 data as an array buffer. */
   toBER(sizeOnly?: boolean | undefined | null): ArrayBuffer
+  /** Encode the ASN.1 data to a ASN.1 encoded base64 encoded string. */
+  toBase64(): string
 }
