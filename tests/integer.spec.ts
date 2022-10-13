@@ -98,7 +98,7 @@ test('JS number to ASN1 conversion', (t) => {
 
 test('ASN1 to Js number conversion from byte code', (t) => {
   TEST_INTEGERS_ASN1.map((v, i) => {
-    const obj = new lib.Asn1(v)
+    const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoInteger(), TEST_INTEGERS[i])
     t.deepEqual(lib.ASN1toJS(v), BigInt(TEST_INTEGERS[i]))
@@ -106,7 +106,7 @@ test('ASN1 to Js number conversion from byte code', (t) => {
 })
 
 test('ASN1 to Js number conversion from base64', (t) => {
-  const obj = lib.Asn1.fromBase64('AgEq')
+  const obj = lib.ASN1Decoder.fromBase64('AgEq')
 
   t.deepEqual(obj.intoInteger(), 42)
 })
@@ -125,7 +125,7 @@ test('JS BigInt to ASN1 conversion', (t) => {
 
 test('ASN1 to Js BigInt conversion from byte code', (t) => {
   TEST_BIG_INTEGERS_ASN1.map((v, i) => {
-    const obj = new lib.Asn1(v)
+    const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoBigInt(), TEST_BIG_INTEGERS[i])
     t.deepEqual(lib.ASN1toJS(v), TEST_BIG_INTEGERS[i])
@@ -135,7 +135,7 @@ test('ASN1 to Js BigInt conversion from byte code', (t) => {
 test('ASN1 to Js BigInt conversion from base64', (t) => {
   const result = BigInt('18591708106338011145')
   const base64 = 'AgkBAgMEBQYHCAk='
-  const obj = lib.Asn1.fromBase64(base64)
+  const obj = lib.ASN1Decoder.fromBase64(base64)
 
   t.deepEqual(obj.intoBigInt(), result)
   t.deepEqual(lib.ASN1toJS(base64), result)
@@ -143,7 +143,7 @@ test('ASN1 to Js BigInt conversion from base64', (t) => {
 
 test('ASN1 to Js BigInt conversion round trip', (t) => {
   TEST_BIG_INTEGERS_ASN1.map((v, i) => {
-    const js = new lib.Asn1(v)
+    const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoBigInt(), TEST_BIG_INTEGERS[i])
     t.deepEqual(

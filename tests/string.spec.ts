@@ -27,7 +27,7 @@ test('JS string to ASN1 conversion', (t) => {
 
 test('ASN1 to Js string conversion from byte code', (t) => {
   TEST_STRINGS_ASN1.map((v, i) => {
-    const obj = new lib.Asn1(v)
+    const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoString(), TEST_STRINGS[i])
     t.deepEqual(lib.ASN1toJS(v), TEST_STRINGS[i])
@@ -35,7 +35,7 @@ test('ASN1 to Js string conversion from byte code', (t) => {
 })
 
 test('ASN1 to Js string conversion from base64', (t) => {
-  const obj = lib.Asn1.fromBase64('EwR0ZXN0')
+  const obj = lib.ASN1Decoder.fromBase64('EwR0ZXN0')
 
   t.deepEqual(obj.intoString(), 'test')
 })
@@ -43,7 +43,7 @@ test('ASN1 to Js string conversion from base64', (t) => {
 test('ASN1 to Js string conversion round trip', (t) => {
   TEST_STRINGS_ASN1.map((v, i) => {
     const data = new Uint8Array(v)
-    const js = new lib.Asn1(Array.from(data))
+    const js = new lib.ASN1Decoder(Array.from(data))
 
     t.deepEqual(js.intoString(), TEST_STRINGS[i])
     t.deepEqual(lib.JStoASN1(lib.ASN1toJS(v)).toBER(), TEST_STRINGS_ASN1[i])

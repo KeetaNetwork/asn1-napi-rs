@@ -152,9 +152,9 @@ if (!nativeBinding) {
 }
 
 const {
-  Asn1,
-  Asn1Iterator,
-  Asn1Encoder,
+  ASN1Decoder,
+  ASN1Encoder,
+  ASN1Iterator,
   BigIntToBuffer,
   BufferToBigInt,
   IntegerToBigInt,
@@ -163,9 +163,9 @@ const {
   ASN1toJS,
 } = nativeBinding
 
-module.exports.Asn1 = Asn1
-module.exports.Asn1Iterator = Asn1Iterator
-module.exports.Asn1Encoder = Asn1Encoder
+module.exports.ASN1Decoder = ASN1Decoder
+module.exports.ASN1Encoder = ASN1Encoder
+module.exports.ASN1Iterator = ASN1Iterator
 module.exports.BigIntToBuffer = BigIntToBuffer
 module.exports.BufferToBigInt = BufferToBigInt
 module.exports.IntegerToBigInt = IntegerToBigInt

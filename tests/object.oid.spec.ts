@@ -25,7 +25,7 @@ test('JS ASN1OID to ASN1 conversion', (t) => {
 test('ASN1 to Js ASN1OID conversion from byte code', (t) => {
   TEST_OIDS_ASN1.map((v, i) => {
     const data = new Uint8Array(v)
-    const obj = new lib.Asn1(Array.from(data))
+    const obj = new lib.ASN1Decoder(Array.from(data))
 
     t.deepEqual(obj.intoOid(), TEST_OIDS[i])
     t.deepEqual(lib.ASN1toJS(v), TEST_OIDS[i])
@@ -34,14 +34,14 @@ test('ASN1 to Js ASN1OID conversion from byte code', (t) => {
 
 test('ASN1 to Js ASN1OID conversion from base64', (t) => {
   const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
-  const obj = lib.Asn1.fromBase64('BglghkgBZQMEAgE=')
+  const obj = lib.ASN1Decoder.fromBase64('BglghkgBZQMEAgE=')
 
   t.deepEqual(obj.intoOid(), oid)
 })
 
 test('ASN1 to Js ASN1OID conversion round trip', (t) => {
   TEST_OIDS_ASN1.map((v, i) => {
-    const js = new lib.Asn1(v)
+    const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoOid(), TEST_OIDS[i])
     t.deepEqual(lib.JStoASN1(lib.ASN1toJS(v)).toBER(), TEST_OIDS_ASN1[i])

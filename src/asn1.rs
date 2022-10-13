@@ -23,24 +23,24 @@ use crate::{
 };
 
 /// Convert ASN1 BER encoded data to JS native types.
-#[napi(js_name = "Asn1")]
+#[napi(js_name = "ASN1Decoder")]
 #[derive(Eq, Clone, PartialEq, Debug)]
-pub struct ASN1 {
+pub struct ASN1Decoder {
     tag: Tag,
     js_type: JsType,
     data: Vec<u8>,
 }
 
-#[napi]
+#[napi(js_name = "ASN1Encoder")]
+pub struct ASN1Encoder(ASN1Data);
+
+#[napi(js_name = "ASN1Iterator")]
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ASN1Iterator {
     sequence: Vec<Any>,
     length: usize,
     index: usize,
 }
-
-#[napi]
-pub struct ASN1Encoder(ASN1Data);
 
 #[napi]
 impl ASN1Iterator {
@@ -87,7 +87,7 @@ impl ASN1Encoder {
 }
 
 #[napi]
-impl ASN1 {
+impl ASN1Decoder {
     /// Js constructor
     #[napi(constructor)]
     pub fn js_new(
@@ -111,7 +111,7 @@ impl ASN1 {
             Tag::new(Class::Universal, bit)
         };
 
-        ASN1 {
+        ASN1Decoder {
             js_type: JsType::from(tag),
             tag,
             data,
@@ -135,19 +135,19 @@ impl ASN1 {
 
     /// Create an instance of ANS1 from a buffer.
     #[napi]
-    pub fn from_buffer(value: Buffer) -> Result<ASN1> {
+    pub fn from_buffer(value: Buffer) -> Result<ASN1Decoder> {
         Self::try_from(Vec::<u8>::from(value))
     }
 
     /// Create an instance of ANS1 from Base64 encoded data.
     #[napi]
-    pub fn from_base64(value: String) -> Result<ASN1> {
+    pub fn from_base64(value: String) -> Result<ASN1Decoder> {
         Self::try_from(value)
     }
 
     /// Create an instance of ANS1 from hex encoded data
     #[napi]
-    pub fn from_hex(value: String) -> Result<ASN1> {
+    pub fn from_hex(value: String) -> Result<ASN1Decoder> {
         if let Ok(result) = hex::decode(value) {
             Self::try_from(result.as_slice())
         } else {
@@ -268,14 +268,14 @@ impl Iterator for ASN1Iterator {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(item) = self.sequence.get(self.index) {
             self.index += 1;
-            Some(ASN1Data::try_from(ASN1::new(item.as_bytes().into())))
+            Some(ASN1Data::try_from(ASN1Decoder::new(item.as_bytes().into())))
         } else {
             None
         }
     }
 }
 
-impl IntoIterator for ASN1 {
+impl IntoIterator for ASN1Decoder {
     type Item = Result<ASN1Data>;
 
     type IntoIter = ASN1Iterator;
@@ -321,7 +321,7 @@ impl From<Vec<Any>> for ASN1Iterator {
     }
 }
 
-impl TryFrom<String> for ASN1 {
+impl TryFrom<String> for ASN1Decoder {
     type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 or hex encoded data.
@@ -330,7 +330,7 @@ impl TryFrom<String> for ASN1 {
     }
 }
 
-impl<'a> TryFrom<&'a str> for ASN1 {
+impl<'a> TryFrom<&'a str> for ASN1Decoder {
     type Error = Error;
 
     /// Create an instance of ANS1toJS from Base64 or hex encoded data.
@@ -345,7 +345,7 @@ impl<'a> TryFrom<&'a str> for ASN1 {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for ASN1 {
+impl<'a> TryFrom<&'a [u8]> for ASN1Decoder {
     type Error = Error;
 
     /// Create an instance of ANS1toJS from raw data.
@@ -354,7 +354,7 @@ impl<'a> TryFrom<&'a [u8]> for ASN1 {
     }
 }
 
-impl TryFrom<Vec<u8>> for ASN1 {
+impl TryFrom<Vec<u8>> for ASN1Decoder {
     type Error = Error;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
@@ -368,9 +368,10 @@ mod test {
 
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
     use num_bigint::BigInt;
+    use rasn::types::BitString;
 
+    use crate::asn1::ASN1Decoder;
     use crate::asn1::ASN1Encoder;
-    use crate::asn1::ASN1;
     use crate::cast_data;
     use crate::objects::ASN1BitStringData;
     use crate::objects::ASN1Context;
@@ -463,8 +464,8 @@ mod test {
         let encoded_true = "AQH/";
         let encoded_false = "AQEA";
 
-        let obj_true = ASN1::from_base64(encoded_true.into()).expect("base64");
-        let obj_false = ASN1::from_base64(encoded_false.into()).expect("base64");
+        let obj_true = ASN1Decoder::from_base64(encoded_true.into()).expect("base64");
+        let obj_false = ASN1Decoder::from_base64(encoded_false.into()).expect("base64");
 
         assert!(obj_true.into_bool().unwrap());
         assert!(!obj_false.into_bool().unwrap());
@@ -473,12 +474,12 @@ mod test {
     #[test]
     fn test_asn1_into_integer() {
         let encoded = "AgEq";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(obj.into_integer().unwrap(), 42_i64);
 
         let encoded = "AgP/AAE=";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(obj.into_integer().unwrap(), -65535_i64);
     }
@@ -486,7 +487,7 @@ mod test {
     #[test]
     fn test_asn1_into_big_integer() {
         let encoded = "AgkBAgMEBQYHCAk=";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.into_big_integer().unwrap(),
@@ -497,7 +498,7 @@ mod test {
     #[test]
     fn test_asn1_into_string() {
         let encoded = "EwR0ZXN0";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(obj.into_string().unwrap(), "test");
     }
@@ -505,7 +506,7 @@ mod test {
     #[test]
     fn test_asn1_into_date() {
         let encoded = "GA8yMDIyMDkyNjEwMDAwMFo=";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.into_date().unwrap(),
@@ -516,7 +517,7 @@ mod test {
     #[test]
     fn test_asn1_into_bytes() {
         let encoded = "BAUBAgMEBQ==";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.into_bytes().unwrap(),
@@ -527,7 +528,7 @@ mod test {
     #[test]
     fn test_asn1_into_oid() {
         let encoded = "BglghkgBZQMEAgE=";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(obj.into_oid().unwrap(), ASN1OID::new("sha256"));
     }
@@ -535,7 +536,7 @@ mod test {
     #[test]
     fn test_asn1_into_set() {
         let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.into_set().unwrap(),
@@ -546,18 +547,18 @@ mod test {
     #[test]
     fn test_asn1_into_bit_string() {
         let encoded = "AwYAChAUIAk=";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.get_raw_bit_string().unwrap(),
-            ASN1BitStringData::new(vec![0xa, 0x10, 0x14, 0x20, 0x9])
+            ASN1BitStringData::new(BitString::from_vec(vec![0xa, 0x10, 0x14, 0x20, 0x9]))
         );
     }
 
     #[test]
     fn test_asn1_into_object() {
         let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
-        let obj = ASN1::from_base64(encoded.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
 
         assert_eq!(
             obj.into_set().unwrap(),
@@ -568,7 +569,7 @@ mod test {
     #[test]
     fn test_asn1_into_sequence() {
         fn sum_sequence(data: Vec<u8>) -> Result<i64, Box<dyn std::error::Error>> {
-            Ok(ASN1::new(data)
+            Ok(ASN1Decoder::new(data)
                 .into_iter()
                 .map(|result| cast_data!(result, Result::Ok))
                 .map(|data| cast_data!(data, ASN1Data::Integer))
@@ -588,7 +589,7 @@ mod test {
         let encoded = "oFMwUQYJYIZIAWUDBAIIMEQEICr/S0giG9GX2MTM\
                              rxc3EIGys5PE8jr8r18mIzZ2zYQ6BCCDoM+00VOs\
                              NOWyS0x0/VCAPCC3p6iC3JSwDdTpMH/5rw==";
-        let obj = ASN1::from_base64(encoded.into()).unwrap();
+        let obj = ASN1Decoder::from_base64(encoded.into()).unwrap();
         let oid = ASN1Object::Oid(ASN1OID::new("sha3-256"));
 
         let contents = ASN1Data::Array(vec![
@@ -613,7 +614,7 @@ mod test {
     #[test]
     fn test_asn1_block_into_sequence() {
         let block = fixture_get_test_block();
-        let obj = ASN1::from_base64(TEST_BLOCK.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(TEST_BLOCK.into()).expect("base64");
         let js_type = *obj.get_js_type();
 
         assert_eq!(js_type, JsType::Sequence);
@@ -626,7 +627,7 @@ mod test {
     #[test]
     fn test_asn1_vote_into_sequence() {
         let vote = fixture_get_test_vote();
-        let obj = ASN1::from_base64(TEST_VOTE.into()).expect("base64");
+        let obj = ASN1Decoder::from_base64(TEST_VOTE.into()).expect("base64");
         let js_type = *obj.get_js_type();
 
         assert_eq!(js_type, JsType::Sequence);

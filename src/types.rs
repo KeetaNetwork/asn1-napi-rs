@@ -6,12 +6,12 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    types::{Any, BitString, Class, Implicit, ObjectIdentifier, OctetString, Open},
+    types::{Any, Class, Implicit, ObjectIdentifier, OctetString, Open},
     AsnType, Decode, Tag,
 };
 
 use crate::{
-    asn1::{ASN1Iterator, ASN1},
+    asn1::{ASN1Decoder, ASN1Iterator},
     get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
     get_js_obj_from_asn_object,
     objects::{ASN1BitStringData, ASN1Object, ASN1OID},
@@ -111,10 +111,10 @@ impl From<Tag> for JsType {
     }
 }
 
-impl TryFrom<ASN1> for ASN1Data {
+impl TryFrom<ASN1Decoder> for ASN1Data {
     type Error = Error;
 
-    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+    fn try_from(value: ASN1Decoder) -> Result<Self, Self::Error> {
         Ok(match value.get_js_type() {
             JsType::Boolean => ASN1Data::Boolean(value.into_bool()?),
             JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
@@ -150,7 +150,7 @@ impl TryFrom<&Open> for ASN1Data {
                 ASN1Data::Object(ASN1Object::Oid(ASN1OID::try_from(data.to_vec())?))
             }
             Open::BitString(data) => {
-                ASN1Data::Object(ASN1Object::BitString(ASN1BitStringData::from(data)))
+                ASN1Data::Object(ASN1Object::BitString(ASN1BitStringData::new(data)))
             }
             Open::Null => ASN1Data::Null,
         })
@@ -215,7 +215,7 @@ impl TryFrom<&ASN1Data> for Open {
             ASN1Data::Bytes(data) => Open::OctetString(OctetString::from(data)),
             ASN1Data::Date(data) => Open::GeneralizedTime(data),
             ASN1Data::Object(data) => match data {
-                ASN1Object::BitString(data) => Open::BitString(BitString::from_vec(data.value)),
+                ASN1Object::BitString(data) => Open::BitString(data.value),
                 ASN1Object::Oid(data) => Open::ObjectIdentifier(ObjectIdentifier::try_from(data)?),
                 _ => bail!(ASN1NAPIError::InvalidSimpleTypesOnly),
             },
@@ -284,11 +284,11 @@ impl TryFrom<JsValue> for JsUnknown {
     }
 }
 
-impl TryFrom<ASN1> for ASN1Number {
+impl TryFrom<ASN1Decoder> for ASN1Number {
     type Error = Error;
 
     /// Attempt to decode a number as an ASN1Number from an ASN1 instance.
-    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+    fn try_from(value: ASN1Decoder) -> Result<Self, Self::Error> {
         if let Ok(num) = value.into_integer() {
             Ok(ASN1Number::Integer(num))
         } else if let Ok(num) = value.into_big_integer() {
@@ -303,16 +303,16 @@ impl TryFrom<ASN1> for ASN1Number {
 mod test {
     use num_bigint::BigInt;
 
-    use crate::{types::ASN1Number, ASN1};
+    use crate::{types::ASN1Number, ASN1Decoder};
 
     #[test]
     fn test_asn1number_try_from_asn1() {
-        let asn1 = ASN1::new(vec![2, 1, 42]);
+        let asn1 = ASN1Decoder::new(vec![2, 1, 42]);
         let input = ASN1Number::try_from(asn1).unwrap();
 
         assert_eq!(input, ASN1Number::Integer(42));
 
-        let asn1 = ASN1::new(vec![2, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let asn1 = ASN1Decoder::new(vec![2, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
         let input = ASN1Number::try_from(asn1).unwrap();
 
         assert_eq!(

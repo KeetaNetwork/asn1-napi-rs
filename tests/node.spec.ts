@@ -121,7 +121,7 @@ test('Node ASN1 Tests', (t) => {
   })
 
   const asn1 = lib.JStoASN1(input)
-  const js = new lib.Asn1(asn1.toBER())
+  const js = new lib.ASN1Decoder(asn1.toBER())
 
   t.deepEqual(js.intoArray(), input)
   t.deepEqual(lib.ASN1toJS(asn1.toBER()), input)

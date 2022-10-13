@@ -12,7 +12,7 @@ use crate::{
     constants::*,
     types::ASN1Data,
     utils::{get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements},
-    ASN1NAPIError, ASN1,
+    ASN1Decoder, ASN1NAPIError,
 };
 
 /// HashMap for names to OID
@@ -75,7 +75,7 @@ pub struct ASN1Context {
 #[rasn(tag(universal, 3))]
 pub struct ASN1BitStringData {
     pub r#type: &'static str,
-    pub value: Vec<u8>,
+    pub value: BitString,
 }
 
 /// ANS1 Sequence.
@@ -174,10 +174,10 @@ impl ASN1OID {
 
 impl ASN1BitStringData {
     /// Create a new instance of ASN1BitString from a string.
-    pub fn new<T: AsRef<[u8]>>(value: T) -> Self {
+    pub fn new(value: BitString) -> Self {
         Self {
             r#type: Self::TYPE,
-            value: value.as_ref().into(),
+            value,
         }
     }
 }
@@ -216,11 +216,11 @@ impl ASN1ContextTag {
 
 impl ASN1BitString {
     /// Create a new instance of a ASN1JsBitString from a string.
-    pub fn new<T: AsRef<[u8]>>(env: Env, data: T) -> Self {
+    pub fn new(env: Env, value: BitString) -> Self {
         Self {
             r#type: Self::TYPE,
             value: env
-                .create_buffer_with_data(data.as_ref().to_vec())
+                .create_buffer_with_data(value.as_raw_slice().to_vec())
                 .unwrap()
                 .into_raw(),
         }
@@ -257,19 +257,15 @@ impl<'a> TypedObject<'a> for ASN1ContextTag {
 
 impl Encode for ASN1BitStringData {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        if let Ok(result) = BitString::try_from(self.value.clone()) {
-            encoder.encode_bit_string(tag, &result)?;
-            Ok(())
-        } else {
-            Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownOid))
-        }
+        encoder.encode_bit_string(tag, &self.value)?;
+        Ok(())
     }
 }
 
 impl Decode for ASN1BitStringData {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         if let Ok(result) = decoder.decode_bit_string(tag) {
-            Ok(ASN1BitStringData::from(result))
+            Ok(ASN1BitStringData::new(result))
         } else {
             Err(<D as rasn::Decoder>::Error::custom(
                 ASN1NAPIError::InvalidBitString,
@@ -350,12 +346,12 @@ impl Encode for ASN1Context {
 
 impl Decode for ASN1Context {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
-        let asn1 = ASN1::new(decoder.decode_any()?.as_bytes().to_owned());
+        let asn1 = ASN1Decoder::new(decoder.decode_any()?.as_bytes().to_owned());
         let mut decoder = rasn::ber::de::Decoder::new(asn1.get_raw(), DecoderOptions::ber());
         let tag = *asn1.get_tag();
 
         if let Ok(ASN1Data::Unknown(any)) = decoder.decode_explicit_prefix::<ASN1Data>(tag) {
-            if let Ok(data) = ASN1Data::try_from(ASN1::new(any.as_bytes().to_owned())) {
+            if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(any.as_bytes().to_owned())) {
                 return Ok(Self::new(tag.value, data));
             };
         }
@@ -404,21 +400,14 @@ impl AsRef<[u32]> for ASN1OID {
 impl<'a> From<&'a [u8]> for ASN1BitStringData {
     /// Convert bytes into an ASN1BitString instance.
     fn from(value: &'a [u8]) -> Self {
-        Self::new(value)
+        Self::new(BitString::from_slice(value))
     }
 }
 
 impl From<Vec<u8>> for ASN1BitStringData {
     /// Convert an owned byte array into an ASN1BitString instance.
     fn from(value: Vec<u8>) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<BitString> for ASN1BitStringData {
-    /// Convert a BitString into an ASN1BitString instance.
-    fn from(value: BitString) -> Self {
-        Self::from(value.into_vec())
+        Self::new(BitString::from_vec(value))
     }
 }
 
@@ -448,7 +437,7 @@ impl TryFrom<JsBuffer> for ASN1BitStringData {
 
     /// Attempt to convert a JsBuffer instance into an ASN1BitString instance.
     fn try_from(value: JsBuffer) -> Result<Self, Self::Error> {
-        Ok(Self::new(value.into_value()?))
+        Ok(Self::new(BitString::from_vec(value.into_value()?.to_vec())))
     }
 }
 
@@ -558,10 +547,10 @@ impl TryFrom<JsObject> for ASN1Context {
     }
 }
 
-impl TryFrom<ASN1> for ASN1Context {
+impl TryFrom<ASN1Decoder> for ASN1Context {
     type Error = Error;
 
-    fn try_from(value: ASN1) -> Result<Self, Self::Error> {
+    fn try_from(value: ASN1Decoder) -> Result<Self, Self::Error> {
         Ok(Self::new(
             value.get_tag().value / 0xa0,
             ASN1Data::try_from(value)?,

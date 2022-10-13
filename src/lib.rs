@@ -16,7 +16,7 @@ mod utils;
 
 use std::str::FromStr;
 
-pub use crate::asn1::ASN1;
+pub use crate::asn1::ASN1Decoder;
 
 use anyhow::Result;
 use asn1::ASN1Encoder;
@@ -108,9 +108,11 @@ pub fn asn1_to_js(
     #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
 ) -> Result<JsUnknown> {
     let asn1 = match data.get_type()? {
-        ValueType::String => ASN1::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?,
-        ValueType::Null => ASN1::new(ASN1_NULL.to_owned()),
-        _ => ASN1::new(get_vec_from_js_unknown(data)?),
+        ValueType::String => {
+            ASN1Decoder::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?
+        }
+        ValueType::Null => ASN1Decoder::new(ASN1_NULL.to_owned()),
+        _ => ASN1Decoder::new(get_vec_from_js_unknown(data)?),
     };
 
     get_js_unknown_from_asn1_data(env, ASN1Data::try_from(asn1)?)
@@ -230,7 +232,8 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             )?;
             obj.set_named_property::<JsBuffer>(
                 ASN1_OBJECT_VALUE_KEY,
-                env.create_buffer_with_data(val.value)?.into_raw(),
+                env.create_buffer_with_data(val.value.as_raw_slice().to_vec())?
+                    .into_raw(),
             )?;
         }
         ASN1Object::Context(val) => {

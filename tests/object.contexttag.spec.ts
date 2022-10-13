@@ -68,7 +68,7 @@ test('JS Context Tag to ASN1 conversion', (t) => {
 test('ASN1 to Js Context Tag conversion from byte code', (t) => {
   TEST_CONTEXT_TAGS_ASN1.map((v, i) => {
     const data = new Uint8Array(v)
-    const obj = new lib.Asn1(Array.from(data))
+    const obj = new lib.ASN1Decoder(Array.from(data))
 
     t.deepEqual(obj.intoContextTag(), TEST_CONTEXT_TAGS[i])
     t.deepEqual(lib.ASN1toJS(v), TEST_CONTEXT_TAGS[i])
@@ -76,7 +76,7 @@ test('ASN1 to Js Context Tag conversion from byte code', (t) => {
 })
 
 test('ASN1 to Js Context Tag conversion from base64', (t) => {
-  const obj = lib.Asn1.fromBase64(
+  const obj = lib.ASN1Decoder.fromBase64(
     'oFMwUQYJYIZIAWUDBAIIMEQEICr/S0giG9GX2MTMrxc3EIGys5PE8jr8r18mIzZ2zYQ6BCCDoM+00VOsNOWyS0x0/VCAPCC3p6iC3JSwDdTpMH/5rw==',
   )
 
@@ -85,7 +85,7 @@ test('ASN1 to Js Context Tag conversion from base64', (t) => {
 
 test('ASN1 to Js Context Tag conversion round trip', (t) => {
   TEST_CONTEXT_TAGS_ASN1.map((v, i) => {
-    const js = new lib.Asn1(v)
+    const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoContextTag(), TEST_CONTEXT_TAGS[i])
     t.deepEqual(

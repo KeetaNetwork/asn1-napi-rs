@@ -533,7 +533,7 @@ async function run() {
     'Encode/Decode Block from Base64',
 
     b.add('Rust ASN1toJS Test Block', () => {
-      const asn1 = lib.Asn1.fromBase64(TEST_BLOCK_BASE64)
+      const asn1 = lib.ASN1Decoder.fromBase64(TEST_BLOCK_BASE64)
       asn1.intoArray()
     }),
 
