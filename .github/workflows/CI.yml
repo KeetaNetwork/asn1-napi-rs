@@ -497,7 +497,7 @@ jobs:
       - name: Move artifacts
         run: |
           yarn artifacts
-          cp npm/*/*.node ./
+          cp -rf artifacts/* ./
       - name: List packages
         run: ls -R ./npm
         shell: bash
@@ -511,5 +511,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
         run: |
-          yarn dlx @napi-rs/cli prepublish --skip-gh-release -t npm
+          # yarn dlx @napi-rs/cli prepublish --skip-gh-release -t npm
           yarn npm publish --access restricted

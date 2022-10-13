@@ -1,6 +1,6 @@
 {
   "name": "@keetapay/asn1-napi-rs",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "homepage": "https://github.com/KeetaPay/asn1-napi-rs#readme",
   "author": "Tanveer Wahid <twahid@keeta.com>",
   "description": "KeetaPay ASN.1 TypeScript-Rust NAPI library",
@@ -14,7 +14,8 @@
   "keywords": [],
   "files": [
     "index.d.ts",
-    "index.js"
+    "index.js",
+    "asn1-napi-rs-*/*.node"
   ],
   "napi": {
     "name": "asn1-napi-rs",

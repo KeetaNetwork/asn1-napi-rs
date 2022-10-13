@@ -32,7 +32,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.android-arm64.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-android-arm64')
+            nativeBinding = require('./asn1-napi-rs-android-arm64/asn1-napi-rs-android-arm64.node')
           }
         } catch (e) {
           loadError = e
@@ -46,7 +46,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.android-arm-eabi.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-android-arm-eabi')
+            nativeBinding = require('./asn1-napi-rs-android-arm-eabi/asn1-napi-rs-android-arm-eabi.node')
           }
         } catch (e) {
           loadError = e
@@ -66,7 +66,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.win32-x64-msvc.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-win32-x64-msvc')
+            nativeBinding = require('./asn1-napi-rs-win32-x64-msvc/asn1-napi-rs-win32-x64-msvc.node')
           }
         } catch (e) {
           loadError = e
@@ -80,7 +80,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.win32-ia32-msvc.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-win32-ia32-msvc')
+            nativeBinding = require('./asn1-napi-rs-win32-ia32-msvc/asn1-napi-rs-win32-ia32-msvc.node')
           }
         } catch (e) {
           loadError = e
@@ -94,7 +94,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.win32-arm64-msvc.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-win32-arm64-msvc')
+            nativeBinding = require('./asn1-napi-rs-win32-arm64-msvc/asn1-napi-rs-win32-arm64-msvc.node')
           }
         } catch (e) {
           loadError = e
@@ -114,7 +114,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.darwin-x64.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-darwin-x64')
+            nativeBinding = require('./asn1-napi-rs-darwin-x64/asn1-napi-rs-darwin-x64.node')
           }
         } catch (e) {
           loadError = e
@@ -128,7 +128,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.darwin-arm64.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-darwin-arm64')
+            nativeBinding = require('./asn1-napi-rs-darwin-arm64/asn1-napi-rs-darwin-arm64.node')
           }
         } catch (e) {
           loadError = e
@@ -149,7 +149,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./asn1-napi-rs.freebsd-x64.node')
       } else {
-        nativeBinding = require('@keetapay/asn1-napi-rs-freebsd-x64')
+        nativeBinding = require('./asn1-napi-rs-freebsd-x64/asn1-napi-rs-freebsd-x64.node')
       }
     } catch (e) {
       loadError = e
@@ -166,7 +166,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./asn1-napi-rs.linux-x64-musl.node')
             } else {
-              nativeBinding = require('@keetapay/asn1-napi-rs-linux-x64-musl')
+              nativeBinding = require('./asn1-napi-rs-linux-x64-musl/asn1-napi-rs-linux-x64-musl.node')
             }
           } catch (e) {
             loadError = e
@@ -179,7 +179,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./asn1-napi-rs.linux-x64-gnu.node')
             } else {
-              nativeBinding = require('@keetapay/asn1-napi-rs-linux-x64-gnu')
+              nativeBinding = require('./asn1-napi-rs-linux-x64-gnu/asn1-napi-rs-linux-x64-gnu.node')
             }
           } catch (e) {
             loadError = e
@@ -195,7 +195,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./asn1-napi-rs.linux-arm64-musl.node')
             } else {
-              nativeBinding = require('@keetapay/asn1-napi-rs-linux-arm64-musl')
+              nativeBinding = require('./asn1-napi-rs-linux-arm64-musl/asn1-napi-rs-linux-arm64-musl.node')
             }
           } catch (e) {
             loadError = e
@@ -208,7 +208,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./asn1-napi-rs.linux-arm64-gnu.node')
             } else {
-              nativeBinding = require('@keetapay/asn1-napi-rs-linux-arm64-gnu')
+              nativeBinding = require('./asn1-napi-rs-linux-arm64-gnu/asn1-napi-rs-linux-arm64-gnu.node')
             }
           } catch (e) {
             loadError = e
@@ -223,7 +223,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./asn1-napi-rs.linux-arm-gnueabihf.node')
           } else {
-            nativeBinding = require('@keetapay/asn1-napi-rs-linux-arm-gnueabihf')
+            nativeBinding = require('./asn1-napi-rs-linux-arm-gnueabihf/asn1-napi-rs-linux-arm-gnueabihf.node')
           }
         } catch (e) {
           loadError = e

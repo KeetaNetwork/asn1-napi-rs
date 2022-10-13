@@ -13,8 +13,6 @@ This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build nat
 
 ## Install this package
 
-`NPM` will choose which native package should download from `registry` automatically. You can see [npm](./npm) dir for details. And you can also run `yarn add @keetapay/asn1-napi-rs` to see how it works.
-
 ```bash
 # Yarn
 yarn add @keetapay/asn1-napi-rs
@@ -165,4 +163,4 @@ git tag -s -a "v1.x.x" -m ":bookmark: v1.x.x"
 git push --tags
 ```
 
-Then, create a release in GitHub which will trigger the GitHub action and deploy new GitHub NPM packages for the release. The NAPI template allows us to release different `npm packages` for different platforms. This project's `packages.json` file is updated during the release process to add `optionalDependencies` before releasing the main package to GitHub NPM.
+Then, create a release in GitHub which will trigger the GitHub action and deploy new GitHub NPM package for the release. The rest will be done for you and you can then require the new version as usual in the project this library is used in.
