@@ -4,9 +4,6 @@ extern crate napi_derive;
 #[macro_use]
 extern crate phf;
 
-#[macro_use]
-extern crate anyhow;
-
 mod asn1;
 mod constants;
 mod macros;
@@ -23,10 +20,9 @@ use asn1::ASN1Encoder;
 use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
     bindgen_prelude::{Array, Buffer},
-    Env, JsArrayBuffer, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
+    Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
-use rasn::ber::encode;
 use thiserror::Error;
 
 use objects::{
@@ -165,18 +161,6 @@ pub(crate) fn get_js_big_int_from_big_int(env: Env, data: BigInt) -> Result<JsBi
     Ok(env.create_bigint_from_words(negative, words)?)
 }
 
-/// Get a JsArrayBuffer from an ASN1 object.
-pub(crate) fn get_js_array_buffer_from_asn1_data(
-    env: Env,
-    data: &ASN1Data,
-) -> Result<JsArrayBuffer> {
-    if let Ok(data) = encode(data) {
-        Ok(env.create_arraybuffer_with_data(data)?.into_raw())
-    } else {
-        bail!(ASN1NAPIError::UnknownJsArgument)
-    }
-}
-
 /// Get an ASN1ContextTag from an ASN1Context.
 pub(crate) fn get_js_context_tag_from_asn1_context(
     env: Env,
@@ -232,8 +216,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             )?;
             obj.set_named_property::<JsBuffer>(
                 ASN1_OBJECT_VALUE_KEY,
-                env.create_buffer_with_data(val.value.as_raw_slice().to_vec())?
-                    .into_raw(),
+                val.into_asn1_bitstring(env).value,
             )?;
         }
         ASN1Object::Context(val) => {

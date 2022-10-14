@@ -7,13 +7,12 @@ use napi::{
 use num_bigint::BigInt;
 use rasn::{
     ber::{decode, encode},
-    types::{Any, Class, OctetString, PrintableString},
+    types::{Any, BitString, Class, OctetString, PrintableString},
     Decode, Tag,
 };
 
 use crate::{
-    get_js_array_buffer_from_asn1_data, get_js_array_from_asn_iter, get_js_big_int_from_big_int,
-    get_js_context_tag_from_asn1_context,
+    get_js_array_from_asn_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
     objects::{
         ASN1BitString, ASN1BitStringData, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID,
     },
@@ -68,21 +67,26 @@ impl ASN1Encoder {
         Self(data)
     }
 
+    /// Encode ASN1Data to a Vec<u8> of ASN.1 encoded data.
+    pub(crate) fn encode(&self) -> Result<Vec<u8>> {
+        if let Ok(data) = encode(&self.0) {
+            Ok(data)
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
+    }
+
     /// Encode the ASN.1 data as an array buffer.
     #[allow(unused_variables)]
     #[napi(js_name = "toBER", ts_return_type = "ArrayBuffer")]
     pub fn to_ber(&self, env: Env, size_only: Option<bool>) -> Result<JsArrayBuffer> {
-        get_js_array_buffer_from_asn1_data(env, &self.0)
+        Ok(env.create_arraybuffer_with_data(self.encode()?)?.into_raw())
     }
 
     /// Encode the ASN.1 data to a ASN.1 encoded base64 encoded string.
     #[napi(js_name = "toBase64")]
     pub fn to_base64(&self) -> Result<String> {
-        if let Ok(data) = encode(&self.0) {
-            Ok(base64::encode(data))
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        Ok(base64::encode(self.encode()?))
     }
 }
 
@@ -142,7 +146,11 @@ impl ASN1Decoder {
     /// Create an instance of ANS1 from Base64 encoded data.
     #[napi]
     pub fn from_base64(value: String) -> Result<ASN1Decoder> {
-        Self::try_from(value)
+        if let Ok(result) = base64::decode(value) {
+            Self::try_from(result.as_slice())
+        } else {
+            bail!(ASN1NAPIError::UnknownStringFormat)
+        }
     }
 
     /// Create an instance of ANS1 from hex encoded data
@@ -165,8 +173,24 @@ impl ASN1Decoder {
     }
 
     /// Get a ASN1BitString object.
+    /// TODO: rasn library removes unused bits which breaks things.
+    /// https://github.com/myrrlyn/bitvec/issues/72
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
-        self.decode::<ASN1BitStringData>()
+        if let Ok(mut data) = self.decode::<ASN1BitStringData>() {
+            let check = BitString::from_slice(&self.get_raw()[3..]);
+            let mut diff = (check.as_raw_slice().len() as isize
+                - data.value.as_raw_slice().len() as isize)
+                .abs();
+
+            while diff > 0 {
+                data.value.push(false);
+                diff -= 1;
+            }
+
+            Ok(data)
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
     }
 
     /// Get a Context object.
@@ -180,8 +204,16 @@ impl ASN1Decoder {
     }
 
     /// Decode an object to an ASN1Object.
+    /// TODO: rasn library removes unused bits which breaks things.
     pub(crate) fn into_object(self) -> Result<ASN1Object> {
-        self.decode::<ASN1Object>()
+        if let Ok(data) = self.decode::<ASN1Object>() {
+            Ok(match data {
+                ASN1Object::BitString(_) => ASN1Object::BitString(self.get_raw_bit_string()?),
+                _ => data,
+            })
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
     }
 
     /// Convert to a big integer.
@@ -240,7 +272,7 @@ impl ASN1Decoder {
     /// Convert to a JS ASN1BitString object.
     #[napi]
     pub fn into_bit_string(&self, env: Env) -> Result<ASN1BitString> {
-        Ok(ASN1BitString::new(env, self.get_raw_bit_string()?.value))
+        Ok(self.get_raw_bit_string()?.into_asn1_bitstring(env))
     }
 
     /// Convert to an Set object.
@@ -296,7 +328,7 @@ impl IntoIterator for ASN1Decoder {
     ///     Ok(ASN1::new(data)
     ///         .into_iter()?
     ///         .map(|data| cast_data!(data, ASN1Data::Integer))
-    ///         .fold(0, |total, num| total + num))
+    ///         .sum())
     /// }
     ///
     /// let data = vec![
