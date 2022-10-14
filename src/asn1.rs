@@ -178,9 +178,9 @@ impl ASN1Decoder {
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
         if let Ok(mut data) = self.decode::<ASN1BitStringData>() {
             let check = BitString::from_slice(&self.get_raw()[3..]);
-            let mut diff = (check.as_raw_slice().len() as isize
-                - data.value.as_raw_slice().len() as isize)
-                .abs();
+            let check_len = check.as_raw_slice().len() as isize;
+            let data_len = data.value.as_raw_slice().len() as isize;
+            let mut diff = check_len - data_len as isize;
 
             while diff > 0 {
                 data.value.push(false);
