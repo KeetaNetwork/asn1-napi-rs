@@ -2,7 +2,7 @@
 authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
-version = "1.1.0"
+version = "1.1.1"
 
 [lib]
 crate-type = ["cdylib"]
