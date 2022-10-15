@@ -1,10 +1,10 @@
 use anyhow::{bail, Error, Result};
 use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
-    ber::{de::DecoderOptions, enc::EncoderOptions},
+    ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{Any, BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
+    types::{BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
@@ -263,21 +263,9 @@ impl<'a> TypedObject<'a> for ASN1ContextTag {
     const TYPE: &'a str = "context";
 }
 
-/// TODO: rasn library removes unused bits which breaks things.
 impl Encode for ASN1BitStringData {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        let mut mock_encoder = rasn::ber::enc::Encoder::new(EncoderOptions::ber());
-
-        if mock_encoder.encode_bit_string(tag, &self.value).is_ok() {
-            let mut data = self.value.as_raw_slice().to_vec();
-            let mut output = mock_encoder.output();
-
-            while data.pop() == Some(0x00) {
-                output.push(0x00);
-            }
-
-            encoder.encode_any(&Any::new(output))?;
-        }
+        encoder.encode_bit_string(tag, &self.value)?;
 
         Ok(())
     }

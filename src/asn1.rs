@@ -6,8 +6,9 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::{decode, encode},
-    types::{Any, BitString, Class, OctetString, PrintableString},
+    ber::{de::Error as BERError, decode, encode},
+    de::Needed,
+    types::{Any, Class, OctetString, PrintableString},
     Decode, Tag,
 };
 
@@ -165,32 +166,30 @@ impl ASN1Decoder {
 
     /// Decode ASN1 encoded data.
     pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
-        if let Ok(data) = decode::<T>(&self.data) {
-            Ok(data)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
+        match decode::<T>(&self.data) {
+            Ok(data) => Ok(data),
+            Err(err) => match err {
+                BERError::Incomplete {
+                    needed: Needed::Size(val),
+                } => {
+                    let data = [..val].iter().fold(self.data.clone(), |mut data, _| {
+                        data.push(0x00);
+                        data
+                    });
+                    if let Ok(result) = decode(&data) {
+                        Ok(result)
+                    } else {
+                        bail!(ASN1NAPIError::MalformedData)
+                    }
+                }
+                _ => bail!(ASN1NAPIError::MalformedData),
+            },
         }
     }
 
     /// Get a ASN1BitString object.
-    /// TODO: rasn library removes unused bits which breaks things.
-    /// https://github.com/myrrlyn/bitvec/issues/72
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
-        if let Ok(mut data) = self.decode::<ASN1BitStringData>() {
-            let check = BitString::from_slice(&self.get_raw()[3..]);
-            let check_len = check.as_raw_slice().len() as isize;
-            let data_len = data.value.as_raw_slice().len() as isize;
-            let mut diff = check_len - data_len as isize;
-
-            while diff > 0 {
-                data.value.push(false);
-                diff -= 1;
-            }
-
-            Ok(data)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1BitStringData>()
     }
 
     /// Get a Context object.
@@ -204,16 +203,8 @@ impl ASN1Decoder {
     }
 
     /// Decode an object to an ASN1Object.
-    /// TODO: rasn library removes unused bits which breaks things.
     pub(crate) fn into_object(self) -> Result<ASN1Object> {
-        if let Ok(data) = self.decode::<ASN1Object>() {
-            Ok(match data {
-                ASN1Object::BitString(_) => ASN1Object::BitString(self.get_raw_bit_string()?),
-                _ => data,
-            })
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
-        }
+        self.decode::<ASN1Object>()
     }
 
     /// Convert to a big integer.
@@ -339,7 +330,7 @@ impl IntoIterator for ASN1Decoder {
     /// assert_eq!(sum_sequence(data).unwrap(), [1, 2, 3, 4, 5].iter().sum());
     /// ```
     fn into_iter(self) -> Self::IntoIter {
-        ASN1Iterator::from(decode::<Vec<Any>>(&self.data).unwrap_or_default())
+        ASN1Iterator::from(self.decode::<Vec<Any>>().unwrap_or_default())
     }
 }
 
