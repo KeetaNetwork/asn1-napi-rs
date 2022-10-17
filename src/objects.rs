@@ -4,14 +4,17 @@ use rasn::{
     ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{Class, ObjectIdentifier, Oid, Open, PrintableString},
+    types::{BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
 use crate::{
     constants::*,
     types::ASN1Data,
-    utils::{get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements},
+    utils::{
+        get_buffer_from_js, get_oid_elements_from_string, get_string_from_js,
+        get_string_from_oid_elements,
+    },
     ASN1Decoder, ASN1NAPIError,
 };
 
@@ -59,6 +62,11 @@ pub enum ASN1Object {
     #[rasn(tag(context, 0))]
     Context(ASN1Context),
 }
+
+#[derive(AsnType, Clone, Eq, PartialEq, Debug)]
+/// ANS1 JS bitstring.
+#[rasn(tag(universal, 3))]
+pub struct ASN1RawBitString(BitString);
 
 /// ANS1 Context.
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
@@ -146,6 +154,12 @@ pub trait TypedObject<'a> {
     }
 }
 
+impl ASN1RawBitString {
+    pub fn new(value: BitString) -> Self {
+        Self(value)
+    }
+}
+
 impl ASN1OID {
     /// Create a new instance of ASNOID from a string.
     pub fn new<T: AsRef<str>>(oid: T) -> Self {
@@ -216,6 +230,19 @@ impl<'a> TypedObject<'a> for ASN1Context {
 
 impl<'a> TypedObject<'a> for ASN1ContextTag {
     const TYPE: &'a str = "context";
+}
+
+impl Encode for ASN1RawBitString {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+        encoder.encode_bit_string(tag, &self.0)?;
+        Ok(())
+    }
+}
+
+impl Decode for ASN1RawBitString {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        Ok(ASN1RawBitString::new(decoder.decode_bit_string(tag)?))
+    }
 }
 
 impl Encode for ASN1OID {
@@ -337,6 +364,28 @@ impl AsRef<[u32]> for ASN1OID {
     fn as_ref(&self) -> &[u32] {
         // TODO Handle unwrap
         get_oid_from_name(&self.oid).unwrap()
+    }
+}
+
+impl From<Vec<u8>> for ASN1RawBitString {
+    fn from(value: Vec<u8>) -> Self {
+        ASN1RawBitString::new(BitString::from_vec(value))
+    }
+}
+
+impl From<ASN1RawBitString> for BitString {
+    fn from(value: ASN1RawBitString) -> Self {
+        value.0
+    }
+}
+
+impl TryFrom<JsBuffer> for ASN1RawBitString {
+    type Error = Error;
+
+    fn try_from(value: JsBuffer) -> Result<Self, Self::Error> {
+        Ok(ASN1RawBitString::from(get_buffer_from_js(
+            value.into_unknown(),
+        )?))
     }
 }
 
@@ -473,7 +522,14 @@ impl TryFrom<JsUnknown> for ASN1Object {
     type Error = Error;
 
     fn try_from(value: JsUnknown) -> Result<Self, Self::Error> {
-        let obj = value.coerce_to_object()?;
+        Self::try_from(value.coerce_to_object()?)
+    }
+}
+
+impl TryFrom<JsObject> for ASN1Object {
+    type Error = Error;
+
+    fn try_from(obj: JsObject) -> Result<Self, Self::Error> {
         let field = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_TYPE_KEY)?;
 
         if let Ok(ValueType::String) = field.get_type() {

@@ -49,7 +49,7 @@ enum ASN1NAPIError {
     UknownContext,
     #[error("The provided ASN1 data is malformed and cannot be decoded")]
     MalformedData,
-    #[error("Cannot decoded Bitstring")]
+    #[error("Cannot decode bit string")]
     InvalidBitString,
     #[error("Can only handle Universal simple types for this operation")]
     InvalidSimpleTypesOnly,
