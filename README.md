@@ -51,7 +51,7 @@ Library development was done using rustc v1.64.0, yarn v3.2.3, nodejs v14.19.0 i
 
 ## Requirements
 
-- Install the latest [Rust](https://www.rust-lang.org/tools/install)
+- Install the latest [Rust](https://www.rust-lang.org/tools/install) (Minimum supported v1.60.0)
 - Install [Node.js@14+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) which fully supported `Node-API`
 - Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install)
 
