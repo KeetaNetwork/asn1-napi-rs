@@ -12,10 +12,9 @@ use rasn::{
 
 use crate::{
     asn1::{ASN1Decoder, ASN1Iterator},
-    constants::{ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY},
     get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-    get_js_obj_from_asn_object, get_js_object_from_bit_string,
-    objects::{ASN1BitString, ASN1Object, ASN1RawBitString, TypedObject, ASN1OID},
+    get_js_obj_from_asn_object,
+    objects::{ASN1Object, ASN1RawBitString, ASN1OID},
     utils::{
         get_array_from_js, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
         get_fixed_date_from_js, get_integer_from_js, get_string_from_js, get_utf16_from_string,
@@ -62,7 +61,6 @@ pub enum ASN1Data {
     Integer(i64),
     BigInt(BigInt),
     String(String),
-    BitString(ASN1RawBitString),
     Bytes(Vec<u8>),
     Array(Vec<ASN1Data>),
     Object(ASN1Object),
@@ -124,10 +122,7 @@ impl TryFrom<ASN1Decoder> for ASN1Data {
             JsType::String => ASN1Data::String(value.into_string()?),
             JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
             JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
-            JsType::Object => match value.get_tag() {
-                &Tag::BIT_STRING => ASN1Data::BitString(value.get_raw_bit_string()?),
-                _ => ASN1Data::Object(value.into_object()?),
-            },
+            JsType::Object => ASN1Data::Object(value.into_object()?),
             JsType::DateTime => ASN1Data::Date(DateTime::<FixedOffset>::from(value.into_date()?)),
             JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
             JsType::Undefined | JsType::Null => ASN1Data::Null,
@@ -151,7 +146,9 @@ impl TryFrom<&Open> for ASN1Data {
             Open::UtcTime(data) => ASN1Data::Date(DateTime::<FixedOffset>::from(data)),
             Open::VisibleString(data) => ASN1Data::String(data.to_string()),
             Open::InstanceOf(data) => ASN1Data::try_from(data.value)?,
-            Open::BitString(data) => ASN1Data::BitString(ASN1RawBitString::new(data)),
+            Open::BitString(data) => {
+                ASN1Data::Object(ASN1Object::BitString(ASN1RawBitString::new(data)))
+            }
             Open::ObjectIdentifier(data) => {
                 ASN1Data::Object(ASN1Object::Oid(ASN1OID::try_from(data.to_vec())?))
             }
@@ -181,22 +178,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
             ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
             ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
             ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
-            ValueType::Object => {
-                let obj = value.coerce_to_object()?;
-
-                if let Ok(obj_type) = obj.get_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY) {
-                    match obj_type.into_utf8()?.as_str()? {
-                        ASN1BitString::TYPE => {
-                            let buffer =
-                                obj.get_named_property::<JsBuffer>(ASN1_OBJECT_VALUE_KEY)?;
-                            ASN1Data::BitString(ASN1RawBitString::try_from(buffer)?)
-                        }
-                        _ => ASN1Data::Object(ASN1Object::try_from(obj)?),
-                    }
-                } else {
-                    bail!(ASN1NAPIError::UnknownObject)
-                }
-            }
+            ValueType::Object => ASN1Data::Object(ASN1Object::try_from(value)?),
             _ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
         })
     }
@@ -232,8 +214,8 @@ impl TryFrom<&ASN1Data> for Open {
             ASN1Data::String(data) => Open::PrintableString(Implicit::new(data)),
             ASN1Data::Bytes(data) => Open::OctetString(OctetString::from(data)),
             ASN1Data::Date(data) => Open::GeneralizedTime(data),
-            ASN1Data::BitString(data) => Open::BitString(data.into()),
             ASN1Data::Object(data) => match data {
+                ASN1Object::BitString(data) => Open::BitString(data.into()),
                 ASN1Object::Oid(data) => Open::ObjectIdentifier(ObjectIdentifier::try_from(data)?),
                 _ => bail!(ASN1NAPIError::InvalidSimpleTypesOnly),
             },
@@ -275,9 +257,6 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
             ),
             ASN1Data::Array(val) => {
                 JsValue::Sequence(get_js_obj_from_asn_data(env, val.into_iter())?)
-            }
-            ASN1Data::BitString(val) => {
-                JsValue::Object(get_js_object_from_bit_string(env, val.into())?)
             }
             ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn_object(env, val)?),
             ASN1Data::Null => JsValue::Null(env.get_null()?),

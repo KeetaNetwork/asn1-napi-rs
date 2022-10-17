@@ -32,6 +32,7 @@ pub struct ASN1Decoder {
 }
 
 #[napi(js_name = "ASN1Encoder")]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ASN1Encoder(ASN1Data);
 
 #[napi(js_name = "ASN1Iterator")]

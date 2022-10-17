@@ -59,6 +59,8 @@ pub enum ASN1Object {
     Oid(ASN1OID),
     #[rasn(tag(universal, 17))]
     Set(ASN1Set),
+    #[rasn(tag(universal, 3))]
+    BitString(ASN1RawBitString),
     #[rasn(tag(context, 0))]
     Context(ASN1Context),
 }
@@ -157,6 +159,10 @@ pub trait TypedObject<'a> {
 impl ASN1RawBitString {
     pub fn new(value: BitString) -> Self {
         Self(value)
+    }
+
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0.into_vec()
     }
 }
 
@@ -339,14 +345,21 @@ impl Encode for ASN1Data {
             ASN1Data::Object(obj) => match obj {
                 ASN1Object::Oid(oid) => oid.encode(encoder),
                 ASN1Object::Set(set) => set.encode(encoder),
+                ASN1Object::BitString(bs) => bs.encode(encoder),
                 ASN1Object::Context(context) => context.encode(encoder),
             },
             // rasn library does not encode milliseconds
             // TODO make a pull request for them
-            ASN1Data::Date(date) => date
-                .format(ANS1_DATE_TIME_UTC_FORMAT)
-                .to_string()
-                .encode_with_tag(encoder, Tag::GENERALIZED_TIME),
+            ASN1Data::Date(date) => {
+                if date.timestamp_millis() % 1000 == 0 {
+                    date.encode(encoder)
+                } else {
+                    date.naive_utc()
+                        .format(ANS1_DATE_TIME_UTC_FORMAT)
+                        .to_string()
+                        .encode_with_tag(encoder, Tag::GENERALIZED_TIME)
+                }
+            }
             _ => {
                 if let Ok(open) = Open::try_from(self) {
                     open.encode(encoder)
@@ -389,6 +402,18 @@ impl TryFrom<JsBuffer> for ASN1RawBitString {
     }
 }
 
+impl TryFrom<JsObject> for ASN1RawBitString {
+    type Error = Error;
+
+    fn try_from(value: JsObject) -> Result<Self, Self::Error> {
+        if let Ok(buffer) = value.get_named_property::<JsBuffer>(ASN1_OBJECT_VALUE_KEY) {
+            Self::try_from(buffer)
+        } else {
+            bail!(ASN1NAPIError::InvalidBitString)
+        }
+    }
+}
+
 impl TryFrom<ASN1OID> for ObjectIdentifier {
     type Error = Error;
 
@@ -423,7 +448,7 @@ impl<'a> TryFrom<&'a [u32]> for ASN1OID {
 impl<'a> TryFrom<&'a [u8]> for ASN1OID {
     type Error = Error;
 
-    /// Attempt to convert bytes into an ASN1BitString instance.
+    /// Attempt to convert bytes into an ASN1OID instance.
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         Self::try_from(value.iter().map(|&e| e as u32).collect::<Vec<u32>>())
     }
@@ -538,6 +563,7 @@ impl TryFrom<JsObject> for ASN1Object {
             Ok(match name.as_str() {
                 ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
                 ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
+                ASN1BitString::TYPE => ASN1Object::BitString(ASN1RawBitString::try_from(obj)?),
                 ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
                 _ => bail!(ASN1NAPIError::UnknownFieldProperty),
             })

@@ -23,7 +23,6 @@ use napi::{
     Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
-use rasn::types::BitString;
 use thiserror::Error;
 
 use objects::{
@@ -151,19 +150,6 @@ pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
         })
 }
 
-pub(crate) fn get_js_object_from_bit_string(env: Env, bs: BitString) -> Result<JsObject> {
-    let ans1_bs = ASN1BitString::new(env, bs.into_vec());
-    let mut obj = env.create_object()?;
-
-    obj.set_named_property::<JsString>(
-        ASN1_OBJECT_TYPE_KEY,
-        env.create_string(ASN1BitString::TYPE)?,
-    )?;
-    obj.set_named_property::<JsBuffer>(ASN1_OBJECT_VALUE_KEY, ans1_bs.value)?;
-
-    Ok(obj)
-}
-
 /// Get JsUnknown from an ASN1Data.
 pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
     JsUnknown::try_from(JsValue::try_from((env, data))?)
@@ -221,6 +207,16 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_VALUE_KEY,
                 env.create_string(&val.value)?,
+            )?;
+        }
+        ASN1Object::BitString(val) => {
+            obj.set_named_property::<JsString>(
+                ASN1_OBJECT_TYPE_KEY,
+                env.create_string(ASN1BitString::TYPE)?,
+            )?;
+            obj.set_named_property::<JsBuffer>(
+                ASN1_OBJECT_VALUE_KEY,
+                ASN1BitString::new(env, val.into_vec()).value,
             )?;
         }
         ASN1Object::Context(val) => {
