@@ -68,12 +68,6 @@ pub struct ASN1Context {
     pub contains: Box<ASN1Data>,
 }
 
-/// ANS1 Sequence.
-#[napi(object, js_name = "ASN1Sequence")]
-pub struct ASN1Sequence {
-    pub r#type: &'static str,
-}
-
 /// ANS1 OID.
 #[napi(object, js_name = "ASN1OID")]
 #[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
@@ -214,10 +208,6 @@ impl<'a> TypedObject<'a> for ASN1OID {
 
 impl<'a> TypedObject<'a> for ASN1Set {
     const TYPE: &'a str = "set";
-}
-
-impl<'a> TypedObject<'a> for ASN1Sequence {
-    const TYPE: &'a str = "sequence";
 }
 
 impl<'a> TypedObject<'a> for ASN1Context {
