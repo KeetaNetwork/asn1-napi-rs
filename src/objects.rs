@@ -4,7 +4,7 @@ use rasn::{
     ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
+    types::{Class, ObjectIdentifier, Oid, Open, PrintableString},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
@@ -56,8 +56,6 @@ pub enum ASN1Object {
     Oid(ASN1OID),
     #[rasn(tag(universal, 17))]
     Set(ASN1Set),
-    #[rasn(tag(universal, 3))]
-    BitString(ASN1BitStringData),
     #[rasn(tag(context, 0))]
     Context(ASN1Context),
 }
@@ -68,14 +66,6 @@ pub enum ASN1Object {
 pub struct ASN1Context {
     pub value: u32,
     pub contains: Box<ASN1Data>,
-}
-
-/// ANS1 Rust bitstring.
-#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
-#[rasn(tag(universal, 3))]
-pub struct ASN1BitStringData {
-    pub r#type: &'static str,
-    pub value: BitString,
 }
 
 /// ANS1 Sequence.
@@ -172,27 +162,6 @@ impl ASN1OID {
     }
 }
 
-impl ASN1BitStringData {
-    /// Create a new instance of ASN1BitString from a string.
-    pub fn new(mut value: BitString) -> Self {
-        if value.capacity() % 8 != 0 {
-            value.force_align();
-        }
-
-        value.set_uninitialized(false);
-
-        Self {
-            r#type: Self::TYPE,
-            value,
-        }
-    }
-
-    /// Convert to an ASN1BitString.
-    pub fn into_asn1_bitstring(self, env: Env) -> ASN1BitString {
-        ASN1BitString::new(env, self.value.into_vec())
-    }
-}
-
 impl ASN1Set {
     /// Create a new instance of an ASN1Set from an ASN1OID and value.
     pub fn new<T: ToString>(name: ASN1OID, value: T) -> Self {
@@ -235,10 +204,6 @@ impl ASN1BitString {
     }
 }
 
-impl<'a> TypedObject<'a> for ASN1BitStringData {
-    const TYPE: &'a str = "bitstring";
-}
-
 impl<'a> TypedObject<'a> for ASN1BitString {
     const TYPE: &'a str = "bitstring";
 }
@@ -261,26 +226,6 @@ impl<'a> TypedObject<'a> for ASN1Context {
 
 impl<'a> TypedObject<'a> for ASN1ContextTag {
     const TYPE: &'a str = "context";
-}
-
-impl Encode for ASN1BitStringData {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, &self.value)?;
-
-        Ok(())
-    }
-}
-
-impl Decode for ASN1BitStringData {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        if let Ok(result) = decoder.decode_bit_string(tag) {
-            Ok(ASN1BitStringData::new(result))
-        } else {
-            Err(<D as rasn::Decoder>::Error::custom(
-                ASN1NAPIError::InvalidBitString,
-            ))
-        }
-    }
 }
 
 impl Encode for ASN1OID {
@@ -376,7 +321,6 @@ impl Encode for ASN1Data {
             ASN1Data::Unknown(any) => any.encode(encoder),
             ASN1Data::Object(obj) => match obj {
                 ASN1Object::Oid(oid) => oid.encode(encoder),
-                ASN1Object::BitString(bstring) => bstring.encode(encoder),
                 ASN1Object::Set(set) => set.encode(encoder),
                 ASN1Object::Context(context) => context.encode(encoder),
             },
@@ -415,24 +359,6 @@ impl TryFrom<ASN1OID> for ObjectIdentifier {
         } else {
             bail!(ASN1NAPIError::UnknownOid)
         }
-    }
-}
-
-impl TryFrom<JsObject> for ASN1BitStringData {
-    type Error = Error;
-
-    /// Attempt to convert a JsObject instance into an ASN1BitString instance.
-    fn try_from(value: JsObject) -> Result<Self, Self::Error> {
-        Self::try_from(value.get_named_property::<JsBuffer>(ASN1_OBJECT_VALUE_KEY)?)
-    }
-}
-
-impl TryFrom<JsBuffer> for ASN1BitStringData {
-    type Error = Error;
-
-    /// Attempt to convert a JsBuffer instance into an ASN1BitString instance.
-    fn try_from(value: JsBuffer) -> Result<Self, Self::Error> {
-        Ok(Self::new(BitString::from_vec(value.into_value()?.to_vec())))
     }
 }
 
@@ -565,7 +491,6 @@ impl TryFrom<JsUnknown> for ASN1Object {
 
             Ok(match name.as_str() {
                 ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
-                ASN1BitStringData::TYPE => ASN1Object::BitString(ASN1BitStringData::try_from(obj)?),
                 ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
                 ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
                 _ => bail!(ASN1NAPIError::UnknownFieldProperty),

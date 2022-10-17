@@ -8,15 +8,13 @@ use num_bigint::BigInt;
 use rasn::{
     ber::{de::Error as BERError, decode, encode},
     de::Needed,
-    types::{Any, Class, OctetString, PrintableString},
+    types::{Any, BitString, Class, OctetString, PrintableString},
     Decode, Tag,
 };
 
 use crate::{
     get_js_array_from_asn_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
-    objects::{
-        ASN1BitString, ASN1BitStringData, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID,
-    },
+    objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1OID},
     types::{ASN1Data, JsType},
     utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
     ASN1NAPIError,
@@ -166,9 +164,19 @@ impl ASN1Decoder {
 
     /// Decode ASN1 encoded data.
     pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
-        match decode::<T>(&self.data) {
+        if let Ok(data) = decode::<T>(&self.data) {
+            Ok(data)
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
+    }
+
+    /// Get a ASN1BitString object.
+    pub(crate) fn get_raw_bit_string(&self) -> Result<BitString> {
+        match decode(&self.data) {
             Ok(data) => Ok(data),
             Err(err) => match err {
+                // TODO Mising bits that the rasn library truncates.
                 BERError::Incomplete {
                     needed: Needed::Size(val),
                 } => {
@@ -177,19 +185,15 @@ impl ASN1Decoder {
                         data
                     });
                     if let Ok(result) = decode(&data) {
+                        println!("{:?}", result);
                         Ok(result)
                     } else {
-                        bail!(ASN1NAPIError::MalformedData)
+                        bail!(ASN1NAPIError::InvalidBitString)
                     }
                 }
-                _ => bail!(ASN1NAPIError::MalformedData),
+                _ => bail!(ASN1NAPIError::InvalidBitString),
             },
         }
-    }
-
-    /// Get a ASN1BitString object.
-    pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1BitStringData> {
-        self.decode::<ASN1BitStringData>()
     }
 
     /// Get a Context object.
@@ -263,7 +267,10 @@ impl ASN1Decoder {
     /// Convert to a JS ASN1BitString object.
     #[napi]
     pub fn into_bit_string(&self, env: Env) -> Result<ASN1BitString> {
-        Ok(self.get_raw_bit_string()?.into_asn1_bitstring(env))
+        Ok(ASN1BitString::new(
+            env,
+            self.get_raw_bit_string()?.into_vec(),
+        ))
     }
 
     /// Convert to an Set object.
@@ -396,7 +403,6 @@ mod test {
     use crate::asn1::ASN1Decoder;
     use crate::asn1::ASN1Encoder;
     use crate::cast_data;
-    use crate::objects::ASN1BitStringData;
     use crate::objects::ASN1Context;
     use crate::objects::ASN1Object;
     use crate::objects::ASN1Set;
@@ -574,7 +580,7 @@ mod test {
 
         assert_eq!(
             obj.get_raw_bit_string().unwrap(),
-            ASN1BitStringData::new(BitString::from_vec(vec![0xa, 0x10, 0x14, 0x20, 0x9]))
+            BitString::from_vec(vec![0xa, 0x10, 0x14, 0x20, 0x9])
         );
     }
 
@@ -666,5 +672,22 @@ mod test {
         let encoder = ASN1Encoder::new(ASN1Data::Array(block));
 
         assert_eq!(encoder.to_base64().unwrap(), TEST_BLOCK);
+    }
+
+    #[test]
+    fn test_something() {
+        let data = vec![
+            0x03, 0x46, 0x00, 0x30, 0x44, 0x02, 0x20, 0x4d, 0x29, 0x2e, 0xb7, 0x0f, 0x83, 0xb4,
+            0x3f, 0x75, 0x83, 0x68, 0xa9, 0xb8, 0xce, 0x39, 0x93, 0xd7, 0x63, 0x7c, 0x65, 0x45,
+            0xc3, 0x6d, 0xe0, 0x19, 0xdf, 0x27, 0x1c, 0x6f, 0xca, 0x2b, 0xd3, 0x02, 0x20, 0x1a,
+            0xd5, 0xff, 0xb9, 0x02, 0xc0, 0x40, 0x73, 0x3c, 0x19, 0x2e, 0x5a, 0xe5, 0x35, 0x2d,
+            0x8c, 0x16, 0x3f, 0x37, 0x69, 0x7c, 0xc4, 0x28, 0x90, 0x53, 0xa3, 0x3a, 0xae, 0xa6,
+            0xd6, 0x63,
+        ];
+
+        let asn1: ASN1Decoder = ASN1Decoder::new(data);
+        let bs = asn1.get_raw_bit_string().unwrap();
+
+        println!("{:#04X?}", bs.as_raw_slice());
     }
 }
