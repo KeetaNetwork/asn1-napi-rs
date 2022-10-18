@@ -3,6 +3,7 @@ env:
   DEBUG: napi:*
   APP_NAME: asn1-napi-rs
   MACOSX_DEPLOYMENT_TARGET: '10.13'
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
 on:
   push:
     branches:
