@@ -195,6 +195,8 @@ jobs:
           prepare: |
             pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
+            npm config set user 0
+            npm config set unsafe-perm true
             npm install --location=global --ignore-scripts npm
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
