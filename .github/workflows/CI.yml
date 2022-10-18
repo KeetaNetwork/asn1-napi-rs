@@ -504,12 +504,12 @@ jobs:
           cp -rf artifacts/*/*.node ./
           rm -rf artifacts
           rm -rf npm
-      - name: Configure npm/NPM Publish
+      - name: Configure Yarn/NPM Publish
         run: |
           echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
           npm config set "@keetapay:registry=https://npm.pkg.github.com"
           npm config set -- "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN"
-          npm config set npmAuthToken "$NODE_AUTH_TOKEN"
+          #yarn config set npmAuthToken "$NODE_AUTH_TOKEN"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION_TAG: ${{ github.event.release.tag_name }}
