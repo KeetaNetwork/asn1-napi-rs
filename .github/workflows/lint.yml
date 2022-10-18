@@ -37,7 +37,9 @@ jobs:
           key: npm-cache-lint-node@16
 
       - name: 'Install dependencies'
-        run: npm install --network-timeout 300000
+        run: |
+          npm config set timeout 300000
+          npm install
 
       - name: ESLint
         run: npm run lint
