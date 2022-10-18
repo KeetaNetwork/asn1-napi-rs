@@ -116,6 +116,7 @@ jobs:
         with:
           node-version: 16
           check-latest: true
+          cache: npm
       - name: Install
         uses: actions-rs/toolchain@v1
         if: ${{ !matrix.settings.docker }}
@@ -124,6 +125,21 @@ jobs:
           override: true
           toolchain: stable
           target: ${{ matrix.settings.target }}
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-registry
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-build-${{ matrix.settings.target }}-node@16
       - name: Setup toolchain
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
@@ -140,6 +156,7 @@ jobs:
         with:
           node-version: 16
           check-latest: true
+          cache: npm
           architecture: x86
       - name: Build in docker
         uses: addnab/docker-run-action@v3
@@ -230,6 +247,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
+          cache: npm
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-${{ matrix.settings.target }}-${{ matrix.node }}
       - name: Install dependencies
         run: npm install
       - name: Download artifacts
@@ -261,6 +284,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
+          cache: npm
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-linux-x64-gnu-${{ matrix.node }}
       - name: Install dependencies
         run: npm install
       - name: Download artifacts
@@ -292,6 +321,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           check-latest: true
+          cache: npm
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-x86_64-unknown-linux-musl-${{ matrix.node }}
       - name: Install dependencies
         run: |
           npm config set supportedArchitectures.libc "musl"
@@ -329,6 +364,11 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-linux-aarch64-gnu-${{ matrix.node }}
       - name: Install dependencies
         run: |
           npm config set supportedArchitectures.cpu "arm64"
@@ -359,6 +399,11 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-linux-aarch64-musl-${{ matrix.node }}
       - name: Install dependencies
         run: |
           npm config set supportedArchitectures.cpu "arm64"
@@ -396,6 +441,11 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-test-linux-arm-gnueabihf-${{ matrix.node }}
       - name: Install dependencies
         run: |
           npm config set supportedArchitectures.cpu "arm"
@@ -431,6 +481,14 @@ jobs:
         with:
           node-version: 16
           check-latest: true
+          cache: npm
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: .npm/cache
+          key: npm-cache-ubuntu-latest-publish
+          restore-keys: |
+            npm-cache-
       - name: Install dependencies
         run: npm install
       - name: Download all artifacts
