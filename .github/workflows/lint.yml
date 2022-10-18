@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: 'yarn'
+          cache: 'npm'
           check-latest: true
 
       - name: Install
@@ -37,10 +37,10 @@ jobs:
           key: npm-cache-lint-node@16
 
       - name: 'Install dependencies'
-        run: yarn install --network-timeout 300000
+        run: npm install --network-timeout 300000
 
       - name: ESLint
-        run: yarn lint
+        run: npm run lint
 
       - name: Cargo fmt
         run: cargo fmt -- --check

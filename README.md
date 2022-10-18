@@ -14,10 +14,6 @@ This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build nat
 ## Install this package
 
 ```bash
-# Yarn
-yarn add @keetapay/asn1-napi-rs
-
-# NPM
 npm install @keetapay/asn1-napi-rs
 ```
 
@@ -53,14 +49,14 @@ Library development was done using rustc v1.64.0, yarn v3.2.3, nodejs v14.19.0 i
 
 - Install the latest [Rust](https://www.rust-lang.org/tools/install) (Minimum supported v1.60.0)
 - Install [Node.js@14+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) which fully supported `Node-API`
-- Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install)
+- Install [NPM@6+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
 ### Setup
 
 Once prerequisites are installed, you can setup the initial project easily using:
 
 ```bash
-yarn setup
+npm run setup
 ```
 
 ### Building
@@ -69,26 +65,26 @@ You can build the entire project or just the rust using the following:
 
 ```bash
 # Project
-yarn build
+npm run build
 
 # Rust
 cargo build
 ```
 
-When running the `yarn build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from the rust code. These files should not be committed and are already in the `.gitignore` file.
+When running the `npm build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from the rust code. These files should not be committed and are already in the `.gitignore` file.
 
 ### Testing
 
-All JavaScript/TypeScript tests are located in the `tests` directory within the project root. All Rust tests are located in a `test` module in the file containing the code to be tested. With [ava](https://github.com/avajs/ava), run `yarn test` to testing native addon.
+All JavaScript/TypeScript tests are located in the `tests` directory within the project root. All Rust tests are located in a `test` module in the file containing the code to be tested. With [ava](https://github.com/avajs/ava), run `npm test` to testing native addon.
 
 ```bash
-yarn build && yarn test
+npm run build && npm test
 ```
 
 And you will see:
 
 ```bash
-$ yarn test
+$ npm test
 
   ✔ integer › JS number to ASN1 conversion
   ✔ integer › ASN1 to Js number conversion from byte code
@@ -119,7 +115,7 @@ test asn1::test::test_asn1_into_date ... ok
 There are a few benchmarks of critical functionality available which tests the Rust implementations of functions against their TypeScript counterparts. You can run these tests using:
 
 ```bash
-yarn bench
+npm run bench
 ```
 
 And you will see:
