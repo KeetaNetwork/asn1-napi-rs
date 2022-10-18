@@ -6,8 +6,7 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::{de::Error as BERError, decode, encode},
-    de::Needed,
+    ber::{decode, encode},
     types::{Any, BitString, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -18,7 +17,7 @@ use crate::{
         ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1Set, ASN1OID,
     },
     types::{ASN1Data, JsType},
-    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
+    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown, repair_bit_string_data},
     ASN1NAPIError,
 };
 
@@ -70,9 +69,16 @@ impl ASN1Encoder {
     }
 
     /// Encode ASN1Data to a Vec<u8> of ASN.1 encoded data.
+    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
-        if let Ok(data) = encode(&self.0) {
-            Ok(data)
+        if let Ok(mut data) = encode(&self.0) {
+            match &self.0 {
+                ASN1Data::Object(ASN1Object::BitString(val)) => {
+                    repair_bit_string_data(&mut data, val.clone().into_vec(), true);
+                    Ok(data)
+                }
+                _ => Ok(data),
+            }
         } else {
             bail!(ASN1NAPIError::MalformedData)
         }
@@ -92,7 +98,7 @@ impl ASN1Encoder {
     }
 }
 
-#[napi]
+#[napi(js_name = "ASN1Decoder")]
 impl ASN1Decoder {
     /// Js constructor
     #[napi(constructor)]
@@ -175,26 +181,16 @@ impl ASN1Decoder {
     }
 
     /// Get a ASN1BitString object.
+    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1RawBitString> {
-        match decode(&self.data) {
-            Ok(data) => Ok(data),
-            Err(err) => match err {
-                // TODO Mising bits that the rasn library truncates.
-                BERError::Incomplete {
-                    needed: Needed::Size(val),
-                } => {
-                    let data = [..val].iter().fold(self.data.clone(), |mut data, _| {
-                        data.push(0x00);
-                        data
-                    });
-                    if let Ok(result) = decode(&data) {
-                        Ok(result)
-                    } else {
-                        bail!(ASN1NAPIError::InvalidBitString)
-                    }
-                }
-                _ => bail!(ASN1NAPIError::InvalidBitString),
-            },
+        if let Ok(result) = self.decode::<ASN1RawBitString>() {
+            let mut data = result.into_vec();
+
+            repair_bit_string_data(&mut data, self.data.clone(), false);
+
+            Ok(ASN1RawBitString::new(BitString::from_vec(data)))
+        } else {
+            bail!(ASN1NAPIError::InvalidBitString)
         }
     }
 
@@ -209,8 +205,12 @@ impl ASN1Decoder {
     }
 
     /// Decode an object to an ASN1Object.
+    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn into_object(self) -> Result<ASN1Object> {
-        self.decode::<ASN1Object>()
+        match self.get_tag() {
+            &Tag::BIT_STRING => Ok(ASN1Object::BitString(self.get_raw_bit_string()?)),
+            _ => self.decode::<ASN1Object>(),
+        }
     }
 
     /// Convert to a big integer.

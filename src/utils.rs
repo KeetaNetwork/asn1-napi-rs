@@ -9,7 +9,7 @@ use napi::{
 use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
-use crate::{constants::ANS1_DATE_TIME_UTC_FORMAT, types::ASN1Data, ASN1NAPIError};
+use crate::{constants::ASN1_DATE_TIME_UTC_FORMAT, types::ASN1Data, ASN1NAPIError};
 
 /// Get utf16 bytes from a string.
 pub(crate) fn get_utf16_from_string<T: AsRef<str>>(value: T) -> Vec<u16> {
@@ -64,7 +64,7 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
 
     if let Ok(decoded) = Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME) {
         Ok(DateTime::<FixedOffset>::from_utc(
-            NaiveDateTime::parse_from_str(&decoded, ANS1_DATE_TIME_UTC_FORMAT)?,
+            NaiveDateTime::parse_from_str(&decoded, ASN1_DATE_TIME_UTC_FORMAT)?,
             FixedOffset::east(0),
         )
         .with_timezone(&Utc))
@@ -132,6 +132,24 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
         // TODO create a pull request for them
         _ => get_array_buffer_from_js(data)?,
     })
+}
+
+/// Fixes discrepencies between asn1js and rasn regarding bit strings.
+/// TODO Mising bits that the rasn library truncates.
+pub(crate) fn repair_bit_string_data(data: &mut Vec<u8>, mut reference: Vec<u8>, incr_len: bool) {
+    while let Some(val) = reference.pop() {
+        if val == 0x00 {
+            if let Some(pos) = data.get(1) {
+                if incr_len {
+                    data[1] = pos + 1;
+                }
+
+                data.push(0x00);
+            }
+        } else {
+            break;
+        }
+    }
 }
 
 #[cfg(test)]

@@ -66,11 +66,11 @@ pub enum ASN1Object {
 }
 
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
-/// ANS1 JS bitstring.
+/// ASN1 JS bitstring.
 #[rasn(tag(universal, 3))]
 pub struct ASN1RawBitString(BitString);
 
-/// ANS1 Context.
+/// ASN1 Context.
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(context, 0))]
 pub struct ASN1Context {
@@ -78,7 +78,7 @@ pub struct ASN1Context {
     pub contains: Box<ASN1Data>,
 }
 
-/// ANS1 OID.
+/// ASN1 OID.
 #[napi(object, js_name = "ASN1OID")]
 #[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(universal, 6))]
@@ -88,7 +88,7 @@ pub struct ASN1OID {
     pub oid: String,
 }
 
-/// ANS1 Set.
+/// ASN1 Set.
 #[napi(object, js_name = "ASN1Set")]
 #[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(universal, 17))]
@@ -99,7 +99,7 @@ pub struct ASN1Set {
     pub value: String,
 }
 
-/// ANS1 JS Context Tag.
+/// ASN1 JS Context Tag.
 #[napi(object, js_name = "ASN1ContextTag")]
 pub struct ASN1ContextTag {
     #[napi(ts_type = "'context'")]
@@ -109,7 +109,7 @@ pub struct ASN1ContextTag {
     pub contains: JsUnknown,
 }
 
-/// ANS1 JS bitstring.
+/// ASN1 JS bitstring.
 #[napi(object, js_name = "ASN1BitString")]
 pub struct ASN1BitString {
     #[napi(ts_type = "'bitstring'")]
@@ -157,7 +157,8 @@ pub trait TypedObject<'a> {
 }
 
 impl ASN1RawBitString {
-    pub fn new(value: BitString) -> Self {
+    pub fn new(mut value: BitString) -> Self {
+        value.set_uninitialized(false);
         Self(value)
     }
 
@@ -355,7 +356,7 @@ impl Encode for ASN1Data {
                     date.encode(encoder)
                 } else {
                     date.naive_utc()
-                        .format(ANS1_DATE_TIME_UTC_FORMAT)
+                        .format(ASN1_DATE_TIME_UTC_FORMAT)
                         .to_string()
                         .encode_with_tag(encoder, Tag::GENERALIZED_TIME)
                 }
@@ -377,6 +378,12 @@ impl AsRef<[u32]> for ASN1OID {
     fn as_ref(&self) -> &[u32] {
         // TODO Handle unwrap
         get_oid_from_name(&self.oid).unwrap()
+    }
+}
+
+impl AsRef<[u8]> for ASN1RawBitString {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_raw_slice()
     }
 }
 
