@@ -6,7 +6,8 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::{decode, encode},
+    ber::{de::Error as BERError, decode, encode},
+    de::Needed,
     types::{Any, BitString, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -173,15 +174,29 @@ impl ASN1Decoder {
 
     /// Decode ASN1 encoded data.
     pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
-        if let Ok(data) = decode::<T>(&self.data) {
-            Ok(data)
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
+        match decode(&self.data) {
+            Ok(data) => Ok(data),
+            Err(err) => match err {
+                // TODO Mising bits that the rasn library truncates.
+                BERError::Incomplete {
+                    needed: Needed::Size(val),
+                } => {
+                    let data = [..val].iter().fold(self.data.clone(), |mut data, _| {
+                        data.push(0x00);
+                        data
+                    });
+                    if let Ok(result) = decode(&data) {
+                        Ok(result)
+                    } else {
+                        bail!(ASN1NAPIError::InvalidBitString)
+                    }
+                }
+                _ => bail!(ASN1NAPIError::InvalidBitString),
+            },
         }
     }
 
     /// Get a ASN1BitString object.
-    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1RawBitString> {
         if let Ok(result) = self.decode::<ASN1RawBitString>() {
             let mut data = result.into_vec();
