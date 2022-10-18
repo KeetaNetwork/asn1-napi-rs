@@ -125,16 +125,6 @@ jobs:
           override: true
           toolchain: stable
           target: ${{ matrix.settings.target }}
-      - name: Cache cargo
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            .cargo-cache
-            target/
-          key: ${{ matrix.settings.target }}-cargo-registry
       - name: Cache NPM dependencies
         uses: actions/cache@v3
         with:
@@ -195,7 +185,6 @@ jobs:
           prepare: |
             pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
-            npm config set user 0
             npm config set unsafe-perm true
             npm install --location=global --ignore-scripts npm
             curl https://sh.rustup.rs -sSf --output rustup.sh
