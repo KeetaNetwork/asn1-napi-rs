@@ -13,7 +13,7 @@ use rasn::{
 };
 
 use crate::{
-    get_js_array_from_asn_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
+    get_js_array_from_asn1_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
     objects::{
         ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1Set, ASN1OID,
     },
@@ -197,6 +197,7 @@ impl ASN1Decoder {
     }
 
     /// Get a ASN1BitString object.
+    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1RawBitString> {
         if let Ok(result) = self.decode::<ASN1RawBitString>() {
             let mut data = result.into_vec();
@@ -305,7 +306,7 @@ impl ASN1Decoder {
     /// Convert a Sequence to an Array.
     #[napi(ts_return_type = "any[]")]
     pub fn into_array(&self, env: Env) -> Result<Array> {
-        get_js_array_from_asn_iter(env, self.clone().into_iter())
+        get_js_array_from_asn1_iter(env, self.clone().into_iter())
     }
 }
 

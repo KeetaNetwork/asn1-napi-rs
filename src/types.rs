@@ -12,8 +12,8 @@ use rasn::{
 
 use crate::{
     asn1::{ASN1Decoder, ASN1Iterator},
-    get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-    get_js_obj_from_asn_object,
+    get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn1_data,
+    get_js_obj_from_asn1_object,
     objects::{ASN1Object, ASN1RawBitString, ASN1OID},
     utils::{
         get_array_from_js, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
@@ -256,9 +256,9 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
                     .into_unknown(),
             ),
             ASN1Data::Array(val) => {
-                JsValue::Sequence(get_js_obj_from_asn_data(env, val.into_iter())?)
+                JsValue::Sequence(get_js_obj_from_asn1_data(env, val.into_iter())?)
             }
-            ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn_object(env, val)?),
+            ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn1_object(env, val)?),
             ASN1Data::Null => JsValue::Null(env.get_null()?),
         })
     }
