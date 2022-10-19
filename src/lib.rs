@@ -140,7 +140,7 @@ pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
     data: T,
 ) -> Result<Array> {
-    data.map(|data| get_js_uknown_from_asn_data(env, data))
+    data.map(|data| get_js_unknown_from_asn1_data(env, data))
         .enumerate()
         .fold(Ok(env.create_array(0)?), |arr, (i, unknown)| {
             let mut arr = arr.unwrap();
@@ -148,11 +148,6 @@ pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
             arr.set(i as u32, unknown?)?;
             Ok(arr)
         })
-}
-
-/// Get JsUnknown from an ASN1Data.
-pub(crate) fn get_js_uknown_from_asn_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
-    JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
 /// Get a JsBigInt from a BigInt.
@@ -168,11 +163,11 @@ pub(crate) fn get_js_context_tag_from_asn1_context(
 ) -> Result<ASN1ContextTag> {
     Ok(ASN1ContextTag::new(
         data.value,
-        get_js_uknown_from_asn_data(env, *data.contains)?,
+        get_js_unknown_from_asn1_data(env, *data.contains)?,
     ))
 }
 
-/// Get a JsUnknown from an ASN1 object.
+/// Get a JsUnknown from ASN1Data.
 fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> {
     JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
@@ -230,7 +225,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
             )?;
             obj.set_named_property::<JsUnknown>(
                 "contains",
-                get_js_uknown_from_asn_data(env, *val.contains)?,
+                get_js_unknown_from_asn1_data(env, *val.contains)?,
             )?;
         }
     };
