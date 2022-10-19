@@ -219,24 +219,24 @@ impl ASN1BitString {
     }
 }
 
-impl<'a> TypedObject<'a> for ASN1BitString {
-    const TYPE: &'a str = "bitstring";
+impl TypedObject<'static> for ASN1BitString {
+    const TYPE: &'static str = "bitstring";
 }
 
-impl<'a> TypedObject<'a> for ASN1OID {
-    const TYPE: &'a str = "oid";
+impl TypedObject<'static> for ASN1OID {
+    const TYPE: &'static str = "oid";
 }
 
-impl<'a> TypedObject<'a> for ASN1Set {
-    const TYPE: &'a str = "set";
+impl TypedObject<'static> for ASN1Set {
+    const TYPE: &'static str = "set";
 }
 
-impl<'a> TypedObject<'a> for ASN1Context {
-    const TYPE: &'a str = "context";
+impl TypedObject<'static> for ASN1Context {
+    const TYPE: &'static str = "context";
 }
 
-impl<'a> TypedObject<'a> for ASN1ContextTag {
-    const TYPE: &'a str = "context";
+impl TypedObject<'static> for ASN1ContextTag {
+    const TYPE: &'static str = "context";
 }
 
 impl Encode for ASN1RawBitString {
