@@ -8,3 +8,12 @@ macro_rules! cast_data {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! type_object {
+    ($target: ident, $pattern: literal) => {
+        impl TypedObject<'static> for $target {
+            const TYPE: &'static str = $pattern;
+        }
+    };
+}

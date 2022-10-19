@@ -10,6 +10,7 @@ use rasn::{
 
 use crate::{
     constants::*,
+    type_object,
     types::ASN1Data,
     utils::{
         get_buffer_from_js, get_oid_elements_from_string, get_string_from_js,
@@ -219,25 +220,11 @@ impl ASN1BitString {
     }
 }
 
-impl<'a> TypedObject<'a> for ASN1BitString {
-    const TYPE: &'a str = "bitstring";
-}
-
-impl<'a> TypedObject<'a> for ASN1OID {
-    const TYPE: &'a str = "oid";
-}
-
-impl<'a> TypedObject<'a> for ASN1Set {
-    const TYPE: &'a str = "set";
-}
-
-impl<'a> TypedObject<'a> for ASN1Context {
-    const TYPE: &'a str = "context";
-}
-
-impl<'a> TypedObject<'a> for ASN1ContextTag {
-    const TYPE: &'a str = "context";
-}
+// Implement TypedObject for types
+type_object!(ASN1BitString, "bitstring");
+type_object!(ASN1OID, "oid");
+type_object!(ASN1Set, "set");
+type_object!(ASN1ContextTag, "context");
 
 impl Encode for ASN1RawBitString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
@@ -571,7 +558,7 @@ impl TryFrom<JsObject> for ASN1Object {
                 ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
                 ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
                 ASN1BitString::TYPE => ASN1Object::BitString(ASN1RawBitString::try_from(obj)?),
-                ASN1Context::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
+                ASN1ContextTag::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
                 _ => bail!(ASN1NAPIError::UnknownFieldProperty),
             })
         } else {
