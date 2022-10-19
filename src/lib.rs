@@ -222,7 +222,7 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
         ASN1Object::Context(val) => {
             obj.set_named_property::<JsString>(
                 ASN1_OBJECT_TYPE_KEY,
-                env.create_string(ASN1Context::TYPE)?,
+                env.create_string(ASN1ContextTag::TYPE)?,
             )?;
             obj.set_named_property::<JsNumber>(
                 ASN1_OBJECT_VALUE_KEY,
