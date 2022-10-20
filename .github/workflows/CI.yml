@@ -197,7 +197,11 @@ jobs:
           prepare: |
             pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
+            mkdir ~/.npm-global
+            npm config set prefix '~/.npm-global'
             npm install --location=global --ignore-scripts npm
+            export PATH=~/.npm-global/bin:$PATH
+            . ~/.profile
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
             export PATH="/usr/local/cargo/bin:$PATH"
@@ -214,7 +218,6 @@ jobs:
             whoami
             env
             freebsd-version
-            chmod +x node_modules/@swc/core/postinstall.js
             npm install
             npm run build:ci
             strip -x *.node
