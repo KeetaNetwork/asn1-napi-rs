@@ -46,8 +46,6 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
             build: |
               set -e &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
-              . "/usr/local/cargo/env" &&
               sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
@@ -69,8 +67,6 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: |
               set -e &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
-              . "/usr/local/cargo/env" &&
               sudo npm run build:ci -- --target=aarch64-unknown-linux-gnu &&
               aarch64-unknown-linux-gnu-strip *.node
           - host: ubuntu-latest
@@ -201,7 +197,6 @@ jobs:
           prepare: |
             pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
-            npm config set unsafe-perm true
             npm install --location=global --ignore-scripts npm
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
@@ -219,8 +214,8 @@ jobs:
             whoami
             env
             freebsd-version
-            npm install
-            npm run build:ci
+            sudo npm install
+            sudo npm run build:ci
             strip -x *.node
             npm test
             rm -rf node_modules
