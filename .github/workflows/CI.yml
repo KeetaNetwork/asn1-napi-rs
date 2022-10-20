@@ -47,6 +47,7 @@ jobs:
             build: |-
               set -e &&
               curl https://sh.rustup.rs -sSf | sh -s -- -y
+              source "/usr/local/cargo/env"
               sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
@@ -69,6 +70,7 @@ jobs:
             build: |-
               set -e &&
               curl https://sh.rustup.rs -sSf | sh -s -- -y
+              source "/usr/local/cargo/env"
               sudo npm run build:ci -- --target=aarch64-unknown-linux-gnu &&
               aarch64-unknown-linux-gnu-strip *.node
           - host: ubuntu-latest
