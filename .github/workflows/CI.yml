@@ -44,10 +44,10 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
-            build: |-
+            build: |
               set -e &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y
-              source "/usr/local/cargo/env"
+              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
+              . "/usr/local/cargo/env" &&
               sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
@@ -67,10 +67,10 @@ jobs:
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-            build: |-
+            build: |
               set -e &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y
-              source "/usr/local/cargo/env"
+              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
+              . "/usr/local/cargo/env" &&
               sudo npm run build:ci -- --target=aarch64-unknown-linux-gnu &&
               aarch64-unknown-linux-gnu-strip *.node
           - host: ubuntu-latest
