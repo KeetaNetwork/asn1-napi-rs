@@ -50,12 +50,13 @@ jobs:
               chmod -R 777 /usr/local/cargo/
               echo "" > /root/.gitconfig
               chown $(whoami) /root/.gitconfig
+              chmod 777 /root/.gitconfig
               npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: set -e && echo /root/.gitconfig && npm run build:ci && strip *.node
+            build: set -e && less /root/.gitconfig && npm run build:ci && strip *.node
           - host: macos-latest
             target: aarch64-apple-darwin
             build: |
