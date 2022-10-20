@@ -45,19 +45,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
             build: |
-              echo "~~~~ rustc --version ~~~~"
-              rustc --version
-              echo "~~~~ cargo --version ~~~~"
-              cargo --version
-              echo "~~~~ node -v ~~~~"
-              node -v
-              echo "~~~~ npm --version ~~~~"
-              npm --version
-              mkdir -p /usr/local/cargo/registry
-              chmod -R 777 /usr/local/cargo/registry
-              touch /root/.gitconfig
-              chmod 777 /root/.gitconfig
-              npm run build:ci -- --target=x86_64-unknown-linux-gnu
+              which cargo
+              sudo which cargo
+              sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu
               strip *.node
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
