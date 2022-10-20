@@ -47,7 +47,6 @@ jobs:
             build: |
               curl https://sh.rustup.rs -sSf --output rustup.sh
               sudo sh rustup.sh -y --profile minimal --default-toolchain stable
-              export PATH="/usr/local/cargo/bin:$PATH"
               echo "~~~~ rustc --version ~~~~"
               rustc --version
               echo "~~~~ cargo --version ~~~~"
@@ -56,7 +55,7 @@ jobs:
               node -v
               echo "~~~~ npm --version ~~~~"
               npm --version
-              set -e &&
+              source "$HOME/.cargo/env" &&
               sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
