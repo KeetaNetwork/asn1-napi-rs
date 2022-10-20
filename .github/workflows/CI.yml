@@ -50,6 +50,8 @@ jobs:
               export PATH="/usr/local/cargo/bin:$PATH"
               echo "~~~~ rustc --version ~~~~"
               rustc --version
+              echo "~~~~ cargo --version ~~~~"
+              cargo --version
               echo "~~~~ node -v ~~~~"
               node -v
               echo "~~~~ npm --version ~~~~"
