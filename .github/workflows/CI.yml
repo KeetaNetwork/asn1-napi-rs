@@ -55,6 +55,7 @@ jobs:
               npm --version
               mkdir -p /usr/local/cargo/registry
               chmod -R 777 /usr/local/cargo/registry
+              chmod 777 /root/.gitconfig
               npm run build:ci -- --target=x86_64-unknown-linux-gnu
               strip *.node
           - host: ubuntu-latest
