@@ -49,7 +49,7 @@ jobs:
               chown -R $(whoami) /usr/local/cargo/
               echo "" > /root/.gitconfig
               chown $(whoami) /root/.gitconfig
-              sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
+              npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
