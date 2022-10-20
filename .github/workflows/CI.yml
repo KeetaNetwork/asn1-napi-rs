@@ -55,7 +55,7 @@ jobs:
               node -v
               echo "~~~~ npm --version ~~~~"
               npm --version
-              source "$HOME/.cargo/env" &&
+              . "$HOME/.cargo/env" &&
               sudo npm run build:ci -- --target=x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
