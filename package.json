@@ -48,6 +48,8 @@
     "bench": "node -r @swc-node/register benchmark/bench.ts",
     "build": "napi build --platform --release --target=${npm_config_target} && prettier ./index.* --write --loglevel error",
     "build:debug": "napi build --platform --target=${npm_config_target} && prettier ./index.* --write --loglevel error",
+    "build:win": "napi build --platform --release --target=%npm_config_target% && prettier ./index.* --write --loglevel error",
+    "build:win:debug": "napi build --platform --target=%npm_config_target% && prettier ./index.* --write --loglevel error",
     "format": "run-p format:prettier format:rs",
     "format:prettier": "prettier . --write",
     "format:rs": "cargo fmt",
