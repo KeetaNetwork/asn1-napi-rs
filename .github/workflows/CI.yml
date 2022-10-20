@@ -34,12 +34,12 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             build: |
-              ls -laf
               npm run build:ci
           - host: windows-latest
             target: i686-pc-windows-msvc
             build: |
               npm run build:ci -- --target=i686-pc-windows-msvc
+              ls -laf
               npm test
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
