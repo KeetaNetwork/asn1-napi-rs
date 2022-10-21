@@ -197,32 +197,22 @@ jobs:
           usesh: true
           mem: 3000
           prepare: |
-            pkg install -y curl node16 python2 sudo
+            pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
             npm install --location=global --ignore-scripts npm
             npm install -g @napi-rs/cli
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
-            sh export PATH="/usr/local/cargo/bin:$PATH"
-            echo "~~~~ rustc --version ~~~~"
-            rustc --version
-            echo "~~~~ node -v ~~~~"
-            node -v
-            echo "~~~~ npm --version ~~~~"
-            npm --version
+            . "/usr/local/cargo/env"
           run: |
             export PATH="/usr/local/cargo/bin:$PATH"
-            pwd
-            ls -lah
-            whoami
-            freebsd-version
+            chown -R $(whoami) .
             npm install --ignore-scripts
             chmod +x node_modules/@swc/core/postinstall.js
             chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm install --unsafe-perm=true
-            echo "ls -lah /usr/local/lib/node_modules/@napi-rs/cli/scripts/"
-            ls -lah /usr/local/lib/node_modules/@napi-rs/cli/scripts/
             chmod +x /usr/local/lib/node_modules/@napi-rs/cli/scripts/index.js
+            chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm run build:ci --unsafe-perm=true -- --target=x86_64-unknown-freebsd
             strip -x *.node
             npm test --unsafe-perm=true
