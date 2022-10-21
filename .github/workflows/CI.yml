@@ -203,7 +203,8 @@ jobs:
             npm install -g @napi-rs/cli
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
-            . "/usr/local/cargo/env"
+            export PATH="/usr/local/cargo/bin:$PATH"
+            source "/usr/local/cargo/env"
           run: |
             export PATH="/usr/local/cargo/bin:$PATH"
             chown -R $(whoami) .
