@@ -208,16 +208,13 @@ jobs:
             export PATH="/usr/local/cargo/bin:$PATH"
             chown -R $(whoami) .
             npm install --ignore-scripts
+            chmod +x /usr/local/lib/node_modules/@napi-rs/cli/scripts/index.js
             chmod +x node_modules/@swc/core/postinstall.js
-            chmod +x node_modules/@napi-rs/cli/scripts/index.js
             chmod +x /usr/local/bin/napi
             npm install --unsafe-perm=true
-            chmod +x /usr/local/lib/node_modules/@napi-rs/cli/scripts/index.js
-            chmod +x node_modules/@napi-rs/cli/scripts/index.js
-            npm run build:ci --unsafe-perm=true -- --target=x86_64-unknown-freebsd
             napi build --platform --release --target=x86_64-unknown-freebsd
             strip -x *.node
-            npm test --unsafe-perm=true
+            ava
             rm -rf node_modules
             rm -rf target
       - name: Upload artifact
