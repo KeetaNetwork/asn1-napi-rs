@@ -3,6 +3,7 @@ env:
   DEBUG: napi:*
   APP_NAME: asn1-napi-rs
   MACOSX_DEPLOYMENT_TARGET: '10.13'
+  YARN_ENABLE_IMMUTABLE_INSTALLS: false
 on:
   push:
     branches:
