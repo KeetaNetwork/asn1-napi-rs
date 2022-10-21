@@ -39,7 +39,6 @@ jobs:
             target: i686-pc-windows-msvc
             build: |
               npm run build:ci -- --target=i686-pc-windows-msvc
-              ls -laf
               npm test
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -102,7 +101,7 @@ jobs:
           - host: ubuntu-latest
             target: aarch64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: |-
+            build: |
               set -e &&
               rustup target add aarch64-unknown-linux-musl &&
               npm run build:ci -- --target=aarch64-unknown-linux-musl &&
@@ -201,6 +200,7 @@ jobs:
             curl -qL https://www.npmjs.com/install.sh | sh
             npm install --location=global --ignore-scripts npm
             npm install -g @napi-rs/cli
+            npm install -g ava
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
           run: |
@@ -209,6 +209,7 @@ jobs:
             chown -R $(whoami) .
             npm install --ignore-scripts
             chmod +x /usr/local/lib/node_modules/@napi-rs/cli/scripts/index.js
+            chmod +x /usr/local/lib/node_modules/ava/entrypoints/cli.mjs
             chmod +x node_modules/@swc/core/postinstall.js
             chmod +x /usr/local/bin/napi
             npm install --unsafe-perm=true
