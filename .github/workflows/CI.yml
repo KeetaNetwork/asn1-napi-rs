@@ -217,7 +217,9 @@ jobs:
             freebsd-version
             npm install --ignore-scripts
             chmod +x node_modules/@swc/core/postinstall.js
+            chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm install --unsafe-perm=true
+            npm run build:test
             npm run build:ci
             strip -x *.node
             npm test
