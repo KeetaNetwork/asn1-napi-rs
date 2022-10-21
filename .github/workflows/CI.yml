@@ -35,11 +35,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             build: |
               npm run build:ci
-          - host: windows-latest
-            target: i686-pc-windows-msvc
-            build: |
-              npm run build:ci -- --target=i686-pc-windows-msvc
-              npm test
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             build: |
@@ -147,20 +142,8 @@ jobs:
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
         shell: bash
-      - name: Setup node x86
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        run: npm config set supportedArchitectures.cpu "ia32"
-        shell: bash
       - name: Install dependencies
         run: npm install
-      - name: Setup node x86
-        uses: actions/setup-node@v3
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        with:
-          node-version: 16
-          check-latest: true
-          cache: npm
-          architecture: x86
       - name: Build in docker
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}

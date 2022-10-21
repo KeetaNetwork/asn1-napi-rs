@@ -49,13 +49,6 @@ switch (platform) {
           loadError = e
         }
         break
-      case 'ia32':
-        try {
-          nativeBinding = require('./asn1-napi-rs.win32-ia32-msvc.node')
-        } catch (e) {
-          loadError = e
-        }
-        break
       case 'arm64':
         try {
           nativeBinding = require('./asn1-napi-rs.win32-arm64-msvc.node')
