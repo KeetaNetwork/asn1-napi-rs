@@ -205,6 +205,11 @@ jobs:
             sh rustup.sh -y --profile minimal --default-toolchain stable
           run: |
             export PATH="/usr/local/cargo/bin:$PATH"
+            export PATH="$(npm bin -g):$PATH"
+            echo "ls -lah /usr/local/npm/"
+            ls -lah /usr/local/npm/
+            echo "ls -lah /usr/local/bin/napi"
+            ls -lah /usr/local/bin/napi
             chown -R $(whoami) .
             npm install --ignore-scripts
             chmod +x node_modules/@swc/core/postinstall.js
