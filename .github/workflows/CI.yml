@@ -203,7 +203,7 @@ jobs:
             npm install -g @napi-rs/cli
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
-            export PATH="/usr/local/cargo/bin:$PATH"
+            sh export PATH="/usr/local/cargo/bin:$PATH"
             echo "~~~~ rustc --version ~~~~"
             rustc --version
             echo "~~~~ node -v ~~~~"
@@ -220,24 +220,10 @@ jobs:
             chmod +x node_modules/@swc/core/postinstall.js
             chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm install --unsafe-perm=true
-            echo "which brew"
-            which brew
-            echo "which npm"
-            which npm
-            echo "npm config get prefix"
-            npm config get prefix
-            echo "npm bin -g"
-            npm bin -g
-            echo "npm list -g"
-            npm list -g
-            echo "npm root -g"
-            npm root -g
-            echo "ls -lah /usr/local/lib/node_modules"
-            ls -lah /usr/local/lib/node_modules
-            chmod -R +x "$(npm bin -g)"
-            echo "which napi"
-            npm run build:test --unsafe-perm=true
-            npm run build:ci --unsafe-perm=true
+            echo "ls -lah /usr/local/lib/node_modules/@napi-rs/cli/scripts/"
+            ls -lah /usr/local/lib/node_modules/@napi-rs/cli/scripts/
+            chmod +x /usr/local/lib/node_modules/@napi-rs/cli/scripts/index.js
+            npm run build:ci --unsafe-perm=true -- --target=x86_64-unknown-freebsd
             strip -x *.node
             npm test --unsafe-perm=true
             rm -rf node_modules

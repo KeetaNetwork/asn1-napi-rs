@@ -49,7 +49,6 @@
     "build": "napi build --platform --release --target=${npm_config_target} && prettier ./index.* --write --loglevel error",
     "build:debug": "napi build --platform --target=${npm_config_target} && prettier ./index.* --write --loglevel error",
     "build:ci": "napi build --platform --release",
-    "build:test": "sudo which napi",
     "format": "run-p format:prettier format:rs",
     "format:prettier": "prettier . --write",
     "format:rs": "cargo fmt",
