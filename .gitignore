@@ -113,6 +113,8 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/node
 
+# Mac
+.DS_Store
 
 #Added by cargo
 
@@ -121,4 +123,9 @@ Cargo.lock
 
 *.node
 .pnp.*
-.yarn/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
