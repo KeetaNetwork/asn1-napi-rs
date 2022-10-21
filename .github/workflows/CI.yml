@@ -215,6 +215,8 @@ jobs:
             ls -lah
             whoami
             freebsd-version
+            npm install --ignore-scripts
+            chmod +x node_modules/@swc/core/postinstall.js
             npm install --unsafe-perm=true
             npm run build:ci
             strip -x *.node
