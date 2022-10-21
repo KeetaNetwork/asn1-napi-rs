@@ -197,7 +197,7 @@ jobs:
           usesh: true
           mem: 3000
           prepare: |
-            pkg install -y curl node16 python2 sudo
+            pkg install -y curl node16 python2
             curl -qL https://www.npmjs.com/install.sh | sh
             npm install --location=global --ignore-scripts npm
             curl https://sh.rustup.rs -sSf --output rustup.sh
@@ -214,12 +214,11 @@ jobs:
             pwd
             ls -lah
             whoami
-            env
             freebsd-version
-            sudo npm install
-            sudo npm run build:ci
+            npm install --unsafe-perm=true
+            npm run build:ci
             strip -x *.node
-            sudo npm test
+            npm test
             rm -rf node_modules
             rm -rf target
       - name: Upload artifact
