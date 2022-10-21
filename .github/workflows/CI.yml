@@ -29,14 +29,14 @@ jobs:
           - host: macos-latest
             target: x86_64-apple-darwin
             build: |
-              yarn build
+              yarn build:ci
               strip -x *.node
           - host: windows-latest
-            build: yarn build
+            build: yarn build:ci
             target: x86_64-pc-windows-msvc
           - host: windows-latest
             build: |
-              yarn build --target i686-pc-windows-msvc
+              yarn build:ci --target i686-pc-windows-msvc
               yarn test
             target: i686-pc-windows-msvc
           - host: ubuntu-latest
@@ -44,12 +44,12 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
             build: |-
               set -e &&
-              yarn build --target x86_64-unknown-linux-gnu &&
+              yarn build:ci --target x86_64-unknown-linux-gnu &&
               strip *.node
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: set -e && yarn build && strip *.node
+            build: set -e && yarn build:ci && strip *.node
           - host: macos-latest
             target: aarch64-apple-darwin
             build: |
@@ -58,14 +58,14 @@ jobs:
               export CXX=$(xcrun -f clang++);
               SYSROOT=$(xcrun --sdk macosx --show-sdk-path);
               export CFLAGS="-isysroot $SYSROOT -isystem $SYSROOT";
-              yarn build --target aarch64-apple-darwin
+              yarn build:ci --target aarch64-apple-darwin
               strip -x *.node
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: |-
               set -e &&
-              yarn build --target aarch64-unknown-linux-gnu &&
+              yarn build:ci --target aarch64-unknown-linux-gnu &&
               aarch64-unknown-linux-gnu-strip *.node
           - host: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
@@ -73,7 +73,7 @@ jobs:
               sudo apt-get update
               sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf -y
             build: |
-              yarn build --target=armv7-unknown-linux-gnueabihf
+              yarn build:ci --target=armv7-unknown-linux-gnueabihf
               arm-linux-gnueabihf-strip *.node
           - host: ubuntu-latest
             target: aarch64-linux-android
@@ -83,7 +83,7 @@ jobs:
               export CXX="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
               export AR="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
               export PATH="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:${PATH}"
-              yarn build --target aarch64-linux-android
+              yarn build:ci --target aarch64-linux-android
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
           - host: ubuntu-latest
             target: armv7-linux-androideabi
@@ -93,7 +93,7 @@ jobs:
               export CXX="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi24-clang++"
               export AR="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
               export PATH="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:${PATH}"
-              yarn build --target armv7-linux-androideabi
+              yarn build:ci --target armv7-linux-androideabi
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
           - host: ubuntu-latest
             target: aarch64-unknown-linux-musl
@@ -101,11 +101,11 @@ jobs:
             build: |-
               set -e &&
               rustup target add aarch64-unknown-linux-musl &&
-              yarn build --target aarch64-unknown-linux-musl &&
+              yarn build:ci --target aarch64-unknown-linux-musl &&
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
           - host: windows-latest
             target: aarch64-pc-windows-msvc
-            build: yarn build --target aarch64-pc-windows-msvc
+            build: yarn build:ci --target aarch64-pc-windows-msvc
     name: stable - ${{ matrix.settings.target }} - node@16
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -149,7 +149,7 @@ jobs:
         run: yarn config set supportedArchitectures.cpu "ia32"
         shell: bash
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --no-lockfile
       - name: Setup node x86
         uses: actions/setup-node@v3
         if: matrix.settings.target == 'i686-pc-windows-msvc'
@@ -212,8 +212,8 @@ jobs:
             whoami
             env
             freebsd-version
-            yarn install
-            yarn build
+            yarn install --no-lockfile
+            yarn build:ci
             strip -x *.node
             yarn test
             rm -rf node_modules
@@ -253,7 +253,7 @@ jobs:
           path: .yarn/cache
           key: npm-cache-test-${{ matrix.settings.target }}-${{ matrix.node }}
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --no-lockfile
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
@@ -290,7 +290,7 @@ jobs:
           path: .yarn/cache
           key: npm-cache-test-linux-x64-gnu-${{ matrix.node }}
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --no-lockfile
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
@@ -329,7 +329,7 @@ jobs:
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.libc "musl"
-          yarn install
+          yarn install --no-lockfile
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
@@ -372,7 +372,7 @@ jobs:
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "glibc"
-          yarn install
+          yarn install --no-lockfile
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
@@ -407,7 +407,7 @@ jobs:
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "musl"
-          yarn install
+          yarn install --no-lockfile
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
@@ -448,7 +448,7 @@ jobs:
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm"
-          yarn install
+          yarn install --no-lockfile
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
@@ -489,7 +489,7 @@ jobs:
           restore-keys: |
             npm-cache-
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --no-lockfile
       - name: Download all artifacts
         uses: actions/download-artifact@v3
         with:
