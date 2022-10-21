@@ -219,6 +219,8 @@ jobs:
             chmod +x node_modules/@swc/core/postinstall.js
             chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm install --unsafe-perm=true
+            which npm
+            which napi
             sudo npm run build:test
             sudo npm run build:ci
             strip -x *.node
