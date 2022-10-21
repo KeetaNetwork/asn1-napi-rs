@@ -53,6 +53,9 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
     "2.16.840.1.101.3.3.1.3" => "hashData",
 };
 
+/// Container for object types. Automatically decodes to specified type
+/// as an ASN1Object based on tag.
+/// Note: Contexts must be last.
 #[derive(AsnType, Encode, Decode, Clone, Eq, PartialEq, Debug)]
 #[rasn(choice)]
 pub enum ASN1Object {
@@ -66,8 +69,8 @@ pub enum ASN1Object {
     Context(ASN1Context),
 }
 
+/// ASN1 raw bit string.
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
-/// ASN1 JS bitstring.
 #[rasn(tag(universal, 3))]
 pub struct ASN1RawBitString(BitString);
 
@@ -110,7 +113,7 @@ pub struct ASN1ContextTag {
     pub contains: JsUnknown,
 }
 
-/// ASN1 JS bitstring.
+/// ASN1 JS bit string.
 #[napi(object, js_name = "ASN1BitString")]
 pub struct ASN1BitString {
     #[napi(ts_type = "'bitstring'")]
@@ -149,6 +152,8 @@ fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
     }
 }
 
+/// Objects that have a static "type" string which indentify the underlying
+/// data type in JavaScript.
 pub trait TypedObject<'a> {
     const TYPE: &'a str;
 
@@ -336,7 +341,7 @@ impl Encode for ASN1Data {
                 ASN1Object::BitString(bs) => bs.encode(encoder),
                 ASN1Object::Context(context) => context.encode(encoder),
             },
-            // rasn library does not encode milliseconds
+            // rasn library does not encode milliseconds for dates
             // TODO make a pull request for them
             ASN1Data::Date(date) => {
                 if date.timestamp_millis() % 1000 == 0 {

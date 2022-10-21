@@ -1,3 +1,4 @@
+/// Casts to inner enum value.
 #[macro_export]
 macro_rules! cast_data {
     ($target: expr, $pattern: path) => {{
@@ -9,6 +10,7 @@ macro_rules! cast_data {
     }};
 }
 
+/// Implements TypedObjects with type string.
 #[macro_export]
 macro_rules! type_object {
     ($target: ident, $pattern: literal) => {

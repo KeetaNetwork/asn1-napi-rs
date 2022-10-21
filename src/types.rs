@@ -22,7 +22,8 @@ use crate::{
     ASN1NAPIError,
 };
 
-/// JavaScript Types
+/// JavaScript Types.
+/// Complements JsValue.
 #[derive(Hash, Eq, Copy, Clone, PartialEq, Debug)]
 pub enum JsType {
     Boolean,
@@ -39,6 +40,7 @@ pub enum JsType {
 }
 
 /// JavaScript Values Container
+/// Complements JsType.
 pub enum JsValue {
     Boolean(JsBoolean),
     Integer(JsNumber),
@@ -53,6 +55,8 @@ pub enum JsValue {
     Undefined(JsUndefined),
 }
 
+/// ASN1Data types for native handling of data. This enum acts as a bridge
+/// between JS types and ASN1 encoded data.
 #[derive(AsnType, Clone, Decode, Debug, Eq, PartialEq)]
 #[rasn(choice)]
 #[rasn(automatic_tags)]
@@ -78,6 +82,7 @@ pub enum ASN1Number {
 }
 
 impl From<Tag> for JsType {
+    /// Get a JsType from an ASN1 Tag.
     fn from(tag: Tag) -> Self {
         match tag {
             Tag::BOOL => JsType::Boolean,
@@ -288,6 +293,7 @@ impl TryFrom<ASN1Decoder> for ASN1Number {
     type Error = Error;
 
     /// Attempt to decode a number as an ASN1Number from an ASN1 instance.
+    /// Note: This will only work for ASN1 encoded integers.
     fn try_from(value: ASN1Decoder) -> Result<Self, Self::Error> {
         if let Ok(num) = value.into_integer() {
             Ok(ASN1Number::Integer(num))

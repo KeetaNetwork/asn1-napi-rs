@@ -22,7 +22,8 @@ use crate::{
     ASN1NAPIError,
 };
 
-/// Convert ASN1 BER encoded data to JS native types.
+/// Convert ASN1 BER encoded data to JS native types. This is the main decoder
+/// class for decoding ASN1 encoded data.
 #[napi(js_name = "ASN1Decoder")]
 #[derive(Eq, Clone, PartialEq, Debug)]
 pub struct ASN1Decoder {
@@ -31,10 +32,15 @@ pub struct ASN1Decoder {
     data: Vec<u8>,
 }
 
+/// Convert ASN1Data into ASN1 encoded data. This is the main encoder
+/// class for encoding to ASN1 encoded data.
 #[napi(js_name = "ASN1Encoder")]
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ASN1Encoder(ASN1Data);
 
+/// ASN1 Iterator for sequences. Sequences use lazy loading iterators allowing
+/// for chaining of operations while only executing on a consumer ensuring
+/// O(n) operations.
 #[napi(js_name = "ASN1Iterator")]
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ASN1Iterator {
@@ -101,7 +107,7 @@ impl ASN1Encoder {
 
 #[napi(js_name = "ASN1Decoder")]
 impl ASN1Decoder {
-    /// Js constructor
+    /// JS constructor.
     #[napi(constructor)]
     pub fn js_new(
         #[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
@@ -109,7 +115,7 @@ impl ASN1Decoder {
         Ok(Self::new(get_vec_from_js_unknown(data)?))
     }
 
-    /// Create a new ANS1toJS instance from ASN1 encoded data.
+    /// Create a new ASN1Decoder instance from ASN1 encoded data.
     pub fn new(data: Vec<u8>) -> Self {
         // Match constructed Sequence/Set tag
         let bit = match *data.first().unwrap_or(&0x5) as u32 {
@@ -118,6 +124,7 @@ impl ASN1Decoder {
             n => n,
         } as u32;
 
+        // ASN1 Contexts range from 0xa0 to 0xbf
         let tag = if (0xa0..=0xbf).contains(&bit) {
             Tag::new(Class::Context, bit ^ 0xa0)
         } else {
@@ -162,7 +169,7 @@ impl ASN1Decoder {
         }
     }
 
-    /// Create an instance of ANS1 from hex encoded data
+    /// Create an instance of ANS1 from hex encoded data.
     #[napi]
     pub fn from_hex(value: String) -> Result<ASN1Decoder> {
         if let Ok(result) = hex::decode(value) {
@@ -173,11 +180,11 @@ impl ASN1Decoder {
     }
 
     /// Decode ASN1 encoded data.
+    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
         match decode(&self.data) {
             Ok(data) => Ok(data),
             Err(err) => match err {
-                // TODO Mising bits that the rasn library truncates.
                 BERError::Incomplete {
                     needed: Needed::Size(val),
                 } => {
@@ -191,7 +198,7 @@ impl ASN1Decoder {
                         bail!(ASN1NAPIError::InvalidBitString)
                     }
                 }
-                _ => bail!(ASN1NAPIError::InvalidBitString),
+                _ => bail!(ASN1NAPIError::MalformedData),
             },
         }
     }
@@ -327,32 +334,6 @@ impl IntoIterator for ASN1Decoder {
 
     type IntoIter = ASN1Iterator;
 
-    /// Convert to an iterator for ASN1Data. Use this if you plan to apply
-    /// functions to each result to maintain O(n) time complexity.
-    ///
-    /// # Examples
-    ///
-    /// ## Basic usage
-    ///
-    /// ```
-    /// #[macro_use]
-    /// extern crate asn1_napi_rs;
-    /// use asn1_napi_rs::asn1::ASN1;
-    ///
-    /// fn sum_sequence(data: Vec<u8>) -> Result<i64, Box<dyn std::error::Error>> {
-    ///     Ok(ASN1::new(data)
-    ///         .into_iter()?
-    ///         .map(|data| cast_data!(data, ASN1Data::Integer))
-    ///         .sum())
-    /// }
-    ///
-    /// let data = vec![
-    ///     0x30, 0x0f, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03,
-    ///     0x02, 0x01, 0x04, 0x02, 0x01, 0x05,
-    /// ];
-    ///
-    /// assert_eq!(sum_sequence(data).unwrap(), [1, 2, 3, 4, 5].iter().sum());
-    /// ```
     fn into_iter(self) -> Self::IntoIter {
         ASN1Iterator::from(self.decode::<Vec<Any>>().unwrap_or_default())
     }
@@ -371,7 +352,6 @@ impl From<Vec<Any>> for ASN1Iterator {
 impl TryFrom<String> for ASN1Decoder {
     type Error = Error;
 
-    /// Create an instance of ANS1toJS from Base64 or hex encoded data.
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
     }
@@ -380,7 +360,7 @@ impl TryFrom<String> for ASN1Decoder {
 impl<'a> TryFrom<&'a str> for ASN1Decoder {
     type Error = Error;
 
-    /// Create an instance of ANS1toJS from Base64 or hex encoded data.
+    /// Create an instance of ASN1Decoder from Base64 or hex encoded data.
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         if let Ok(result) = base64::decode(value) {
             Self::try_from(result.as_slice())
@@ -395,7 +375,6 @@ impl<'a> TryFrom<&'a str> for ASN1Decoder {
 impl<'a> TryFrom<&'a [u8]> for ASN1Decoder {
     type Error = Error;
 
-    /// Create an instance of ANS1toJS from raw data.
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         Ok(Self::new(value.into()))
     }

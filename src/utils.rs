@@ -35,23 +35,6 @@ pub(crate) fn get_string_from_oid_elements<T: AsRef<[u32]>>(value: T) -> Result<
         .join("."))
 }
 
-/// Get an chrono datetime from a JsUnknown.
-/// JavaScript Date objects are described in
-/// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)
-/// of the ECMAScript Language Specification.
-pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
-    let js_date = JsDate::try_from(data)?;
-    let timestamp = js_date.value_of()? as i64;
-    let ts_secs = timestamp / 1000;
-    let ts_ns = ((timestamp % 1000) * 1_000_000) as u32;
-    let naive = NaiveDateTime::from_timestamp(ts_secs, ts_ns);
-
-    Ok(DateTime::<FixedOffset>::from_utc(
-        naive,
-        FixedOffset::east(0),
-    ))
-}
-
 /// Get a sign as a bool and a Vec<u64> of words from a BigInt.
 pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
     let (sign, words) = data.to_u64_digits();
@@ -71,6 +54,23 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
     } else {
         bail!(ASN1NAPIError::MalformedData)
     }
+}
+
+/// Get an chrono datetime from a JsUnknown.
+/// JavaScript Date objects are described in
+/// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)
+/// of the ECMAScript Language Specification.
+pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
+    let js_date = JsDate::try_from(data)?;
+    let timestamp = js_date.value_of()? as i64;
+    let ts_secs = timestamp / 1000;
+    let ts_ns = ((timestamp % 1000) * 1_000_000) as u32;
+    let naive = NaiveDateTime::from_timestamp(ts_secs, ts_ns);
+
+    Ok(DateTime::<FixedOffset>::from_utc(
+        naive,
+        FixedOffset::east(0),
+    ))
 }
 
 /// Get an ASN1 boolean from a JsUnknown.

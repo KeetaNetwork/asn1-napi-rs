@@ -94,6 +94,8 @@ pub fn js_to_asn1(
 }
 
 /// Convert ASN1 BER encoded data to JS native types.
+/// This supports number arrays, Buffer, ArrayBufferLike, base64 or hex
+/// encded strings, or null input.
 #[napi(
     strict,
     js_name = "ASN1toJS",
@@ -173,7 +175,8 @@ fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> 
 }
 
 /// Get a JsObject from an ANS1Object.
-/// Note: Wrapping native objects results in empty JS objects.
+/// Note: Wrapping native objects results in empty JS objects and therefore
+/// must be manually built.
 fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
     let mut obj = env.create_object()?;
 
