@@ -223,6 +223,9 @@ jobs:
             npm config get prefix
             npm list -g
             npm root -g
+            ls -lah  /usr/local/lib
+            ls -lah /usr/local/lib/node_modules
+            chmod -R +x /usr/local/lib/node_modules
             sudo npm run build:test
             sudo npm run build:ci
             strip -x *.node
