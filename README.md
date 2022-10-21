@@ -14,11 +14,7 @@ This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build nat
 ## Install this package
 
 ```bash
-# Yarn
 yarn add @keetapay/asn1-napi-rs
-
-# NPM
-npm install @keetapay/asn1-napi-rs
 ```
 
 Note: You will need a [GitHub personal access token](https://github.com/settings/tokens) added to your `~/.npmrc` file like so:
