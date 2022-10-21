@@ -200,6 +200,7 @@ jobs:
             pkg install -y curl node16 python2 sudo
             curl -qL https://www.npmjs.com/install.sh | sh
             npm install --location=global --ignore-scripts npm
+            npm install -g @napi-rs/cli
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
             export PATH="/usr/local/cargo/bin:$PATH"
@@ -219,6 +220,8 @@ jobs:
             chmod +x node_modules/@swc/core/postinstall.js
             chmod +x node_modules/@napi-rs/cli/scripts/index.js
             npm install --unsafe-perm=true
+            echo "which brew"
+            which brew
             echo "which npm"
             which npm
             echo "npm config get prefix"
@@ -231,13 +234,12 @@ jobs:
             npm root -g
             echo "ls -lah /usr/local/lib/node_modules"
             ls -lah /usr/local/lib/node_modules
-            echo "ls -lah /usr/local/lib/node_modules/node_modules"
-            ls -lah /usr/local/lib/node_modules/node_modules
             chmod -R +x "$(npm bin -g)"
-            sudo npm run build:test
-            sudo npm run build:ci
+            echo "which napi"
+            npm run build:test --unsafe-perm=true
+            npm run build:ci --unsafe-perm=true
             strip -x *.node
-            sudo npm test
+            npm test --unsafe-perm=true
             rm -rf node_modules
             rm -rf target
       - name: Upload artifact
