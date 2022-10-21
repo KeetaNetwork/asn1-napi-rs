@@ -8,8 +8,8 @@ version = "1.1.2"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2.10.0", features = ["chrono_date", "error_anyhow", "napi7"] }
 phf = { version = "0.11.1", features = ["macros"] }
+napi = {version = "2.10.0", features = ["chrono_date", "error_anyhow", "napi7"] }
 napi-derive = "2.9.1"
 rasn = "0.6.1"
 num-bigint = "0.4.3"

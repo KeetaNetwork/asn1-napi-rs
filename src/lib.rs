@@ -115,19 +115,19 @@ pub fn asn1_to_js(
 }
 
 /// Get a JsObject from an iterator of ASN1Data.
-pub(crate) fn get_js_obj_from_asn_data<T: Iterator<Item = ASN1Data>>(
+pub(crate) fn get_js_obj_from_asn1_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
     data: T,
 ) -> Result<JsObject> {
-    Ok(get_js_array_from_asn_data(env, data)?.coerce_to_object()?)
+    Ok(get_js_array_from_asn1_data(env, data)?.coerce_to_object()?)
 }
 
 /// Get an Array from an iterator of ASN1Data.
-pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
+pub(crate) fn get_js_array_from_asn1_iter<T: Iterator<Item = Result<ASN1Data>>>(
     env: Env,
     data: T,
 ) -> Result<Array> {
-    get_js_array_from_asn_data(
+    get_js_array_from_asn1_data(
         env,
         #[allow(clippy::needless_question_mark)] // Safety check
         data.map(|result| Ok(result?))
@@ -136,7 +136,7 @@ pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
 }
 
 /// Get an Array from an iterator of ASN1Data.
-pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
+pub(crate) fn get_js_array_from_asn1_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
     data: T,
 ) -> Result<Array> {
@@ -174,7 +174,7 @@ fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> 
 
 /// Get a JsObject from an ANS1Object.
 /// Note: Wrapping native objects results in empty JS objects.
-fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
+fn get_js_obj_from_asn1_object(env: Env, data: ASN1Object) -> Result<JsObject> {
     let mut obj = env.create_object()?;
 
     match data {

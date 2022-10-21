@@ -28,8 +28,11 @@
     "node": ">= 10"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
-  "repository": "git@github.com:KeetaPay/asn1-napi-rs.git"
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/KeetaPay/asn1-napi-rs.git"
+  }
 }

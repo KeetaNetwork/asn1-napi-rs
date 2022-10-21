@@ -43,11 +43,12 @@
     "access": "restricted"
   },
   "scripts": {
-    "setup": "yarn && yarn build && cargo test && yarn test",
+    "setup": "npm install && npm run build && cargo test && npm test",
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
     "build": "napi build --platform --release \"$@\" && prettier ./index.* --write --loglevel error",
     "build:debug": "napi build --platform \"$@\" && prettier ./index.* --write --loglevel error",
+    "build:ci": "napi build --platform --release",
     "format": "run-p format:prettier format:rs",
     "format:prettier": "prettier . --write",
     "format:rs": "cargo fmt",
@@ -98,7 +99,7 @@
       "TS_NODE_PROJECT": "./tsconfig.json"
     }
   },
-  "packageManager": "yarn@3.2.3",
+  "packageManager": "npm@6.14.17",
   "bugs": {
     "url": "https://github.com/KeetaPay/asn1-napi-rs/issues"
   }
