@@ -172,10 +172,6 @@ impl ASN1RawBitString {
         Self(value)
     }
 
-    pub fn get_unused(&self) -> usize {
-        self.0.trailing_zeros()
-    }
-
     pub fn into_vec(self) -> Vec<u8> {
         self.0.into_vec()
     }
