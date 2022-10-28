@@ -20,7 +20,7 @@ export interface ASN1ContextTag {
   value: number
   contains: any
 }
-/** ASN1 JS bitstring. */
+/** ASN1 JS bit string. */
 export interface ASN1BitString {
   type: 'bitstring'
   value: Buffer
@@ -51,7 +51,11 @@ export function JStoASN1(
     | any[]
     | null,
 ): ASN1Encoder
-/** Convert ASN1 BER encoded data to JS native types. */
+/**
+ * Convert ASN1 BER encoded data to JS native types.
+ * This supports number arrays, Buffer, ArrayBufferLike, base64 or hex
+ * encded strings, or null input.
+ */
 export function ASN1toJS(
   data: string | null | number[] | Buffer | ArrayBuffer,
 ):
@@ -68,15 +72,18 @@ export function ASN1toJS(
   | boolean
   | any[]
   | null
-/** Convert ASN1 BER encoded data to JS native types. */
+/**
+ * Convert ASN1 BER encoded data to JS native types. This is the main decoder
+ * class for decoding ASN1 encoded data.
+ */
 export class ASN1Decoder {
-  /** Js constructor */
+  /** JS constructor. */
   constructor(data: string | null | number[] | Buffer | ArrayBuffer)
   /** Create an instance of ANS1 from a buffer. */
   static fromBuffer(value: Buffer): ASN1Decoder
   /** Create an instance of ANS1 from Base64 encoded data. */
   static fromBase64(value: string): ASN1Decoder
-  /** Create an instance of ANS1 from hex encoded data */
+  /** Create an instance of ANS1 from hex encoded data. */
   static fromHex(value: string): ASN1Decoder
   /** Convert to an integer. */
   intoInteger(): number
@@ -103,6 +110,10 @@ export class ASN1Decoder {
   /** Convert a Sequence to an Array. */
   intoArray(): any[]
 }
+/**
+ * Convert ASN1Data into ASN1 encoded data. This is the main encoder
+ * class for encoding to ASN1 encoded data.
+ */
 export class ASN1Encoder {
   /** Create a new ASN1Encoder instance from any ASN1 encodable type. */
   constructor(
@@ -127,4 +138,9 @@ export class ASN1Encoder {
   /** Encode the ASN.1 data to a ASN.1 encoded base64 encoded string. */
   toBase64(): string
 }
+/**
+ * ASN1 Iterator for sequences. Sequences use lazy loading iterators allowing
+ * for chaining of operations while only executing on a consumer ensuring
+ * O(n) operations.
+ */
 export class ASN1Iterator {}

@@ -6,8 +6,7 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-    ber::{de::Error as BERError, decode, encode},
-    de::Needed,
+    ber::{decode, encode},
     types::{Any, BitString, Class, OctetString, PrintableString},
     Decode, Tag,
 };
@@ -18,7 +17,7 @@ use crate::{
         ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1Set, ASN1OID,
     },
     types::{ASN1Data, JsType},
-    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown, repair_bit_string_data},
+    utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
     ASN1NAPIError,
 };
 
@@ -76,18 +75,10 @@ impl ASN1Encoder {
     }
 
     /// Encode ASN1Data to a Vec<u8> of ASN.1 encoded data.
-    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
-        if let Ok(mut data) = encode(&self.0) {
-            match &self.0 {
-                ASN1Data::Object(ASN1Object::BitString(val)) => {
-                    repair_bit_string_data(&mut data, val.clone().into_vec(), true);
-                    Ok(data)
-                }
-                _ => Ok(data),
-            }
-        } else {
-            bail!(ASN1NAPIError::MalformedData)
+        match encode(&self.0) {
+            Ok(data) => Ok(data),
+            Err(_) => bail!(ASN1NAPIError::InvalidDataEncoding),
         }
     }
 
@@ -162,58 +153,32 @@ impl ASN1Decoder {
     /// Create an instance of ANS1 from Base64 encoded data.
     #[napi]
     pub fn from_base64(value: String) -> Result<ASN1Decoder> {
-        if let Ok(result) = base64::decode(value) {
-            Self::try_from(result.as_slice())
-        } else {
-            bail!(ASN1NAPIError::UnknownStringFormat)
+        match base64::decode(value) {
+            Ok(result) => Self::try_from(result.as_slice()),
+            Err(_) => bail!(ASN1NAPIError::UnknownStringFormat),
         }
     }
 
     /// Create an instance of ANS1 from hex encoded data.
     #[napi]
     pub fn from_hex(value: String) -> Result<ASN1Decoder> {
-        if let Ok(result) = hex::decode(value) {
-            Self::try_from(result.as_slice())
-        } else {
-            bail!(ASN1NAPIError::UnknownStringFormat)
+        match hex::decode(value) {
+            Ok(result) => Self::try_from(result.as_slice()),
+            Err(_) => bail!(ASN1NAPIError::UnknownStringFormat),
         }
     }
 
     /// Decode ASN1 encoded data.
-    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn decode<T: Decode>(&self) -> Result<T> {
         match decode(&self.data) {
             Ok(data) => Ok(data),
-            Err(err) => match err {
-                BERError::Incomplete {
-                    needed: Needed::Size(val),
-                } => {
-                    let data = [..val].iter().fold(self.data.clone(), |mut data, _| {
-                        data.push(0x00);
-                        data
-                    });
-                    if let Ok(result) = decode(&data) {
-                        Ok(result)
-                    } else {
-                        bail!(ASN1NAPIError::InvalidBitString)
-                    }
-                }
-                _ => bail!(ASN1NAPIError::MalformedData),
-            },
+            Err(_) => bail!(ASN1NAPIError::MalformedData),
         }
     }
 
     /// Get a ASN1BitString object.
     pub(crate) fn get_raw_bit_string(&self) -> Result<ASN1RawBitString> {
-        if let Ok(result) = self.decode::<ASN1RawBitString>() {
-            let mut data = result.into_vec();
-
-            repair_bit_string_data(&mut data, self.data.clone(), false);
-
-            Ok(ASN1RawBitString::new(BitString::from_vec(data)))
-        } else {
-            bail!(ASN1NAPIError::InvalidBitString)
-        }
+        self.decode::<ASN1RawBitString>()
     }
 
     /// Get a Context object.
@@ -227,12 +192,8 @@ impl ASN1Decoder {
     }
 
     /// Decode an object to an ASN1Object.
-    /// TODO Mising bits that the rasn library truncates.
     pub(crate) fn into_object(self) -> Result<ASN1Object> {
-        match self.get_tag() {
-            &Tag::BIT_STRING => Ok(ASN1Object::BitString(self.get_raw_bit_string()?)),
-            _ => self.decode::<ASN1Object>(),
-        }
+        self.decode::<ASN1Object>()
     }
 
     /// Convert to a big integer.

@@ -54,6 +54,8 @@ enum ASN1NAPIError {
     InvalidSimpleTypesOnly,
     #[error("Context data must be a sequence")]
     InvalidContextNonSequence,
+    #[error("Could not encode provided data into ASN.1 format")]
+    InvalidDataEncoding,
 }
 
 /// Helper to convert a JS bigint to a JS Buffer

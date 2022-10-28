@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use anyhow::{bail, Error, Result};
 use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
@@ -164,8 +166,14 @@ pub trait TypedObject<'a> {
 
 impl ASN1RawBitString {
     pub fn new(mut value: BitString) -> Self {
+        value.force_align();
         value.set_uninitialized(false);
+
         Self(value)
+    }
+
+    pub fn get_unused(&self) -> usize {
+        self.0.trailing_zeros()
     }
 
     pub fn into_vec(self) -> Vec<u8> {
@@ -231,16 +239,29 @@ type_object!(ASN1OID, "oid");
 type_object!(ASN1Set, "set");
 type_object!(ASN1ContextTag, "context");
 
+/// TODO Mising bits that the rasn library truncates.
 impl Encode for ASN1RawBitString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, &self.0)?;
+        let mut data = VecDeque::from(self.0.clone().into_vec());
+        data.push_front(0x00);
+
+        encoder.encode_octet_string(tag, &Vec::from(data))?;
         Ok(())
     }
 }
 
+/// TODO Mising bits that the rasn library truncates.
 impl Decode for ASN1RawBitString {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        Ok(ASN1RawBitString::new(decoder.decode_bit_string(tag)?))
+        let mut data = VecDeque::from(decoder.decode_octet_string(tag)?);
+
+        if let Some(val) = data.get(0) {
+            if val == &0x00 {
+                data.pop_front();
+            }
+        }
+
+        Ok(ASN1RawBitString::new(BitString::from_vec(Vec::from(data))))
     }
 }
 

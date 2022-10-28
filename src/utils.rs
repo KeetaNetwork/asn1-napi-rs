@@ -134,24 +134,6 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
     })
 }
 
-/// Fixes discrepencies between asn1js and rasn regarding bit strings.
-/// TODO Mising bits that the rasn library truncates.
-pub(crate) fn repair_bit_string_data(data: &mut Vec<u8>, mut reference: Vec<u8>, incr_len: bool) {
-    while let Some(val) = reference.pop() {
-        if val == 0x00 {
-            if let Some(pos) = data.get(1) {
-                if incr_len {
-                    data[1] = pos + 1;
-                }
-
-                data.push(0x00);
-            }
-        } else {
-            break;
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use chrono::{TimeZone, Utc};
