@@ -117,6 +117,7 @@ dist
 #Added by cargo
 
 /target
+/benchmark/results
 Cargo.lock
 
 *.node
@@ -127,3 +128,4 @@ Cargo.lock
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+benchmark/.DS_Store
