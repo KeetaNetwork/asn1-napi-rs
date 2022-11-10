@@ -6,7 +6,7 @@ use rasn::{
     ber::de::DecoderOptions,
     de::Error as rasnDeError,
     enc::Error as rasnEncError,
-    types::{BitString, Class, ObjectIdentifier, Oid, Open, PrintableString},
+    types::{Any, BitString, Class, ObjectIdentifier, Oid, Open},
     AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
@@ -312,10 +312,18 @@ impl Decode for ASN1Set {
         decoder.decode_sequence(Tag::SET, |decoder| {
             decoder.decode_sequence(Tag::SEQUENCE, |decoder| {
                 let name = ObjectIdentifier::decode(decoder)?;
-                let value = PrintableString::decode(decoder)?;
+                let value = Any::decode(decoder)?;
 
                 if let Ok(oid) = ASN1OID::try_from(name.to_vec()) {
-                    Ok(Self::new(oid, value.as_str()))
+                    let asn1 = ASN1Decoder::new(value.as_bytes().to_owned());
+
+                    if let Ok(value) = asn1.into_string() {
+                        Ok(Self::new(oid, value))
+                    } else {
+                        Err(<D as Decoder>::Error::custom(
+                            ASN1NAPIError::UnknownStringFormat,
+                        ))
+                    }
                 } else {
                     Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownOid))
                 }
@@ -365,7 +373,7 @@ impl Encode for ASN1Data {
                     date.encode(encoder)
                 } else {
                     date.naive_utc()
-                        .format(ASN1_DATE_TIME_UTC_FORMAT)
+                        .format(ASN1_DATE_TIME_GENERAL_FORMAT)
                         .to_string()
                         .encode_with_tag(encoder, Tag::GENERALIZED_TIME)
                 }

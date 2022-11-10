@@ -9,7 +9,11 @@ use napi::{
 use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
-use crate::{constants::ASN1_DATE_TIME_UTC_FORMAT, types::ASN1Data, ASN1NAPIError};
+use crate::{
+    constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
+    types::ASN1Data,
+    ASN1NAPIError,
+};
 
 /// Get utf16 bytes from a string.
 pub(crate) fn get_utf16_from_string<T: AsRef<str>>(value: T) -> Vec<u16> {
@@ -26,6 +30,7 @@ pub(crate) fn get_oid_elements_from_string<T: AsRef<str>>(value: T) -> Result<Ve
         .collect()
 }
 
+/// Get a string representation of the OID.
 pub(crate) fn get_string_from_oid_elements<T: AsRef<[u32]>>(value: T) -> Result<String> {
     Ok(value
         .as_ref()
@@ -42,12 +47,24 @@ pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
 }
 
 /// Helper for handling date/times with milliseconds
+/// TODO rasn library does not properly handle dates with milliseconds.
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
     let mut decoder = rasn::ber::de::Decoder::new(data.as_ref(), DecoderOptions::ber());
+    let (decoded, format) = match data.as_ref().first().unwrap_or(&0) {
+        0x17 => (
+            Utf8String::decode_with_tag(&mut decoder, Tag::UTC_TIME),
+            ASN1_DATE_TIME_UTC_FORMAT,
+        ),
+        0x18 => (
+            Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME),
+            ASN1_DATE_TIME_GENERAL_FORMAT,
+        ),
+        _ => bail!(ASN1NAPIError::MalformedData),
+    };
 
-    if let Ok(decoded) = Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME) {
+    if let Ok(decoded) = decoded {
         Ok(DateTime::<FixedOffset>::from_utc(
-            NaiveDateTime::parse_from_str(&decoded, ASN1_DATE_TIME_UTC_FORMAT)?,
+            NaiveDateTime::parse_from_str(&decoded, format)?,
             FixedOffset::east(0),
         )
         .with_timezone(&Utc))

@@ -7,7 +7,10 @@ use napi::{
 use num_bigint::BigInt;
 use rasn::{
     ber::{decode, encode},
-    types::{Any, BitString, Class, OctetString, PrintableString},
+    types::{
+        Any, BitString, BmpString, Class, GeneralString, Ia5String, NumericString, OctetString,
+        PrintableString, UniversalString, Utf8String, VisibleString,
+    },
     Decode, Tag,
 };
 
@@ -222,7 +225,17 @@ impl ASN1Decoder {
     /// Convert to a string.
     #[napi]
     pub fn into_string(&self) -> Result<String> {
-        Ok(self.decode::<PrintableString>()?.as_str().into())
+        Ok(match *self.get_tag() {
+            Tag::PRINTABLE_STRING => self.decode::<PrintableString>()?.as_str().into(),
+            Tag::BMP_STRING => self.decode::<BmpString>()?.as_str().into(),
+            Tag::GENERAL_STRING => self.decode::<GeneralString>()?.as_str().into(),
+            Tag::IA5_STRING => self.decode::<Ia5String>()?.as_str().into(),
+            Tag::VISIBLE_STRING => self.decode::<VisibleString>()?.as_str().into(),
+            Tag::NUMERIC_STRING => self.decode::<NumericString>()?.as_str().into(),
+            Tag::UNIVERSAL_STRING => self.decode::<UniversalString>()?.as_str().into(),
+            Tag::UTF8_STRING => self.decode::<Utf8String>()?.as_str().into(),
+            _ => bail!(ASN1NAPIError::UnknownStringFormat),
+        })
     }
 
     /// Convert to a date.
@@ -351,21 +364,17 @@ impl TryFrom<Vec<u8>> for ASN1Decoder {
 
 #[cfg(test)]
 mod test {
+    use std::collections::VecDeque;
     use std::str::FromStr;
 
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
     use num_bigint::BigInt;
     use rasn::types::BitString;
 
-    use crate::asn1::ASN1Decoder;
-    use crate::asn1::ASN1Encoder;
-    use crate::cast_data;
-    use crate::objects::ASN1Context;
-    use crate::objects::ASN1Object;
-    use crate::objects::ASN1Set;
-    use crate::objects::ASN1OID;
-    use crate::types::ASN1Data;
-    use crate::types::JsType;
+    use crate::asn1::*;
+    use crate::objects::*;
+    use crate::types::*;
+    use crate::*;
 
     const TEST_VOTE: &str = "MFEGCWCGSAFlAwQCCDBEBCCb0PJlcOIUeBZH8vNeObY9pg\
                              xw+6PUh6ku6n9k9VVYDgQge0hOYtjbsjyJqqx5m7D8iP+i\
@@ -377,6 +386,20 @@ mod test {
                               v3MD2DK+so3K1BuRAgEKAkEA66ba0QK07zVrshYkOF3cO\
                               aW61T1ckn9QymeSBE+yE7EJPDnrN6g54KxBaAjRVFlT3i\
                               Ze4qTtQfXRoCkhoCgzqg==";
+    const TEST_CERT: &str = "MIIB3jCCAYWgAwIBAgIBATAKBggqhkjOPQQDAjBEMQswCQ\
+                             YDVQQGEwJVUzELMAkGA1UECBMCQ0ExDjAMBgNVBAoTBUtl\
+                             ZXRhMRgwFgYDVQQDEw9ub2RlMS5rZWV0YS5jb20wHhcNMj\
+                             IxMTAzMDEyOTU4WhcNMjcwNTExMDEyOTU4WjBiMQswCQYD\
+                             VQQGEwJVUzELMAkGA1UECAwCQ0ExFDASBgNVBAcMC0xvcy\
+                             BBbmdlbGVzMQ4wDAYDVQQKDAVLZWV0YTEgMB4GA1UEAwwX\
+                             Y2xpZW50MS5ub2RlMS5rZWV0YS5jb20wVjAQBgcqhkjOPQ\
+                             IBBgUrgQQACgNCAAQ3605beUhS+2ZGuk4OkQ2utb239l2g\
+                             kAl4tgKp1JFyujP8aNZ5Zh7nnfB64eWCOHtaGIXHYeXlYf\
+                             +rZ9KfnULdo00wSzAdBgNVHQ4EFgQUGKqtzLuSNICC4hId\
+                             Fc3a7QdIkhMwHwYDVR0jBBgwFoAUeqmWlg9mdQnXDtFiV8\
+                             uXgiCC8yswCQYDVR0TBAIwADAKBggqhkjOPQQDAgNHADBE\
+                             AiB/sWgSvLZSddTHD64sWgPDgQSnWXxjfIzcoP1W48lZng\
+                             IgazAF+38D5aIrcmtnD2YEp5i1ydiYzxKCU1RFAZf540c=";
 
     fn fixture_get_test_vote() -> Vec<ASN1Data> {
         vec![
@@ -442,6 +465,110 @@ mod test {
                 )
                 .expect("BigInt"),
             ),
+        ]
+    }
+
+    fn fixture_get_test_cert() -> Vec<ASN1Data> {
+        vec![
+            ASN1Data::Array(vec![
+                ASN1Data::Object(ASN1Object::Context(ASN1Context {
+                    value: 0,
+                    contains: Box::new(ASN1Data::Integer(2)),
+                })),
+                ASN1Data::Integer(1),
+                ASN1Data::Array(vec![ASN1Data::Object(ASN1Object::Oid(ASN1OID::new(
+                    "sha256WithEcDSA",
+                )))]),
+                ASN1Data::Array(vec![
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.6"), "US"))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.8"), "CA"))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+                        ASN1OID::new("2.5.4.10"),
+                        "Keeta",
+                    ))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+                        ASN1OID::new("commonName"),
+                        "node1.keeta.com",
+                    ))),
+                ]),
+                ASN1Data::Array(vec![
+                    ASN1Data::Date(DateTime::<FixedOffset>::from(
+                        Utc.ymd(2022, 11, 03).and_hms_milli(1, 29, 58, 0),
+                    )),
+                    ASN1Data::Date(DateTime::<FixedOffset>::from(
+                        Utc.ymd(2027, 05, 11).and_hms_milli(1, 29, 58, 0),
+                    )),
+                ]),
+                ASN1Data::Array(vec![
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.6"), "US"))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.8"), "CA"))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+                        ASN1OID::new("2.5.4.7"),
+                        "Los Angeles",
+                    ))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+                        ASN1OID::new("2.5.4.10"),
+                        "Keeta",
+                    ))),
+                    ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+                        ASN1OID::new("commonName"),
+                        "client1.node1.keeta.com",
+                    ))),
+                ]),
+                ASN1Data::Array(vec![
+                    ASN1Data::Array(vec![
+                        ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("ecdsa"))),
+                        ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("secp256k1"))),
+                    ]),
+                    ASN1Data::Object(ASN1Object::BitString(ASN1RawBitString::new(
+                        BitString::from_vec(vec![
+                            0x04, 0x37, 0xEB, 0x4E, 0x5B, 0x79, 0x48, 0x52, 0xFB, 0x66, 0x46, 0xBA,
+                            0x4E, 0x0E, 0x91, 0x0D, 0xAE, 0xB5, 0xBD, 0xB7, 0xF6, 0x5D, 0xA0, 0x90,
+                            0x09, 0x78, 0xB6, 0x02, 0xA9, 0xD4, 0x91, 0x72, 0xBA, 0x33, 0xFC, 0x68,
+                            0xD6, 0x79, 0x66, 0x1E, 0xE7, 0x9D, 0xF0, 0x7A, 0xE1, 0xE5, 0x82, 0x38,
+                            0x7B, 0x5A, 0x18, 0x85, 0xC7, 0x61, 0xE5, 0xE5, 0x61, 0xFF, 0xAB, 0x67,
+                            0xD2, 0x9F, 0x9D, 0x42, 0xDD,
+                        ]),
+                    ))),
+                ]),
+                ASN1Data::Object(ASN1Object::Context(ASN1Context::new(
+                    3,
+                    ASN1Data::Array(vec![
+                        ASN1Data::Array(vec![
+                            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("2.5.29.14"))),
+                            ASN1Data::Bytes(vec![
+                                0x04, 0x14, 0x18, 0xAA, 0xAD, 0xCC, 0xBB, 0x92, 0x34, 0x80, 0x82,
+                                0xE2, 0x12, 0x1D, 0x15, 0xCD, 0xDA, 0xED, 0x07, 0x48, 0x92, 0x13,
+                            ]),
+                        ]),
+                        ASN1Data::Array(vec![
+                            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("2.5.29.35"))),
+                            ASN1Data::Bytes(vec![
+                                0x30, 0x16, 0x80, 0x14, 0x7A, 0xA9, 0x96, 0x96, 0x0F, 0x66, 0x75,
+                                0x09, 0xD7, 0x0E, 0xD1, 0x62, 0x57, 0xCB, 0x97, 0x82, 0x20, 0x82,
+                                0xF3, 0x2B,
+                            ]),
+                        ]),
+                        ASN1Data::Array(vec![
+                            ASN1Data::Object(ASN1Object::Oid(ASN1OID::new("2.5.29.19"))),
+                            ASN1Data::Bytes(vec![0x30, 0]),
+                        ]),
+                    ]),
+                ))),
+            ]),
+            ASN1Data::Array(vec![ASN1Data::Object(ASN1Object::Oid(ASN1OID::new(
+                "sha256WithEcDSA",
+            )))]),
+            ASN1Data::Object(ASN1Object::BitString(ASN1RawBitString::new(
+                BitString::from_vec(vec![
+                    0x30, 0x44, 0x02, 0x20, 0x7F, 0xB1, 0x68, 0x12, 0xBC, 0xB6, 0x52, 0x75, 0xD4,
+                    0xC7, 0x0F, 0xAE, 0x2C, 0x5A, 0x03, 0xC3, 0x81, 0x04, 0xA7, 0x59, 0x7C, 0x63,
+                    0x7C, 0x8C, 0xDC, 0xA0, 0xFD, 0x56, 0xE3, 0xC9, 0x59, 0x9E, 0x02, 0x20, 0x6B,
+                    0x30, 0x05, 0xFB, 0x7F, 0x03, 0xE5, 0xA2, 0x2B, 0x72, 0x6B, 0x67, 0x0F, 0x66,
+                    0x04, 0xA7, 0x98, 0xB5, 0xC9, 0xD8, 0x98, 0xCF, 0x12, 0x82, 0x53, 0x54, 0x45,
+                    0x01, 0x97, 0xF9, 0xE3, 0x47,
+                ]),
+            ))),
         ]
     }
 
@@ -621,6 +748,28 @@ mod test {
         obj.into_iter().enumerate().for_each(|(i, data)| {
             assert_eq!(data.unwrap(), vote[i]);
         });
+    }
+
+    #[test]
+    fn test_asn1_cert_into_sequence() {
+        let obj = ASN1Decoder::from_base64(TEST_CERT.into()).expect("base64");
+        let js_type = *obj.get_js_type();
+
+        assert_eq!(js_type, JsType::Sequence);
+
+        let mut test = VecDeque::from(fixture_get_test_cert());
+        let test_tbs = test.pop_front().unwrap();
+        let test_algo = test.pop_front().unwrap();
+        let test_sig = test.pop_front().unwrap();
+
+        let mut cert = obj.into_iter();
+        let tbs = cert.next().unwrap().unwrap();
+        let algo = cert.next().unwrap().unwrap();
+        let sig = cert.next().unwrap().unwrap();
+
+        assert_eq!(tbs, test_tbs);
+        assert_eq!(algo, test_algo);
+        assert_eq!(sig, test_sig);
     }
 
     #[test]
