@@ -193,11 +193,11 @@ jobs:
           usesh: true
           mem: 3000
           prepare: |
-            pkg install -y curl node16 python2
+            pkg install -y -f curl node libnghttp2
             curl -qL https://www.npmjs.com/install.sh | sh
             npm install --location=global --ignore-scripts yarn
             curl https://sh.rustup.rs -sSf --output rustup.sh
-            sh rustup.sh -y --profile minimal --default-toolchain stable
+            sh rustup.sh -y --profile minimal --default-toolchain beta
             export PATH="/usr/local/cargo/bin:$PATH"
             echo "~~~~ rustc --version ~~~~"
             rustc --version
@@ -218,6 +218,7 @@ jobs:
             yarn test
             rm -rf node_modules
             rm -rf target
+            rm -rf .yarn/cache
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -430,7 +431,6 @@ jobs:
           - '18'
     runs-on: ubuntu-latest
     steps:
-      - run: docker run --rm --privileged multiarch/qemu-user-static:register --reset
       - uses: actions/checkout@v3
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -440,20 +440,20 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Cache NPM dependencies
-        uses: actions/cache@v3
-        with:
-          path: .yarn/cache
-          key: npm-cache-test-linux-arm-gnueabihf-${{ matrix.node }}
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm"
           yarn install
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
-          image: ghcr.io/napi-rs/napi-rs/nodejs:armhf-${{ matrix.node }}
-          options: '-v ${{ github.workspace }}:/build -w /build'
+          image: node:${{ matrix.node }}-bullseye-slim
+          options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
             yarn test
