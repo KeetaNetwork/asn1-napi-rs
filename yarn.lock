@@ -102,7 +102,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@keetapay/asn1-napi-rs@workspace:."
   dependencies:
-    "@napi-rs/cli": 2.12.0
+    "@napi-rs/cli": 2.14.7
     "@swc-node/register": 1.5.4
     "@swc/core": 1.3.6
     "@types/node": 18.8.3
@@ -124,12 +124,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@napi-rs/cli@npm:2.12.0":
-  version: 2.12.0
-  resolution: "@napi-rs/cli@npm:2.12.0"
+"@napi-rs/cli@npm:2.14.7":
+  version: 2.14.7
+  resolution: "@napi-rs/cli@npm:2.14.7"
   bin:
     napi: scripts/index.js
-  checksum: 88e4cb33022ad9f2185a3e539d2b692f0c5edaeb55d8ecf2c92e512d1a68770f97d0d56ff7aa24595e83c783cbd8509309968052671b79bbed780340b9201c8f
+  checksum: edb2a153d10ab960ae99c3983246f42ba3b4ada876efc3b00feccf1e81eca22dd12e5232f27c7d6d32693af1459fe3786ec560f2dd24c19ce87b1b2e6cdc6cad
   languageName: node
   linkType: hard
 
