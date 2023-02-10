@@ -2,15 +2,15 @@
 authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
-version = "1.1.4"
+version = "1.1.5"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2.10.0", features = ["chrono_date", "error_anyhow", "napi7"] }
+napi = {version = "2.11.1", features = ["chrono_date", "error_anyhow", "napi7"] }
 phf = { version = "0.11.1", features = ["macros"] }
-napi-derive = "2.9.1"
+napi-derive = "2.11.0"
 rasn = "0.6.1"
 num-bigint = "0.4.3"
 chrono = "0.4.22"
