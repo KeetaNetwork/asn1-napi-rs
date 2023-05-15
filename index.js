@@ -11,7 +11,11 @@ function isMusl() {
   // For Node 10
   if (!process.report || typeof process.report.getReport !== 'function') {
     try {
-      return readFileSync('/usr/bin/ldd', 'utf8').includes('musl')
+      const lddPath = require('child_process')
+        .execSync('which ldd')
+        .toString()
+        .trim()
+      return readFileSync(lddPath, 'utf8').includes('musl')
     } catch (e) {
       return true
     }
@@ -105,6 +109,17 @@ switch (platform) {
     }
     break
   case 'darwin':
+    localFileExisted = existsSync(
+      join(__dirname, 'asn1-napi-rs.darwin-universal.node'),
+    )
+    try {
+      if (localFileExisted) {
+        nativeBinding = require('./asn1-napi-rs.darwin-universal.node')
+      } else {
+        nativeBinding = require('@keetapay/asn1-napi-rs-darwin-universal')
+      }
+      break
+    } catch {}
     switch (arch) {
       case 'x64':
         localFileExisted = existsSync(

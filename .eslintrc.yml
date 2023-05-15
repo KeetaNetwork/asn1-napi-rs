@@ -46,6 +46,8 @@ rules:
         'message': Don't compare for equality against boolean literals,
       },
     ]
+  
+  'no-empty': 0
 
   # https://github.com/benmosher/eslint-plugin-import/pull/334
   'import/no-duplicates': 2
