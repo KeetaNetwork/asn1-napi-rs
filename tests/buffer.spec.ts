@@ -9,13 +9,13 @@ const TEST_BUFFERS_ASN1 = [
 ]
 
 test('JS Buffer to ASN1 conversion', (t) => {
-  TEST_BUFFERS.map((v, i) => {
+  TEST_BUFFERS.forEach((v, i) => {
     t.deepEqual(lib.JStoASN1(v).toBER(), TEST_BUFFERS_ASN1[i])
   })
 })
 
 test('ASN1 to Js Buffer conversion from byte code', (t) => {
-  TEST_BUFFERS_ASN1.map((v, i) => {
+  TEST_BUFFERS_ASN1.forEach((v, i) => {
     const data = new Uint8Array(v)
     const obj = new lib.ASN1Decoder(Array.from(data))
 
@@ -31,7 +31,7 @@ test('ASN1 to Js Buffer conversion from base64', (t) => {
 })
 
 test('ASN1 to Js Buffer conversion round trip', (t) => {
-  TEST_BUFFERS_ASN1.map((v, i) => {
+  TEST_BUFFERS_ASN1.forEach((v, i) => {
     const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoBuffer(), TEST_BUFFERS[i])

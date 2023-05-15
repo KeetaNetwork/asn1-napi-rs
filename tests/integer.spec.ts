@@ -91,13 +91,13 @@ function NodeASN1BigIntToBuffer(value: bigint | bigint): Buffer {
 }
 
 test('JS number to ASN1 conversion', (t) => {
-  TEST_INTEGERS.map((v, i) => {
+  TEST_INTEGERS.forEach((v, i) => {
     t.deepEqual(lib.JStoASN1(v).toBER(), TEST_INTEGERS_ASN1[i])
   })
 })
 
 test('ASN1 to Js number conversion from byte code', (t) => {
-  TEST_INTEGERS_ASN1.map((v, i) => {
+  TEST_INTEGERS_ASN1.forEach((v, i) => {
     const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoInteger(), TEST_INTEGERS[i])
@@ -112,19 +112,19 @@ test('ASN1 to Js number conversion from base64', (t) => {
 })
 
 test('ASN1 to Js number conversion round trip', (t) => {
-  TEST_INTEGERS.map((v) => {
+  TEST_INTEGERS.forEach((v) => {
     t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), BigInt(v))
   })
 })
 
 test('JS BigInt to ASN1 conversion', (t) => {
-  TEST_BIG_INTEGERS.map((v, i) => {
+  TEST_BIG_INTEGERS.forEach((v, i) => {
     t.deepEqual(lib.JStoASN1(v).toBER(), TEST_BIG_INTEGERS_ASN1[i])
   })
 })
 
 test('ASN1 to Js BigInt conversion from byte code', (t) => {
-  TEST_BIG_INTEGERS_ASN1.map((v, i) => {
+  TEST_BIG_INTEGERS_ASN1.forEach((v, i) => {
     const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoBigInt(), TEST_BIG_INTEGERS[i])
@@ -142,7 +142,7 @@ test('ASN1 to Js BigInt conversion from base64', (t) => {
 })
 
 test('ASN1 to Js BigInt conversion round trip', (t) => {
-  TEST_BIG_INTEGERS_ASN1.map((v, i) => {
+  TEST_BIG_INTEGERS_ASN1.forEach((v, i) => {
     const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoBigInt(), TEST_BIG_INTEGERS[i])
@@ -154,7 +154,7 @@ test('ASN1 to Js BigInt conversion round trip', (t) => {
 })
 
 test('JS BigInt to Buffer conversion helper', (t) => {
-  TEST_BIG_INTEGERS.map((v) => {
+  TEST_BIG_INTEGERS.forEach((v) => {
     const buffer = lib.BigIntToBuffer(v)
     const nodeFuncVal = NodeASN1BigIntToBuffer(v)
 
