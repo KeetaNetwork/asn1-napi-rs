@@ -1,6 +1,7 @@
 import test from 'ava'
 
 import * as lib from '../index'
+import { BigIntToBuffer } from '../utils/helpers'
 
 const TEST_INTEGERS = [0x00, 0x2a, 0x7f, 0x80, -0xffff]
 const TEST_INTEGERS_ASN1 = [
@@ -44,51 +45,6 @@ const TEST_BIG_INTEGERS_ASN1 = [
     0xa0, 0x29, 0x21, 0xa0, 0x28, 0x33, 0xaa,
   ]).buffer,
 ]
-
-function NodeASN1BigIntToBuffer(value: bigint | bigint): Buffer {
-  /**
-   * Convert value to Hex
-   */
-  let valueStr = value.toString(16)
-
-  /**
-   * Determine if the value is negative
-   */
-  let isNegative = false
-  if (valueStr.startsWith('-')) {
-    isNegative = true
-    valueStr = valueStr.slice(1)
-  }
-
-  /*
-   * Ensure there are an even number of hex digits
-   */
-  if (valueStr.length % 2 !== 0) {
-    valueStr = '0' + valueStr
-  }
-
-  /*
-   * Pad with a leading 0 byte if the MSB is 1 to avoid writing a
-   * negative number
-   */
-  const leader = valueStr.slice(0, 2)
-  const leaderValue = Number(`0x${leader}`)
-  if (!isNegative) {
-    if (leaderValue > 127) {
-      valueStr = '00' + valueStr
-    }
-  } else {
-    if (leaderValue <= 127) {
-      valueStr = 'FF' + valueStr
-    }
-  }
-
-  /*
-   * Convert to a buffer
-   */
-  const valueBuffer = Buffer.from(valueStr, 'hex')
-  return valueBuffer
-}
 
 test('JS number to ASN1 conversion', (t) => {
   TEST_INTEGERS.forEach((v, i) => {
@@ -156,7 +112,7 @@ test('ASN1 to Js BigInt conversion round trip', (t) => {
 test('JS BigInt to Buffer conversion helper', (t) => {
   TEST_BIG_INTEGERS.forEach((v) => {
     const buffer = lib.BigIntToBuffer(v)
-    const nodeFuncVal = NodeASN1BigIntToBuffer(v)
+    const nodeFuncVal = BigIntToBuffer(v)
 
     // Node function has a bug with negative numbers.
     if (v > 0) {
