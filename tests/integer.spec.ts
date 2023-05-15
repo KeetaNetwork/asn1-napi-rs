@@ -55,7 +55,7 @@ function NodeASN1BigIntToBuffer(value: bigint | bigint): Buffer {
    * Determine if the value is negative
    */
   let isNegative = false
-  if (valueStr[0] === '-') {
+  if (valueStr.startsWith('-')) {
     isNegative = true
     valueStr = valueStr.slice(1)
   }
