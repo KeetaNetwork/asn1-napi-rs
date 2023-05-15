@@ -119,7 +119,7 @@ switch (platform) {
         nativeBinding = require('@keetapay/asn1-napi-rs-darwin-universal')
       }
       break
-    } catch { /* ignore error */ }
+    } catch {}
     switch (arch) {
       case 'x64':
         localFileExisted = existsSync(
