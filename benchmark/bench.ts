@@ -34,7 +34,6 @@ interface ASN1BitString extends ASN1Object {
 type ASN1AnyJS =
   | any[]
   | bigint
-  | bigint
   | number
   | Date
   | Buffer
@@ -58,7 +57,7 @@ type ASN1AnyASN =
   | asn1js.Boolean
   | asn1js.PrintableString
 
-function BigIntToBuffer(value: bigint | bigint): Buffer {
+function BigIntToBuffer(value: bigint): Buffer {
   /**
    * Convert value to Hex
    */
