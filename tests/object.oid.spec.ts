@@ -17,13 +17,13 @@ const TEST_OIDS_ASN1 = [
 ]
 
 test('JS ASN1OID to ASN1 conversion', (t) => {
-  TEST_OIDS.map((v, i) => {
+  TEST_OIDS.forEach((v, i) => {
     t.deepEqual(lib.JStoASN1(v).toBER(), TEST_OIDS_ASN1[i])
   })
 })
 
 test('ASN1 to Js ASN1OID conversion from byte code', (t) => {
-  TEST_OIDS_ASN1.map((v, i) => {
+  TEST_OIDS_ASN1.forEach((v, i) => {
     const data = new Uint8Array(v)
     const obj = new lib.ASN1Decoder(Array.from(data))
 
@@ -40,7 +40,7 @@ test('ASN1 to Js ASN1OID conversion from base64', (t) => {
 })
 
 test('ASN1 to Js ASN1OID conversion round trip', (t) => {
-  TEST_OIDS_ASN1.map((v, i) => {
+  TEST_OIDS_ASN1.forEach((v, i) => {
     const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoOid(), TEST_OIDS[i])

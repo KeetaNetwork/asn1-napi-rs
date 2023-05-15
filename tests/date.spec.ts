@@ -24,13 +24,13 @@ const TEST_DATES_ASN1 = [
 ]
 
 test('JS Date to ASN1 conversion', (t) => {
-  TEST_DATES.map((v, i) => {
+  TEST_DATES.forEach((v, i) => {
     t.deepEqual(lib.JStoASN1(v).toBER(), TEST_DATES_ASN1[i])
   })
 })
 
 test('ASN1 to Js Date conversion from byte code', (t) => {
-  TEST_DATES_ASN1.map((v, i) => {
+  TEST_DATES_ASN1.forEach((v, i) => {
     const obj = new lib.ASN1Decoder(v)
 
     t.deepEqual(obj.intoDate(), TEST_DATES[i])
@@ -47,7 +47,7 @@ test('ASN1 to Js Date conversion from base64', (t) => {
 })
 
 test('ASN1 to Js Date conversion round trip', (t) => {
-  TEST_DATES_ASN1.map((v, i) => {
+  TEST_DATES_ASN1.forEach((v, i) => {
     const js = new lib.ASN1Decoder(v)
 
     t.deepEqual(js.intoDate(), TEST_DATES[i])
