@@ -429,7 +429,7 @@ mod test {
             ASN1Data::Integer(456),
             ASN1Data::Integer(123),
             ASN1Data::Date(DateTime::<FixedOffset>::from(
-                Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 210),
+                Utc.timestamp_millis_opt(1655921880210).unwrap(),
             )),
             ASN1Data::Bytes(
                 hex::decode(
@@ -493,10 +493,10 @@ mod test {
                 ]),
                 ASN1Data::Array(vec![
                     ASN1Data::Date(DateTime::<FixedOffset>::from(
-                        Utc.ymd(2022, 11, 03).and_hms_milli(1, 29, 58, 0),
+                        Utc.with_ymd_and_hms(2022, 11, 03, 1, 29, 58).unwrap(),
                     )),
                     ASN1Data::Date(DateTime::<FixedOffset>::from(
-                        Utc.ymd(2027, 05, 11).and_hms_milli(1, 29, 58, 0),
+                        Utc.with_ymd_and_hms(2027, 05, 11, 1, 29, 58).unwrap(),
                     )),
                 ]),
                 ASN1Data::Array(vec![
@@ -623,7 +623,7 @@ mod test {
 
         assert_eq!(
             obj.into_date().unwrap(),
-            Utc.ymd(2022, 9, 26).and_hms_milli(10, 0, 0, 0)
+            Utc.with_ymd_and_hms(2022, 9, 26, 10, 0, 0).unwrap()
         );
     }
 
