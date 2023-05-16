@@ -2,7 +2,7 @@
 authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
-version = "1.1.5"
+version = "1.1.6"
 
 [lib]
 crate-type = ["cdylib"]
@@ -10,14 +10,14 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = {version = "2.12.6", features = ["chrono_date", "error_anyhow", "napi7"] }
 phf = { version = "0.11.1", features = ["macros"] }
-napi-derive = "2.11.0"
-rasn = "0.6.1"
+napi-derive = "2.12.5"
+rasn = "0.7.0"
 num-bigint = "0.4.3"
-chrono = "0.4.22"
+chrono = "0.4.24"
 base64 = "0.13.0"
 hex = "0.4.3"
-anyhow = "1.0.65"
-thiserror = "1.0.37"
+anyhow = "1.0.71"
+thiserror = "1.0.40"
 
 [dev-dependencies.cargo-husky]
 version = "1.5.0"

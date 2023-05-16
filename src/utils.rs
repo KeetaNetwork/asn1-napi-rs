@@ -63,11 +63,15 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
     };
 
     if let Ok(decoded) = decoded {
-        Ok(DateTime::<FixedOffset>::from_utc(
-            NaiveDateTime::parse_from_str(&decoded, format)?,
-            FixedOffset::east(0),
-        )
-        .with_timezone(&Utc))
+        if let Some(offset) = FixedOffset::east_opt(0) {
+            Ok(DateTime::<FixedOffset>::from_utc(
+                NaiveDateTime::parse_from_str(&decoded, format)?,
+                offset,
+            )
+            .with_timezone(&Utc))
+        } else {
+            bail!(ASN1NAPIError::MalformedData)
+        }
     } else {
         bail!(ASN1NAPIError::MalformedData)
     }
@@ -82,12 +86,15 @@ pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOf
     let timestamp = js_date.value_of()? as i64;
     let ts_secs = timestamp / 1000;
     let ts_ns = ((timestamp % 1000) * 1_000_000) as u32;
-    let naive = NaiveDateTime::from_timestamp(ts_secs, ts_ns);
 
-    Ok(DateTime::<FixedOffset>::from_utc(
-        naive,
-        FixedOffset::east(0),
-    ))
+    if let (Some(datetime), Some(offset)) = (
+        NaiveDateTime::from_timestamp_opt(ts_secs, ts_ns),
+        FixedOffset::east_opt(0),
+    ) {
+        Ok(DateTime::<FixedOffset>::from_utc(datetime, offset))
+    } else {
+        bail!(ASN1NAPIError::MalformedData)
+    }
 }
 
 /// Get an ASN1 boolean from a JsUnknown.
@@ -201,14 +208,14 @@ mod test {
 
     #[test]
     fn test_get_utc_date_time_from_asn1_milli() {
-        let date = Utc.ymd(2022, 6, 22).and_hms_milli(18, 18, 0, 210);
+        let date = Utc.timestamp_millis_opt(1655921880210).unwrap();
         let input = [
             24, 19, 50, 48, 50, 50, 48, 54, 50, 50, 49, 56, 49, 56, 48, 48, 46, 50, 49, 48, 90,
         ];
 
         assert_eq!(get_utc_date_time_from_asn1_milli(&input).unwrap(), date);
 
-        let date = Utc.ymd(2022, 9, 26).and_hms_milli(10, 0, 0, 0);
+        let date = Utc.with_ymd_and_hms(2022, 9, 26, 10, 0, 0).unwrap();
         let input = [
             24, 15, 50, 48, 50, 50, 48, 57, 50, 54, 49, 48, 48, 48, 48, 48, 90,
         ];
