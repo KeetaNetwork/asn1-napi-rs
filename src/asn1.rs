@@ -116,7 +116,7 @@ impl ASN1Decoder {
             0x30 => 0x10,
             0x31 => 0x11,
             n => n,
-        } as u32;
+        };
 
         // ASN1 Contexts range from 0xa0 to 0xbf
         let tag = if (0xa0..=0xbf).contains(&bit) {

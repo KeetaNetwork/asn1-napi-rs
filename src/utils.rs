@@ -186,7 +186,7 @@ mod test {
     #[test]
     fn test_get_string_from_oid_elements() {
         assert_eq!(
-            get_string_from_oid_elements(&[2, 5, 4, 5]).unwrap(),
+            get_string_from_oid_elements([2, 5, 4, 5]).unwrap(),
             "2.5.4.5"
         );
     }
@@ -213,13 +213,13 @@ mod test {
             24, 19, 50, 48, 50, 50, 48, 54, 50, 50, 49, 56, 49, 56, 48, 48, 46, 50, 49, 48, 90,
         ];
 
-        assert_eq!(get_utc_date_time_from_asn1_milli(&input).unwrap(), date);
+        assert_eq!(get_utc_date_time_from_asn1_milli(input).unwrap(), date);
 
         let date = Utc.with_ymd_and_hms(2022, 9, 26, 10, 0, 0).unwrap();
         let input = [
             24, 15, 50, 48, 50, 50, 48, 57, 50, 54, 49, 48, 48, 48, 48, 48, 90,
         ];
 
-        assert_eq!(get_utc_date_time_from_asn1_milli(&input).unwrap(), date);
+        assert_eq!(get_utc_date_time_from_asn1_milli(input).unwrap(), date);
     }
 }

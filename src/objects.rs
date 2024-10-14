@@ -142,7 +142,7 @@ fn get_oid_string_from_oid(oid: &Oid) -> String {
 
 /// Get a canonical name from an Oid.
 fn get_name_from_oid(oid: &Oid) -> Result<&str> {
-    get_name_from_oid_string(&get_oid_string_from_oid(oid))
+    get_name_from_oid_string(get_oid_string_from_oid(oid))
 }
 
 /// Get a canonical name from an Oid.
