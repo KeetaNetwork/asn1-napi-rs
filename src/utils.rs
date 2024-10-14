@@ -48,6 +48,7 @@ pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
 
 /// Helper for handling date/times with milliseconds
 /// TODO rasn library does not properly handle dates with milliseconds.
+#[allow(deprecated)]
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
     let mut decoder = rasn::ber::de::Decoder::new(data.as_ref(), DecoderOptions::ber());
     let (decoded, format) = match data.as_ref().first().unwrap_or(&0) {
@@ -81,6 +82,7 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
 /// JavaScript Date objects are described in
 /// [Section 20.3](https://tc39.github.io/ecma262/#sec-date-objects)
 /// of the ECMAScript Language Specification.
+#[allow(deprecated)]
 pub(crate) fn get_fixed_date_from_js(data: JsUnknown) -> Result<DateTime<FixedOffset>> {
     let js_date = JsDate::try_from(data)?;
     let timestamp = js_date.value_of()? as i64;
