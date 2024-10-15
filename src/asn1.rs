@@ -99,7 +99,7 @@ impl ASN1Encoder {
     }
 }
 
-#[napi(js_name = "ASN1Decoder")]
+#[napi]
 impl ASN1Decoder {
     /// JS constructor.
     #[napi(constructor)]
@@ -116,7 +116,7 @@ impl ASN1Decoder {
             0x30 => 0x10,
             0x31 => 0x11,
             n => n,
-        } as u32;
+        };
 
         // ASN1 Contexts range from 0xa0 to 0xbf
         let tag = if (0xa0..=0xbf).contains(&bit) {
@@ -694,7 +694,10 @@ mod test {
             0x02, 0x01, 0x05,
         ];
 
-        assert_eq!(sum_sequence(data).unwrap(), [1, 2, 3, 4, 5].iter().sum());
+        assert_eq!(
+            sum_sequence(data).unwrap(),
+            [1, 2, 3, 4, 5].iter().sum::<i64>()
+        );
     }
 
     #[test]

@@ -140,6 +140,8 @@ pub(crate) fn get_js_array_from_asn_iter<T: Iterator<Item = Result<ASN1Data>>>(
 }
 
 /// Get an Array from an iterator of ASN1Data.
+/// TODO Find out why this started all of a sudden
+#[allow(clippy::manual_try_fold)]
 pub(crate) fn get_js_array_from_asn_data<T: Iterator<Item = ASN1Data>>(
     env: Env,
     data: T,

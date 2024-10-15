@@ -3,12 +3,13 @@ authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
 version = "1.1.6"
+rust-version = "1.56"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = {version = "2.12.6", features = ["chrono_date", "error_anyhow", "napi7"] }
+napi = { version = "2.12.6", features = ["full", "error_anyhow"] }
 phf = { version = "0.11.1", features = ["macros"] }
 napi-derive = "2.12.5"
 rasn = "0.7.0"
