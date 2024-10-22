@@ -29,9 +29,9 @@ index.d.ts: index.js
 	@true
 
 asn1-napi-rs.node: build/index.js
-	rm -f *.node
-	cp build/*.node .
-	ln -s asn1-napi-rs.*.node asn1-napi-rs.node
+	rm -f asn1-napi-rs.node
+	cp build/asn1-napi-rs.*.node .
+	ln -s $(shell echo build/asn1-napi-rs.*.node | sed 's@^build/@./@') asn1-napi-rs.node
 
 # Run automated tests
 test: node_modules index.js index.d.ts asn1-napi-rs.node
@@ -54,7 +54,7 @@ do-npm-publish: node_modules
 clean:
 	rm -rf target
 	rm -rf __TMP__ build
-	rm -f *.node index.js index.d.ts
+	rm -f asn1-napi-rs*.node index.js index.d.ts
 
 # Remove generated and downloaded files
 distclean: clean
