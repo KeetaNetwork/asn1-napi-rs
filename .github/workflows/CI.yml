@@ -183,12 +183,21 @@ jobs:
         shell: bash
         env:
           CARGO_HOME: ${{ github.workspace }}/.cargo
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload Index Artifacts
+        if: ${{ matrix.settings.target == 'x86_64-apple-darwin' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexjs
+          path: index.*
+          if-no-files-found: error
+          retention-days: 2
+      - name: Upload Node Module Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
+          retention-days: 2
   test:
     name: Test - ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
@@ -273,6 +282,11 @@ jobs:
         run: ${{ matrix.settings.npmConfig }}
       - name: Install NodeJS Dependencies
         run: make node_modules
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: indexjs
+          path: .
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
