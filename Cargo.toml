@@ -20,11 +20,6 @@ hex = "0.4.3"
 anyhow = "1.0.71"
 thiserror = "1.0.40"
 
-[dev-dependencies.cargo-husky]
-version = "1.5.0"
-default-features = false
-features = ["user-hooks"]
-
 [build-dependencies]
 napi-build = "2.0.1"
 

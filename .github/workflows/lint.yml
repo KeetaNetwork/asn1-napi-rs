@@ -18,8 +18,8 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: 16
-          cache: 'yarn'
+          node-version: 20
+          cache: npm
           check-latest: true
 
       - name: Install
@@ -34,16 +34,13 @@ jobs:
         uses: actions/cache@v3
         with:
           path: node_modules
-          key: npm-cache-lint-node@16
+          key: npm-cache-lint-node@20
 
       - name: 'Install dependencies'
-        run: yarn install --network-timeout 300000
+        run: make node_modules
 
-      - name: ESLint
-        run: yarn lint
-
-      - name: Cargo fmt
-        run: cargo fmt -- --check
+      - name: Lint
+        run: make do-lint
 
       - name: Clippy
         run: cargo clippy

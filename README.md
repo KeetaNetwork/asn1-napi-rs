@@ -14,7 +14,7 @@ This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build nat
 ## Install this package
 
 ```bash
-yarn add @keetapay/asn1-napi-rs
+npm install @keetapay/asn1-napi-rs
 ```
 
 Note: You will need a [GitHub personal access token](https://github.com/settings/tokens) added to your `~/.npmrc` file like so:
@@ -41,22 +41,17 @@ Note: You will need a [GitHub personal access token](https://github.com/settings
 | Android armv7    | ✓      | ✓      | ✓      |
 | FreeBSD x64      | ✓      | ✓      | ✓      |
 
-## Local Development
-
-Library development was done using rustc v1.64.0, yarn v3.2.3, nodejs v14.19.0 in Visual Studio Code.
-
 ## Requirements
 
 - Install the latest [Rust](https://www.rust-lang.org/tools/install) (Minimum supported v1.60.0)
 - Install [Node.js@14+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) which fully supported `Node-API`
-- Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install)
 
 ### Setup
 
 Once prerequisites are installed, you can setup the initial project easily using:
 
 ```bash
-yarn setup
+make node_modules
 ```
 
 ### Building
@@ -64,27 +59,25 @@ yarn setup
 You can build the entire project or just the rust using the following:
 
 ```bash
-# Project
-yarn build
-
-# Rust
-cargo build
+make
 ```
-
-When running the `yarn build` command, you can see `asn1-napi-rs.[darwin|win32|linux].node` file in project root. This is the native addon built from the rust code. These files should not be committed and are already in the `.gitignore` file.
 
 ### Testing
 
-All JavaScript/TypeScript tests are located in the `tests` directory within the project root. All Rust tests are located in a `test` module in the file containing the code to be tested. With [ava](https://github.com/avajs/ava), run `yarn test` to testing native addon.
+All JavaScript/TypeScript tests are located in the `tests` directory within the project root. All Rust tests are located in a `test` module in the file containing the code to be tested. With [ava](https://github.com/avajs/ava), run `make test` to testing native addon.
 
 ```bash
-yarn build && yarn test
+make test
 ```
 
 And you will see:
 
 ```bash
-$ yarn test
+$ make test
+running [number] tests
+test asn1::test::test_asn1_into_bytes ... ok
+test asn1::test::test_asn1_into_date ... ok
+...
 
   ✔ integer › JS number to ASN1 conversion
   ✔ integer › ASN1 to Js number conversion from byte code
@@ -95,27 +88,12 @@ $ yarn test
   [number] tests passed
 ```
 
-With [cargo](https://doc.rust-lang.org/cargo/commands/cargo-test.html), run `cargo test` to run the Rust tests.
-
-```bash
-cargo test
-```
-
-And you will see:
-
-```bash
-running [number] tests
-test asn1::test::test_asn1_into_bytes ... ok
-test asn1::test::test_asn1_into_date ... ok
-...
-```
-
 ### Benchmarking
 
 There are a few benchmarks of critical functionality available which tests the Rust implementations of functions against their TypeScript counterparts. You can run these tests using:
 
 ```bash
-yarn bench
+make do-bench
 ```
 
 And you will see:

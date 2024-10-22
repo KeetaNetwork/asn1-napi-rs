@@ -1,6 +1,0 @@
-#!/bin/bash
-set -e
-
-cargo test --all
-yarn build
-yarn test
