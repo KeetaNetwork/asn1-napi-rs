@@ -222,7 +222,7 @@ jobs:
             docker: true
             dockerVariant: alpine
             npmConfig: |
-              npm config set supportedArchitectures.libc musl
+              npm config set supportedArchitectures:libc musl
           - target: aarch64-apple-darwin
             host: macos-latest
           - target: aarch64-unknown-linux-gnu
@@ -230,7 +230,7 @@ jobs:
             docker: true
             dockerVariant: slim
             npmConfig: |
-              npm config set supportedArchitectures.libc glibc
+              npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures.cpu arm64
             qemu: true
             qemuPlatform: arm64
@@ -238,7 +238,7 @@ jobs:
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             npmConfig: |
-              npm config set supportedArchitectures.libc glibc
+              npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures.cpu arm
             qemu: true
             qemuPlatform: arm
@@ -252,8 +252,8 @@ jobs:
             docker: true
             dockerVariant: alpine
             npmConfig: |
-              npm config set supportedArchitectures.libc glibc
-              npm config set supportedArchitectures.cpu arm64
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures:cpu arm64
             qemu: true
             qemuPlatform: arm64
             qemuDockerPlatform: linux/arm64
