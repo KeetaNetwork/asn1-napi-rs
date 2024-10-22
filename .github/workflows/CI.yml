@@ -309,13 +309,13 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
-          run: set -e && make test
+          run: set -e && make do-test-no-dep-build
       - name: Test bindings
         if: ${{ !matrix.settings.docker }} && ${{ !matrix.settings.qemu }}
-        run: make test
+        run: make do-test-no-dep-build
       - name: Test bindings in Docker
         if: ${{ matrix.settings.docker }} && ${{ !matrix.settings.qemu }}
-        run: docker run --rm -v $(pwd):/build -w /build node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }} make test
+        run: docker run --rm -v $(pwd):/build -w /build node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }} make do-test-no-dep-build
   publish:
     name: Publish
     runs-on: ubuntu-latest

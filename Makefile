@@ -38,6 +38,14 @@ test: node_modules index.js index.d.ts asn1-napi-rs.node
 	cargo test
 	npm run ava
 
+# Run the automated tests, but do not rebuild the dependencies
+# This is because the dependencies are already built during the CI process
+# and we do not want to rebuild them just because they are technically out
+# of date
+do-test-no-dep-build: node_modules
+	cargo test
+	npm run ava
+
 do-lint: node_modules
 	npm run eslint -- -c ./.eslintrc.yml .
 	rustfmt --check $(shell find src -type f)
@@ -60,4 +68,4 @@ clean:
 distclean: clean
 	rm -rf node_modules
 
-.PHONY: all test do-lint do-bench do-npm-publish clean distclean
+.PHONY: all test do-test-no-dep-build do-lint do-bench do-npm-publish clean distclean
