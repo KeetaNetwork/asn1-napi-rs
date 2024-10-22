@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import * as lib from '../target/LOCAL'
+import * as lib from '..'
 
 const TEST_OIDS: lib.ASN1OID[] = [
 	{ type: 'oid', oid: 'sha256' },

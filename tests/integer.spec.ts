@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import * as lib from '../target/LOCAL'
+import * as lib from '..'
 import { BigIntToBuffer } from '../utils/helpers'
 
 const TEST_INTEGERS = [0x00, 0x2a, 0x7f, 0x80, -0xffff]

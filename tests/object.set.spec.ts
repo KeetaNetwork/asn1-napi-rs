@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import * as lib from '../target/LOCAL'
+import * as lib from '..'
 
 const TEST_SETS: lib.ASN1Set[] = [
 	{ type: 'set', name: { type: 'oid', oid: 'commonName' }, value: 'test' },

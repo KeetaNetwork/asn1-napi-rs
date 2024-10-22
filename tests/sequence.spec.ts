@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import * as lib from '../target/LOCAL'
+import * as lib from '..'
 
 const TEST_SEQUENCES: any[] = [
 	[1n, 2n, 3n, 4n, 5n],

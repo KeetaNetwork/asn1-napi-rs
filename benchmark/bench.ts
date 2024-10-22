@@ -1,6 +1,6 @@
 import b from 'benny';
 
-import * as lib from '../target/LOCAL/index';
+import * as lib from '../index';
 import { ASN1toJS, JStoASN1 } from '../utils/helpers';
 
 async function run() {

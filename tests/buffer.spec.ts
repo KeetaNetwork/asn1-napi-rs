@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import * as lib from '../target/LOCAL'
+import * as lib from '..'
 
 const TEST_BUFFERS = [Buffer.from(new Uint8Array([1, 2, 3, 4, 5]))]
 
