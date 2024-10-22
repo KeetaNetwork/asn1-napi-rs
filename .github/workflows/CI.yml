@@ -190,14 +190,14 @@ jobs:
           name: indexjs
           path: index.*
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 1
       - name: Upload Node Module Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bindings-${{ matrix.settings.target }}
+          name: napi-module-${{ matrix.settings.target }}
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 1
   test:
     name: Test - ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
@@ -283,14 +283,14 @@ jobs:
       - name: Install NodeJS Dependencies
         run: make node_modules
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: indexjs
           path: .
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: bindings-${{ matrix.settings.target }}
+          name: napi-module-${{ matrix.settings.target }}
           path: .
       - name: List Artifacts
         run: ls -l *.node index.js index.d.ts
