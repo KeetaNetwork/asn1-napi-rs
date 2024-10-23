@@ -243,17 +243,6 @@ jobs:
             nodejsArch: 'arm64'
             docker: false
             qemu: false
-          - target: aarch64-unknown-linux-gnu
-            host: ubuntu-latest
-            nodejsArch: ''
-            docker: false
-            dockerVariant: slim
-            npmConfig: |
-              npm config set supportedArchitectures:libc glibc
-              npm config set supportedArchitectures:cpu arm64
-            qemu: true
-            qemuPlatform: arm64
-            qemuDockerPlatform: linux/arm64
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             nodejsArch: ''
@@ -342,7 +331,6 @@ jobs:
             make do-test-no-dep-build
   publish:
     name: Publish
-    if: github.event_name == 'release' && github.event.action == 'created'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -363,18 +351,26 @@ jobs:
       - name: Install NodeJS Dependencies
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
-      - name: Download all artifacts
+      - name: Download artifacts (IndexJS)
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Move artifacts
-        run: npm run napi artifacts
-      - name: Package release
-        run: |
-          set -ex
-          cp -rf artifacts/*/*.node ./
-          rm -rf artifacts
-          rm -rf npm
+          name: indexjs
+          path: .
+      - name: Download artifacts (aarch64-apple-darwin)
+        uses: actions/download-artifact@v4
+        with:
+          name: napi-module-aarch64-apple-darwin
+          path: .
+      - name: Download artifacts (x86_64-unknown-linux-gnu)
+        uses: actions/download-artifact@v4
+        with:
+          name: napi-module-x86_64-unknown-linux-gnu
+          path: .
+      - name: Download artifacts (x86_64-unknown-linux-musl)
+        uses: actions/download-artifact@v4
+        with:
+          name: napi-module-x86_64-unknown-linux-musl
+          path: .
       - name: Configure NPM Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
