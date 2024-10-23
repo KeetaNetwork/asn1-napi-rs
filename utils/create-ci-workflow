@@ -1,0 +1,833 @@
+#! /usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Location of GitHub Action Workflow file to update
+ */
+const outputFile = path.resolve(path.join(__dirname, '..', '.github', 'workflows', 'CI.yml'));
+
+/**
+ * NodeJS Versions to test against
+ */
+const nodeJSVersions = ['18', '20'];
+
+/**
+ * NodeJS Version to Build against
+ */
+const mainNodeJSVersion = nodeJSVersions[0];
+
+/**
+ * Command to run tests
+ */
+const testCommand = 'make do-test-no-dep-build';
+
+/**
+ * @typedef {Object} TargetConfigurationItem
+ * @property {string} gitHubHost The GitHub "host" to run the job on
+ * @property {string[]} [setupCommands] Commands to run before building
+ * @property {string[]} [preBuildCommands] Commands to run before building
+ * @property {string[]} [postBuildCommands] Commands to run after building
+ * @property {boolean | string} [napiTarget] Whether to specify the target using --target when building (default is true)
+ * @property {boolean} [useZig] Whether to use Zig for building (default is false)
+ * @property {boolean} [testable] Whether the target is testable (default is true)
+ * @property {boolean} [works] Whether the target actually works (default is true)
+ * @property {boolean} [crossCompiled] Whether this target is cross-compiled (default is false)
+ * @property {string} [dockerImage] The Docker image to use for building, if excluded then Docker is not used
+ * @property {string} [testDocker] The Docker image to use for testing, if excluded then the docker image used for testing is derived from @see dockerImage
+ * @property {{ [key: string]: string }} [npmConfig] NPM configuration options to set before running tests
+ * @property {{ platform: string; dockerVariant?: string }} [testQEMU] QEMU configuration for running tests, if omitted then QEMU is not used -- if specified then "testDocker" is ignored
+ */
+/**
+ * Configuration for all valid targets
+ *
+ * @type {{ [target: string]: TargetConfigurationItem }}
+ */
+const targetConfiguration = {
+	'x86_64-apple-darwin': {
+		gitHubHost: 'macos-latest',
+		postBuildCommands: ['strip -x *.node']
+	},
+	'x86_64-pc-windows-msvc': {
+		gitHubHost: 'windows-latest',
+		testable: false,
+		works: false
+	},
+	'i686-pc-windows-msvc': {
+		gitHubHost: 'windows-latest',
+		testable: false,
+		works: false
+	},
+	'x86_64-unknown-linux-gnu': {
+		gitHubHost: 'ubuntu-latest',
+		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian',
+		postBuildCommands: ['strip *.node']
+	},
+	'x86_64-unknown-linux-musl': {
+		gitHubHost: 'ubuntu-latest',
+		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
+		postBuildCommands: ['strip *.node'],
+		npmConfig: {
+			'supportedArchitectures:libc': 'musl'
+		}
+	},
+	'aarch64-apple-darwin': {
+		gitHubHost: 'macos-latest',
+		preBuildCommands: [
+			'sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*',
+			'export CC=$(xcrun -f clang)',
+			'export CXX=$(xcrun -f clang++)',
+			'SYSROOT=$(xcrun --sdk macosx --show-sdk-path)',
+			'export CFLAGS="-isysroot $SYSROOT -isystem $SYSROOT"'
+		],
+		postBuildCommands: ['strip -x *.node']
+	},
+	'aarch64-unknown-linux-musl': {
+		gitHubHost: 'ubuntu-latest',
+		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
+		preBuildCommands: [
+			'rustup target add aarch64-unknown-linux-musl'
+		],
+		postBuildCommands: ['/aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node'],
+		npmConfig: {
+			'supportedArchitectures:libc': 'glibc',
+			'supportedArchitectures:cpu': 'arm64'
+		},
+		testQEMU: {
+			platform: 'linux/arm64'
+		}
+	},
+	'aarch64-unknown-linux-gnu': {
+		gitHubHost: 'ubuntu-latest',
+		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64',
+		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
+		npmConfig: {
+			'supportedArchitectures:libc': 'glibc',
+			'supportedArchitectures:cpu': 'arm64'
+		},
+		testQEMU: {
+			platform: 'linux/arm64'
+		}
+	},
+	'armv7-unknown-linux-gnueabihf': {
+		gitHubHost: 'ubuntu-latest',
+		useZig: true,
+		setupCommands: [
+			'sudo apt-get update',
+			'sudo apt-get install gcc-arm-linux-gnueabihf -y'
+		],
+		postBuildCommands: ['arm-linux-gnueabihf-strip *.node'],
+		npmConfig: {
+			'supportedArchitectures:libc': 'glibc',
+			'supportedArchitectures:cpu': 'arm'
+		},
+		testQEMU: {
+			platform: 'linux/arm/v7',
+			dockerVariant: 'bullseye-slim'
+		}
+	},
+	'aarch64-linux-android': {
+		gitHubHost: 'ubuntu-latest',
+		postBuildCommands: ['${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node'],
+		testable: false
+	},
+	'armv7-linux-androideabi': {
+		gitHubHost: 'ubuntu-latest',
+		postBuildCommands: ['${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node'],
+		testable: false
+	},
+	'aarch64-pc-windows-msvc': {
+		gitHubHost: 'windows-latest',
+		testable: false,
+		works: false
+	}
+};
+
+/**
+ * Which targets to build in CI
+ *
+ * @type {(keyof typeof targetConfiguration)[]}
+ */
+const buildTargets = Object.keys(targetConfiguration).filter(function(target) {
+	return(targetConfiguration[target].works !== false);
+});
+const buildTargets_ = [
+	'x86_64-unknown-linux-gnu',
+	'armv7-linux-androideabi',
+	'armv7-unknown-linux-gnueabihf'
+];
+
+const buildTargets__ = [
+	'aarch64-apple-darwin',
+	'x86_64-unknown-linux-gnu',
+	'x86_64-unknown-linux-musl',
+	'aarch64-unknown-linux-musl'
+];
+
+/**
+ * Which targets to emit in the resulting package
+ */
+const packageTargets = [
+	'aarch64-apple-darwin',
+	'x86_64-unknown-linux-gnu',
+	'x86_64-unknown-linux-musl',
+	'aarch64-unknown-linux-gnu',
+	'aarch64-unknown-linux-musl'
+];
+
+/* ----------------------------------------------------------------------- *
+ * -- NOTE --------------------------------------------------------------- *
+ * -- Generally you should not need to edit anything below here ---------- *
+ * ----------------------------------------------------------------------- */
+
+/*
+ * Validate that the output file exists, if not that probably means the
+ * wrong file was specified
+ */
+if (!fs.existsSync(outputFile)) {
+	console.error('Expected to update', outputFile, 'but it does not exist -- something probably went wrong');
+	process.exit(1);
+}
+
+/*
+ * Validate that no non-working targets are being built
+ */
+for (const target of buildTargets) {
+	const config = targetConfiguration[target];
+	if (config.works === false) {
+		console.error('Target', target, 'is not working and should not be built');
+		process.exit(1);
+	}
+
+	if (config.testable === false) {
+		console.warn('warning: Target', target, 'is not testable but is being built -- it may not actually work');
+	}
+}
+
+for (const target of packageTargets) {
+	const config = targetConfiguration[target];
+
+	if (!buildTargets.includes(target)) {
+		console.error('Target', target, 'is not being built but is being packaged');
+		process.exit(1);
+	}
+
+	if (config.testable === false) {
+		console.error('warning: Target', target, 'is not testable but is being packaged');
+		process.exit(1);
+	}
+}
+
+/**
+ * Emit a YAML fragment that spans multiple lines
+ *
+ * @param {number} indentLevel
+ * @param {string} varName
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
+function emitMultiLineScript(indentLevel, varName, lines) {
+	/** @type {string[]} */
+	const result = [];
+
+	result.push(`${'  '.repeat(indentLevel)}${varName}: |`);
+	result.push(...lines.map(function(line) {
+		return `${'  '.repeat(indentLevel + 1)}${line}`;
+	}));
+
+	return(result);
+}
+
+/**
+ * Value to indicate that a configuration item must be set, but not to any specific value
+ */
+const IsSet = Symbol('IsSet');
+const NotSymbol = Symbol('Not');
+const Not = function(value) {
+	return({ [NotSymbol]: value });
+}
+/**
+ * Check to see if any target has a specific configuration item set
+ *
+ * @param  {Partial<TargetConfigurationItem & { target: string; }>} check
+ * @returns {boolean} True if any target has the configuration item set
+ */
+function anyTargetHas(check) {
+	const foundItem = buildTargets.map(function(target) {
+		const config = targetConfiguration[target];
+
+		return({
+			...config,
+			target: target
+		});
+	}).find(function(config) {
+		for (const key in check) {
+			let checkKey = check[key];
+			let invert = false;
+			if (typeof checkKey === 'object' && checkKey !== null && NotSymbol in checkKey) {
+				checkKey = checkKey[NotSymbol];
+				invert = true;
+			}
+
+			let matched = true;
+			if (checkKey === IsSet) {
+				if (config[key] === undefined) {
+					matched = false;
+				}
+			} else {
+				if (config[key] !== checkKey) {
+					matched = false;
+				}
+			}
+
+			if (invert) {
+				matched = !matched;
+			}
+
+			if (!matched) {
+				return(false);
+			}
+		}
+
+		return(true);
+	});
+
+	if (foundItem === undefined) {
+		return(false);
+	}
+
+	return(true);
+}
+
+/**
+ * Common setup for tests and building
+ *
+ * @param {{ nodeJSVersion: string; beforeNodeModules?: string[]; }} config
+ * @returns {string[]}
+ */
+function commonTargetSetup(config) {
+	const {
+		nodeJSVersion,
+		beforeNodeModules,
+	} = {
+		beforeNodeModules: [],
+		...config
+	};
+
+	const result = [];
+
+	/* Check out the repository */
+	result.push(
+		'      - name: Checkout',
+		'        uses: actions/checkout@v4'
+	);
+
+	/* Setup NodeJS (if not using Docker) */
+	result.push(
+		'      - name: Setup NodeJS',
+		'        if: matrix.settings.docker != true && matrix.settings.qemu != true',
+		'        uses: actions/setup-node@v4',
+		'        with:',
+		`          node-version: ${nodeJSVersion}`,
+		'          check-latest: true',
+		'          cache: npm',
+		'          architecture: ${{ matrix.settings.nodejsArch }}',
+	)
+
+	/* Setup anything that needs to be done before installing NodeJS dependencies */
+	result.push(...beforeNodeModules),
+
+	/* Install NodeJS Dependencies */
+	result.push(
+		'      - name: Install NodeJS Dependencies',
+		'        if: matrix.settings.docker != true && matrix.settings.qemu != true',
+		'        run: make node_modules',
+	);
+
+	return(result);
+}
+
+/**
+ * Compute the NodeJS architecture to use for this target
+ *
+ * @param {TargetConfigurationItem & { target: string }} targetConfig
+ * @returns {string}
+ */
+function computeNodeJSArch(targetConfig) {
+	const target = targetConfig.target;
+	const host = targetConfig.gitHubHost;
+	/** @type {string[]} */
+	let compatibleArchs = [];
+
+	/** @type {(string | undefined)[]} */
+	const hostWork = host.split('-');
+	if (hostWork[1] === 'latest') {
+		hostWork[1] = undefined;
+	}
+	const hostPlain = hostWork.filter(function(part) {
+		return(part !== undefined);
+	}).join('-');
+	switch (hostPlain) {
+		case 'ubuntu':
+			compatibleArchs = ['x64', 'x86'];
+			break;
+		case 'macos':
+			compatibleArchs = ['x64', 'arm64'];
+			break;
+		case 'windows':
+			compatibleArchs = ['x64', 'x86'];
+			break;
+	}
+
+	let arch = '';
+	if (target.match(/^i.86-/)) {
+		arch = 'x86';
+	} else if (target.match(/^x86_64-/)) {
+		arch = 'x64';
+	} else if (target.match(/^aarch64-/)) {
+		arch = 'arm64';
+	} else if (target.match(/^arm[^-]*-/)) {
+		arch = 'arm';
+	}
+
+	let retval = '';
+	if (arch !== '') {
+		if (compatibleArchs.includes(arch)) {
+			retval = arch;
+		}
+	}
+
+	return(retval);
+}
+
+/**
+ * Output lines buffer
+ *
+ * @type {string[]}
+ */
+const output = [];
+
+/**
+ * Preamble
+ */
+output.push(
+	'##################################',
+	'# DO NOT EDIT THIS FILE DIRECTLY #',
+	'##################################',
+	'',
+	'name: CI',
+	'env:',
+	'  DEBUG: napi:*',
+	'  APP_NAME: asn1-napi-rs',
+	"  MACOSX_DEPLOYMENT_TARGET: '10.13'",
+	'  CARGO_INCREMENTAL: 0',
+	'  CARGO_TERM_COLOR: always',
+	'on:',
+	'  push:',
+	'    branches:',
+	'      - main',
+	'    tags-ignore:',
+	'      - \'**\'',
+	'    paths-ignore:',
+	'      - \'**/*.md\'',
+	'      - LICENSE',
+	'      - \'**/*.gitignore\'',
+	'      - .editorconfig',
+	'      - docs/**',
+	'  release:',
+	'    types: [created]',
+	'  pull_request:',
+	'    branches: [main]',
+);
+
+output.push(
+	'jobs:',
+);
+
+/*
+ * Build process
+ */
+output.push(
+	'  build:',
+	'    strategy:',
+	'      fail-fast: false',
+	'      matrix:',
+	'        settings:'
+);
+for (const target of buildTargets) {
+	const config = targetConfiguration[target];
+
+	/*
+	 * Basic information about the job target
+	 */
+	output.push(`          - target: ${target}`);
+	output.push(`            host: ${config.gitHubHost}`);
+	output.push('            qemu: false');
+	output.push(`            nodejsArch: '${computeNodeJSArch({ ...config, target: target })}'`);
+
+	if (config.dockerImage) {
+		output.push('            docker: true');
+		output.push(`            dockerImage: ${config.dockerImage}`);
+	} else {
+		output.push('            docker: false');
+	}
+
+	if (config.useZig) {
+		output.push('            useZig: true');
+	} else {
+		output.push('            useZig: false');
+	}
+
+	/*
+	 * The "Setup" portion of the job
+	 */
+	if (config.setupCommands) {
+		output.push(...emitMultiLineScript(6, 'setup', [
+			'set -xe',
+			...config.setupCommands
+		]));
+	}
+
+	/*
+	 * The "Build" portion of the job
+	 */
+	let buildCommandAdd = '';
+	if (config.napiTarget !== false) {
+		buildCommandAdd = ` NAPI_LOCAL_BUILD_ARGS='--target ${target}'`
+	} else if (config.napiTarget !== undefined) {
+		buildCommandAdd = ` NAPI_LOCAL_BUILD_ARGS='--target ${config.napiTarget}'`
+	}
+
+	const buildCommandsInput = [
+		'set -xe',
+		`rustup target add ${target}`,
+		...(config.preBuildCommands ?? []),
+		`make all${buildCommandAdd}`,
+		...(config.postBuildCommands ?? [])
+	];
+
+	if (config.testable !== false && config.testQEMU === undefined) {
+		if (computeNodeJSArch({ ...config, target: target }) !== '') {
+			buildCommandsInput.push('make test');
+		}
+	}
+
+	output.push(...emitMultiLineScript(6, 'build', buildCommandsInput));
+}
+
+/*
+ * Build Job steps
+ */
+output.push(
+	`    name: Build - \${{ matrix.settings.target }} - node@${mainNodeJSVersion}`,
+	'    runs-on: ${{ matrix.settings.host }}',
+	'    steps:',
+
+	/*
+	 * Common Setup
+	 */
+	...commonTargetSetup({ nodeJSVersion: mainNodeJSVersion }),
+
+	/* Enable caching of Cargo downloaded files */
+	'      - name: Cache Cargo',
+	'        uses: actions/cache@v4',
+	'        with:',
+	'          path: |',
+	'            ${{ github.workspace }}/.cargo/registry/index/',
+	'            ${{ github.workspace }}/.cargo/registry/cache/',
+	'            ${{ github.workspace }}/.cargo/git/db/',
+	'            .cargo-cache',
+	'            target/',
+	'          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}',
+);
+
+
+/* Setup Zig (if necessary) */
+if (anyTargetHas({ useZig: IsSet })) {
+	output.push(
+		'      - name: Setup Zig',
+		'        if: matrix.settings.useZig',
+		'        uses: goto-bus-stop/setup-zig@v2',
+		'        with:',
+		'          version: 0.10.1'
+	);
+}
+
+/* Run the setup script (if necessary) */
+if (anyTargetHas({ setupCommands: IsSet })) {
+	output.push(
+		'      - name: Setup toolchain',
+		'        if: matrix.settings.setup != \'\'',
+		'        run: ${{ matrix.settings.setup }}',
+		'        shell: bash',
+	);
+}
+
+/* Build in Docker (if necessary) */
+if (anyTargetHas({ dockerImage: IsSet })) {
+	output.push(
+		'      - name: Build in Docker',
+		'        if: matrix.settings.docker',
+		'        uses: addnab/docker-run-action@v3',
+		'        with:',
+		'          image: ${{ matrix.settings.dockerImage }}',
+		'          options: \'--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build\'',
+		'          run: make node_modules && ${{ matrix.settings.build }}',
+		'          shell: bash',
+		'        env:',
+		'          CARGO_HOME: /usr/local/cargo',
+	);
+}
+
+output.push(
+	/* Build the project */
+	'      - name: Build',
+	'        if: matrix.settings.docker != true',
+	'        run: ${{ matrix.settings.build }}',
+	'        shell: bash',
+	'        env:',
+	'          CARGO_HOME: ${{ github.workspace }}/.cargo',
+
+	/* Upload the Index.js/Index.d.ts files */
+	'      - name: Upload Index Artifacts',
+	`        if: matrix.settings.target == \'${buildTargets[0]}\'`,
+	'        uses: actions/upload-artifact@v4',
+	'        with:',
+	'          name: indexjs',
+	'          path: index.*',
+	'          if-no-files-found: error',
+	'          retention-days: 1',
+
+	/* Upload the artifact for this platform */
+	'      - name: Upload Node Module Artifact',
+	'        uses: actions/upload-artifact@v4',
+	'        with:',
+	'          name: napi-module-${{ matrix.settings.target }}',
+	'          path: ${{ env.APP_NAME }}.*.node',
+	'          if-no-files-found: error',
+	'          retention-days: 1'
+);
+
+/*
+ * Test Jobs
+ */
+output.push(
+	'  test:',
+	'    name: Test - ${{ matrix.settings.target }} - node@${{ matrix.node }}',
+	'    needs:',
+	'      - build',
+	'    strategy:',
+	'      fail-fast: false',
+	'      matrix:',
+	`        node: ${JSON.stringify(nodeJSVersions)}`,
+	'        settings:'
+);
+for (const target of buildTargets) {
+	const config = targetConfiguration[target];
+
+	if (config.testable === false) {
+		continue;
+	}
+
+	output.push(`          - target: ${target}`);
+	output.push(`            host: ${config.gitHubHost}`);
+	output.push(`            nodejsArch: '${computeNodeJSArch({ ...config, target: target })}'`);
+
+	if (config.testQEMU !== undefined) {
+		let dockerVariant = 'slim';
+		if (target.match(/-musl$/)) {
+			dockerVariant = 'alpine';
+		}
+		if (config.testQEMU.dockerVariant !== undefined) {
+			dockerVariant = config.testQEMU.dockerVariant;
+		}
+
+		/* Because we are using QEMU we set Docker to false */
+		output.push('            docker: false');
+		output.push(`            dockerVariant: ${dockerVariant}`);
+	} else if (config.dockerImage !== undefined) {
+		let dockerVariant = 'slim';
+		if (config.dockerImage.match(/-alpine$/)) {
+			dockerVariant = 'alpine';
+		}
+		output.push(`            docker: true`);
+		output.push(`            dockerVariant: ${dockerVariant}`);
+	} else if (config.testDocker !== undefined) {
+		output.push('            docker: true');
+		output.push(`            dockerVariant: ${config.testDocker}`);
+	} else {
+		output.push('            docker: false');
+	}
+
+	if (config.npmConfig !== undefined) {
+		output.push(...emitMultiLineScript(6, 'npmConfig', [
+			...Object.entries(config.npmConfig).map(function([key, value]) {
+				return(`npm config set ${key} ${value}`);
+			})
+		]));
+	}
+
+	if (config.testQEMU) {
+		const qemuPlatform = config.testQEMU.platform.split('/')[1];
+		const qemuDockerPlatform = config.testQEMU.platform;
+
+		output.push('            qemu: true');
+		output.push(`            qemuPlatform: ${qemuPlatform}`);
+		output.push(`            qemuDockerPlatform: ${qemuDockerPlatform}`);
+	} else {
+		output.push('            qemu: false');
+	}
+}
+
+output.push(
+	'    runs-on: ${{ matrix.settings.host }}',
+	'    steps:',
+
+	/*
+	 * Common setup
+ 	 */
+	...commonTargetSetup({
+		nodeJSVersion: '${{ matrix.node }}',
+		beforeNodeModules: [
+			/* Setup NPM Configuration options */
+			'      - name: Setup NPM',
+			'        if: matrix.settings.npmConfig != \'\' && matrix.settings.docker != true && matrix.settings.qemu != true',
+			'        run: ${{ matrix.settings.npmConfig }}',
+		]
+	}),
+
+	/* Download the artifacts from the build process*/
+	'      - name: Download artifacts',
+	'        uses: actions/download-artifact@v4',
+	'        with:',
+	'          name: indexjs',
+	'          path: .',
+
+	'      - name: Download artifacts',
+	'        uses: actions/download-artifact@v4',
+	'        with:',
+	'          name: napi-module-${{ matrix.settings.target }}',
+	'          path: .',
+
+	/* List the downloaded artifacts */
+	'      - name: List Artifacts',
+	'        run: ls -l *.node index.js index.d.ts',
+	'        shell: bash',
+);
+
+/**
+ * Command needed to run tests in Docker -- since there is no other setup,
+ * all of the setup is done in the Docker image
+ */
+const runCommandsDocker = [
+	'set -e',
+	'( (apt update && apt install -y make) || ( apk add make ) )',
+	'${{ matrix.settings.npmConfig }}',
+	testCommand
+];
+
+/*
+ * Setup QEMU for running cross-compiled targets
+ */
+if (anyTargetHas({ testQEMU: IsSet, testable: Not(false) })) {
+	output.push(
+		'      - name: Set up QEMU',
+		'        if: matrix.settings.qemu',
+		'        uses: docker/setup-qemu-action@v3',
+		'        with:',
+		'          platforms: ${{ matrix.settings.qemuPlatform }}',
+		
+		'      - name: Setup Docker QEMU daemon',
+		'        if: matrix.settings.qemu',
+		'        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes',
+
+
+		'      - name: Test Module in Docker with QEMU',
+		'        if: matrix.settings.qemu',
+		'        uses: addnab/docker-run-action@v3',
+		'        with:',
+		'          image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}',
+		'          options: \'--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build\'',
+		...emitMultiLineScript(5, 'run', runCommandsDocker)
+	);
+}
+
+output.push(
+	/* Test the downloaded artifact */
+	'      - name: Test Module (No Docker, No QEMU)',
+	'        if: matrix.settings.docker != true && matrix.settings.qemu != true',
+	`        run: set -e && ${testCommand}`,
+);
+
+if (anyTargetHas({ dockerImage: IsSet, testable: Not(false) })) {
+	output.push(
+		/* Test the downloaded artifact in Docker (without QEMU) */
+		'      - name: Test Module in Docker without QEMU',
+		'        if: matrix.settings.docker == true && matrix.settings.qemu != true',
+		'        uses: addnab/docker-run-action@v3',
+		'        with:',
+		'          image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}',
+		'          options: \'-v ${{ github.workspace }}:/build -w /build\'',
+		...emitMultiLineScript(5, 'run', runCommandsDocker)
+	);
+}
+
+/*
+ * Publish package on release creation
+ */
+output.push(
+	'  publish:',
+	'    name: Publish',
+	'    if: github.event_name == \'release\' && github.event.action == \'created\'',
+	'    runs-on: ubuntu-latest',
+	'    permissions:',
+	'      contents: read',
+	'      packages: write',
+	'    needs:',
+	'      - test',
+	'    steps:',
+
+	/* Setup NodeJS */
+	...commonTargetSetup({
+		nodeJSVersion: mainNodeJSVersion
+	}),
+
+	'      - name: Download artifacts (IndexJS)',
+	'        uses: actions/download-artifact@v4',
+	'        with:',
+	'          name: indexjs',
+	'          path: .'
+);
+
+for (const target of packageTargets) {
+	output.push(
+		`      - name: Download artifacts (${target})`,
+		'        uses: actions/download-artifact@v4',
+		'        with:',
+		`          name: napi-module-${target}`,
+		'          path: .'
+	);
+}
+
+output.push(
+	/* Setup NPM for Publishing to a GitHub Package Registry */
+	'      - name: Configure NPM Publish',
+	'        env:',
+	'          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
+	...emitMultiLineScript(4, 'run', [
+		'echo \'//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\' >> .npmrc',
+		'npm config set "@keetapay:registry=https://npm.pkg.github.com"',
+		'npm config set -- \'//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\'',
+	]),
+
+	/* Publish the package */
+	'      - name: Publish',
+	'        run: make do-npm-publish'
+);
+
+const outputString = output.join('\n') + '\n';
+const outputFileTmp = `${outputFile}.tmp`;
+fs.writeFileSync(outputFileTmp, outputString);
+fs.renameSync(outputFileTmp, outputFile);
+process.exit(0);
