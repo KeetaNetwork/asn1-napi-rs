@@ -346,6 +346,7 @@ jobs:
             make do-test-no-dep-build
   publish:
     name: Publish
+    if: github.event_name == 'release' && github.event.action == 'created'
     runs-on: ubuntu-latest
     permissions:
       contents: read
