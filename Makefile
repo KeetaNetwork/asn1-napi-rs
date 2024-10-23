@@ -43,7 +43,6 @@ test: node_modules index.js index.d.ts asn1-napi-rs.node
 # and we do not want to rebuild them just because they are technically out
 # of date
 do-test-no-dep-build: node_modules
-	cargo test
 	npm run ava
 
 do-lint: node_modules
