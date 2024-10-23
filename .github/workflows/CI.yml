@@ -30,6 +30,7 @@ jobs:
           - target: x86_64-apple-darwin
             host: macos-latest
             qemu: false
+            nodejsArch: ''
             docker: false
             useZig: false
             build: |
@@ -37,10 +38,10 @@ jobs:
               rustup target add x86_64-apple-darwin
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-apple-darwin'
               strip -x *.node
-              make test
           - target: x86_64-pc-windows-msvc
             host: windows-latest
             qemu: false
+            nodejsArch: 'x64'
             docker: false
             useZig: false
             build: |
@@ -51,6 +52,7 @@ jobs:
           - target: i686-pc-windows-msvc
             host: windows-latest
             qemu: false
+            nodejsArch: 'x86'
             docker: false
             useZig: false
             build: |
@@ -61,6 +63,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             qemu: false
+            nodejsArch: 'x64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
             useZig: false
@@ -73,6 +76,7 @@ jobs:
           - target: x86_64-unknown-linux-musl
             host: ubuntu-latest
             qemu: false
+            nodejsArch: 'x64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             useZig: false
@@ -85,6 +89,7 @@ jobs:
           - target: aarch64-apple-darwin
             host: macos-latest
             qemu: false
+            nodejsArch: 'arm64'
             docker: false
             useZig: false
             build: |
@@ -101,6 +106,7 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             host: ubuntu-latest
             qemu: false
+            nodejsArch: ''
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             useZig: false
@@ -112,6 +118,7 @@ jobs:
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             qemu: false
+            nodejsArch: ''
             docker: false
             useZig: true
             setup: |
@@ -126,6 +133,7 @@ jobs:
           - target: aarch64-linux-android
             host: ubuntu-latest
             qemu: false
+            nodejsArch: ''
             docker: false
             useZig: false
             build: |
@@ -136,6 +144,7 @@ jobs:
           - target: armv7-linux-androideabi
             host: ubuntu-latest
             qemu: false
+            nodejsArch: ''
             docker: false
             useZig: false
             build: |
@@ -146,6 +155,7 @@ jobs:
           - target: aarch64-unknown-linux-musl
             host: ubuntu-latest
             qemu: false
+            nodejsArch: ''
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             useZig: false
@@ -158,13 +168,13 @@ jobs:
           - target: aarch64-pc-windows-msvc
             host: windows-latest
             qemu: false
+            nodejsArch: ''
             docker: false
             useZig: false
             build: |
               set -xe
               rustup target add aarch64-pc-windows-msvc
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-pc-windows-msvc'
-              make test
     name: Build - ${{ matrix.settings.target }} - node@18
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -177,14 +187,7 @@ jobs:
           node-version: 18
           check-latest: true
           cache: npm
-      - name: Setup NodeJS x86
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          check-latest: true
-          cache: npm
-          architecture: x86
+          architecture: ${{ matrix.settings.nodejsArch }}
       - name: Install NodeJS Dependencies
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
@@ -249,23 +252,28 @@ jobs:
         settings:
           - target: x86_64-apple-darwin
             host: macos-latest
+            nodejsArch: ''
             docker: false
             qemu: false
           - target: x86_64-pc-windows-msvc
             host: windows-latest
+            nodejsArch: 'x64'
             docker: false
             qemu: false
           - target: i686-pc-windows-msvc
             host: windows-latest
+            nodejsArch: 'x86'
             docker: false
             qemu: false
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
+            nodejsArch: 'x64'
             docker: true
             dockerVariant: slim
             qemu: false
           - target: x86_64-unknown-linux-musl
             host: ubuntu-latest
+            nodejsArch: 'x64'
             docker: true
             dockerVariant: alpine
             npmConfig: |
@@ -273,10 +281,12 @@ jobs:
             qemu: false
           - target: aarch64-apple-darwin
             host: macos-latest
+            nodejsArch: 'arm64'
             docker: false
             qemu: false
           - target: aarch64-unknown-linux-gnu
             host: ubuntu-latest
+            nodejsArch: ''
             docker: false
             dockerVariant: slim
             npmConfig: |
@@ -287,6 +297,7 @@ jobs:
             qemuDockerPlatform: linux/arm64
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
+            nodejsArch: ''
             docker: false
             dockerVariant: bullseye-slim
             npmConfig: |
@@ -297,6 +308,7 @@ jobs:
             qemuDockerPlatform: linux/arm/v7
           - target: aarch64-unknown-linux-musl
             host: ubuntu-latest
+            nodejsArch: ''
             docker: false
             dockerVariant: slim
             npmConfig: |
@@ -307,6 +319,7 @@ jobs:
             qemuDockerPlatform: linux/arm64
           - target: aarch64-pc-windows-msvc
             host: windows-latest
+            nodejsArch: ''
             docker: false
             qemu: false
     runs-on: ${{ matrix.settings.host }}
@@ -320,14 +333,7 @@ jobs:
           node-version: ${{ matrix.node }}
           check-latest: true
           cache: npm
-      - name: Setup NodeJS x86
-        if: matrix.settings.target == 'i686-pc-windows-msvc'
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node }}
-          check-latest: true
-          cache: npm
-          architecture: x86
+          architecture: ${{ matrix.settings.nodejsArch }}
       - name: Setup NPM
         if: matrix.settings.npmConfig != '' && matrix.settings.docker != true && matrix.settings.qemu != true
         run: ${{ matrix.settings.npmConfig }}
@@ -401,6 +407,7 @@ jobs:
           node-version: 18
           check-latest: true
           cache: npm
+          architecture: ${{ matrix.settings.nodejsArch }}
       - name: Install NodeJS Dependencies
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
