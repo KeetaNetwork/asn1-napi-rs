@@ -29,6 +29,7 @@ jobs:
         settings:
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
+            qemu: false
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
             useZig: false
@@ -40,6 +41,7 @@ jobs:
               make test
           - target: armv7-linux-androideabi
             host: ubuntu-latest
+            qemu: false
             docker: false
             useZig: false
             build: |
@@ -49,6 +51,7 @@ jobs:
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
+            qemu: false
             docker: false
             useZig: true
             setup: |
@@ -66,14 +69,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         uses: actions/setup-node@v4
         with:
           node-version: 18
           check-latest: true
           cache: npm
       - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -154,7 +157,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -164,7 +167,7 @@ jobs:
         if: matrix.settings.npmConfig != ''
         run: ${{ matrix.settings.npmConfig }}
       - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -193,7 +196,7 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
-          run: set -e && make do-test-no-dep-build
+          run: ( (apt update && apt install -y make) || ( apk add make ) ) && set -e && make do-test-no-dep-build
           shell: bash
       - name: Test Module (No Docker, No QEMU)
         if: matrix.settings.docker != true && matrix.settings.qemu != true
@@ -219,14 +222,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         uses: actions/setup-node@v4
         with:
           node-version: 18
           check-latest: true
           cache: npm
       - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
       - name: Download all artifacts
         uses: actions/download-artifact@v4
