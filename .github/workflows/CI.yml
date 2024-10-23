@@ -321,7 +321,6 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
-          shell: bash
           run: |
             set -e
             ( (apt update && apt install -y make) || ( apk add make ) )
@@ -336,7 +335,6 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '-v ${{ github.workspace }}:/build -w /build'
-          shell: bash
           run: |
             set -e
             ( (apt update && apt install -y make) || ( apk add make ) )
