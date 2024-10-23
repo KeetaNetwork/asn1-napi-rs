@@ -30,7 +30,7 @@ jobs:
           - target: x86_64-apple-darwin
             host: macos-latest
             qemu: false
-            nodejsArch: ''
+            nodejsArch: 'x64'
             docker: false
             useZig: false
             build: |
@@ -38,6 +38,7 @@ jobs:
               rustup target add x86_64-apple-darwin
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-apple-darwin'
               strip -x *.node
+              make test
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             qemu: false
@@ -220,7 +221,7 @@ jobs:
         settings:
           - target: x86_64-apple-darwin
             host: macos-latest
-            nodejsArch: ''
+            nodejsArch: 'x64'
             docker: false
             qemu: false
           - target: x86_64-unknown-linux-gnu
