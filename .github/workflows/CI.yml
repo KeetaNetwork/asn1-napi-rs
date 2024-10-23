@@ -87,7 +87,7 @@ jobs:
               strip -x *.node
               make test
           - target: aarch64-unknown-linux-musl
-            host: ubuntu-latest
+            host: ubuntu-latest-l
             qemu: false
             nodejsArch: ''
             docker: true
@@ -100,7 +100,7 @@ jobs:
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
           - target: aarch64-unknown-linux-gnu
-            host: ubuntu-latest
+            host: ubuntu-latest-l
             qemu: false
             nodejsArch: ''
             docker: true
@@ -248,7 +248,7 @@ jobs:
             docker: false
             qemu: false
           - target: aarch64-unknown-linux-musl
-            host: ubuntu-latest
+            host: ubuntu-latest-l
             nodejsArch: ''
             docker: false
             dockerVariant: alpine
@@ -259,7 +259,7 @@ jobs:
             qemuPlatform: arm64
             qemuDockerPlatform: linux/arm64
           - target: aarch64-unknown-linux-gnu
-            host: ubuntu-latest
+            host: ubuntu-latest-l
             nodejsArch: ''
             docker: false
             dockerVariant: slim

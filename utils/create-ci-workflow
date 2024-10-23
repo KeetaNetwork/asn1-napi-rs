@@ -84,7 +84,7 @@ const targetConfiguration = {
 		postBuildCommands: ['strip -x *.node']
 	},
 	'aarch64-unknown-linux-musl': {
-		gitHubHost: 'ubuntu-latest',
+		gitHubHost: 'ubuntu-latest-l',
 		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
 		preBuildCommands: [
 			'rustup target add aarch64-unknown-linux-musl'
@@ -99,7 +99,7 @@ const targetConfiguration = {
 		}
 	},
 	'aarch64-unknown-linux-gnu': {
-		gitHubHost: 'ubuntu-latest',
+		gitHubHost: 'ubuntu-latest-l',
 		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64',
 		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
 		npmConfig: {
@@ -364,6 +364,9 @@ function computeNodeJSArch(targetConfig) {
 	const hostWork = host.split('-');
 	if (hostWork[1] === 'latest') {
 		hostWork[1] = undefined;
+	}
+	if (hostWork[2] === 'l' || hostWork[2] === 'm') {
+		hostWork[2] = undefined;
 	}
 	const hostPlain = hostWork.filter(function(part) {
 		return(part !== undefined);
