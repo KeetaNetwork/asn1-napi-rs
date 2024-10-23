@@ -141,7 +141,7 @@ jobs:
             docker: false
             npmConfig: |
               npm config set supportedArchitectures:libc glibc
-              npm config set supportedArchitectures.cpu arm
+              npm config set supportedArchitectures:cpu arm
             qemu: true
             qemuPlatform: arm
             qemuDockerPlatform: linux/arm/v7
