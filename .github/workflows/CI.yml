@@ -60,13 +60,13 @@ jobs:
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
       - name: Build
-        if: ${{ !matrix.settings.docker }}
+        if: matrix.settings.docker != true
         run: ${{ matrix.settings.build }}
         shell: bash
         env:
           CARGO_HOME: ${{ github.workspace }}/.cargo
       - name: Upload Index Artifacts
-        if: ${{ matrix.settings.target == 'x86_64-apple-darwin' }}
+        if: matrix.settings.target == 'x86_64-apple-darwin'
         uses: actions/upload-artifact@v4
         with:
           name: indexjs
@@ -104,7 +104,7 @@ jobs:
           check-latest: true
           cache: npm
       - name: Setup NPM
-        if: ${{ matrix.settings.npmConfig }}
+        if: matrix.settings.npmConfig != ''
         run: ${{ matrix.settings.npmConfig }}
       - name: Install NodeJS Dependencies
         run: make node_modules
@@ -122,25 +122,25 @@ jobs:
         run: ls -l *.node index.js index.d.ts
         shell: bash
       - name: Set up QEMU
-        if: ${{ matrix.settings.qemu }}
+        if: matrix.settings.qemu
         uses: docker/setup-qemu-action@v2
         with:
           platforms: ${{ matrix.settings.qemuPlatform }}
       - name: Setup Docker QEMU daemon
-        if: ${{ matrix.settings.qemu }}
+        if: matrix.settings.qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Test Module in Docker with QEMU
-        if: ${{ matrix.settings.qemu }}
+        if: matrix.settings.qemu
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
           run: set -e && make do-test-no-dep-build
       - name: Test Module (No Docker, No QEMU)
-        if: ${{ matrix.settings.docker }} != true && ${{ matrix.settings.qemu }} != true
+        if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make do-test-no-dep-build
       - name: Test Module (Docker, No QEMU)
-        if: ${{ matrix.settings.docker }} == true && ${{ matrix.settings.qemu }} != true
+        if: matrix.settings.docker && matrix.settings.qemu != true
         run: docker run --rm -v $(pwd):/build -w /build node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }} make do-test-no-dep-build
   publish:
     name: Publish
