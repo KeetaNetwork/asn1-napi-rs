@@ -27,6 +27,37 @@ jobs:
       fail-fast: false
       matrix:
         settings:
+          - target: x86_64-apple-darwin
+            host: macos-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-apple-darwin
+              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-apple-darwin'
+              strip -x *.node
+              make test
+          - target: x86_64-pc-windows-msvc
+            host: windows-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-pc-windows-msvc
+              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-pc-windows-msvc'
+              make test
+          - target: i686-pc-windows-msvc
+            host: windows-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add i686-pc-windows-msvc
+              make all NAPI_LOCAL_BUILD_ARGS='--target i686-pc-windows-msvc'
+              make test
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             qemu: false
@@ -39,16 +70,45 @@ jobs:
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-gnu'
               strip *.node
               make test
-          - target: armv7-linux-androideabi
+          - target: x86_64-unknown-linux-musl
             host: ubuntu-latest
+            qemu: false
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-unknown-linux-musl
+              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-musl'
+              strip *.node
+              make test
+          - target: aarch64-apple-darwin
+            host: macos-latest
             qemu: false
             docker: false
             useZig: false
             build: |
               set -xe
-              rustup target add armv7-linux-androideabi
-              make all NAPI_LOCAL_BUILD_ARGS='--target armv7-linux-androideabi'
-              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+              rustup target add aarch64-apple-darwin
+              sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+              export CC=$(xcrun -f clang)
+              export CXX=$(xcrun -f clang++)
+              SYSROOT=$(xcrun --sdk macosx --show-sdk-path)
+              export CFLAGS="-isysroot $SYSROOT -isystem $SYSROOT"
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-apple-darwin'
+              strip -x *.node
+              make test
+          - target: aarch64-unknown-linux-gnu
+            host: ubuntu-latest
+            qemu: false
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-unknown-linux-gnu
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-gnu'
+              aarch64-unknown-linux-gnu-strip *.node
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             qemu: false
@@ -63,6 +123,48 @@ jobs:
               rustup target add armv7-unknown-linux-gnueabihf
               make all NAPI_LOCAL_BUILD_ARGS='--target armv7-unknown-linux-gnueabihf'
               arm-linux-gnueabihf-strip *.node
+          - target: aarch64-linux-android
+            host: ubuntu-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-linux-android
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-linux-android'
+              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+          - target: armv7-linux-androideabi
+            host: ubuntu-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add armv7-linux-androideabi
+              make all NAPI_LOCAL_BUILD_ARGS='--target armv7-linux-androideabi'
+              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+          - target: aarch64-unknown-linux-musl
+            host: ubuntu-latest
+            qemu: false
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-unknown-linux-musl
+              rustup target add aarch64-unknown-linux-musl
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
+              /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
+          - target: aarch64-pc-windows-msvc
+            host: windows-latest
+            qemu: false
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-pc-windows-msvc
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-pc-windows-msvc'
+              make test
     name: Build - ${{ matrix.settings.target }} - node@18
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -75,6 +177,14 @@ jobs:
           node-version: 18
           check-latest: true
           cache: npm
+      - name: Setup NodeJS x86
+        if: matrix.settings.target == 'i686-pc-windows-msvc'
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          check-latest: true
+          cache: npm
+          architecture: x86
       - name: Install NodeJS Dependencies
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make node_modules
@@ -114,7 +224,7 @@ jobs:
         env:
           CARGO_HOME: ${{ github.workspace }}/.cargo
       - name: Upload Index Artifacts
-        if: matrix.settings.target == 'x86_64-unknown-linux-gnu'
+        if: matrix.settings.target == 'x86_64-apple-darwin'
         uses: actions/upload-artifact@v4
         with:
           name: indexjs
@@ -137,11 +247,44 @@ jobs:
       matrix:
         node: ["18","20"]
         settings:
+          - target: x86_64-apple-darwin
+            host: macos-latest
+            docker: false
+            qemu: false
+          - target: x86_64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
+          - target: i686-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             docker: true
             dockerVariant: slim
             qemu: false
+          - target: x86_64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: true
+            dockerVariant: alpine
+            npmConfig: |
+              npm config set supportedArchitectures:libc musl
+            qemu: false
+          - target: aarch64-apple-darwin
+            host: macos-latest
+            docker: false
+            qemu: false
+          - target: aarch64-unknown-linux-gnu
+            host: ubuntu-latest
+            docker: false
+            dockerVariant: slim
+            npmConfig: |
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures:cpu arm64
+            qemu: true
+            qemuPlatform: arm64
+            qemuDockerPlatform: linux/arm64
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             docker: false
@@ -152,6 +295,20 @@ jobs:
             qemu: true
             qemuPlatform: arm
             qemuDockerPlatform: linux/arm/v7
+          - target: aarch64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: false
+            dockerVariant: slim
+            npmConfig: |
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures:cpu arm64
+            qemu: true
+            qemuPlatform: arm64
+            qemuDockerPlatform: linux/arm64
+          - target: aarch64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout
@@ -163,8 +320,16 @@ jobs:
           node-version: ${{ matrix.node }}
           check-latest: true
           cache: npm
+      - name: Setup NodeJS x86
+        if: matrix.settings.target == 'i686-pc-windows-msvc'
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          check-latest: true
+          cache: npm
+          architecture: x86
       - name: Setup NPM
-        if: matrix.settings.npmConfig != ''
+        if: matrix.settings.npmConfig != '' && matrix.settings.docker != true && matrix.settings.qemu != true
         run: ${{ matrix.settings.npmConfig }}
       - name: Install NodeJS Dependencies
         if: matrix.settings.docker != true && matrix.settings.qemu != true
@@ -196,8 +361,12 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
-          run: ( (apt update && apt install -y make) || ( apk add make ) ) && set -e && make do-test-no-dep-build
           shell: bash
+          run: |
+            set -e
+            ( (apt update && apt install -y make) || ( apk add make ) )
+            ${{ matrix.settings.npmConfig }}
+            make do-test-no-dep-build
       - name: Test Module (No Docker, No QEMU)
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: set -e && make do-test-no-dep-build
@@ -207,8 +376,12 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '-v ${{ github.workspace }}:/build -w /build'
-          run: ( (apt update && apt install -y make) || ( apk add make ) ) && set -e && make do-test-no-dep-build
           shell: bash
+          run: |
+            set -e
+            ( (apt update && apt install -y make) || ( apk add make ) )
+            ${{ matrix.settings.npmConfig }}
+            make do-test-no-dep-build
   publish:
     name: Publish
     if: github.event_name == 'release' && github.event.action == 'created'
