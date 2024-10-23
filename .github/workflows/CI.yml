@@ -184,7 +184,7 @@ jobs:
         shell: bash
       - name: Set up QEMU
         if: matrix.settings.qemu
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: ${{ matrix.settings.qemuPlatform }}
       - name: Setup Docker QEMU daemon
@@ -206,7 +206,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
-          options: -v ${{ github.workspace }}:/build -w /build
+          options: '-v ${{ github.workspace }}:/build -w /build'
           run: ( (apt update && apt install -y make) || ( apk add make ) ) && set -e && make do-test-no-dep-build
           shell: bash
   publish:
