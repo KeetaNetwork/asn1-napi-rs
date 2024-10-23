@@ -141,6 +141,7 @@ jobs:
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             docker: false
+            dockerVariant: bullseye-slim
             npmConfig: |
               npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures:cpu arm
