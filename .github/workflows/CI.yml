@@ -38,28 +38,6 @@ jobs:
               rustup target add x86_64-apple-darwin
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-apple-darwin'
               strip -x *.node
-          - target: x86_64-pc-windows-msvc
-            host: windows-latest
-            qemu: false
-            nodejsArch: 'x64'
-            docker: false
-            useZig: false
-            build: |
-              set -xe
-              rustup target add x86_64-pc-windows-msvc
-              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-pc-windows-msvc'
-              make test
-          - target: i686-pc-windows-msvc
-            host: windows-latest
-            qemu: false
-            nodejsArch: 'x86'
-            docker: false
-            useZig: false
-            build: |
-              set -xe
-              rustup target add i686-pc-windows-msvc
-              make all NAPI_LOCAL_BUILD_ARGS='--target i686-pc-windows-msvc'
-              make test
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             qemu: false
@@ -165,16 +143,6 @@ jobs:
               rustup target add aarch64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
-          - target: aarch64-pc-windows-msvc
-            host: windows-latest
-            qemu: false
-            nodejsArch: ''
-            docker: false
-            useZig: false
-            build: |
-              set -xe
-              rustup target add aarch64-pc-windows-msvc
-              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-pc-windows-msvc'
     name: Build - ${{ matrix.settings.target }} - node@18
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -255,16 +223,6 @@ jobs:
             nodejsArch: ''
             docker: false
             qemu: false
-          - target: x86_64-pc-windows-msvc
-            host: windows-latest
-            nodejsArch: 'x64'
-            docker: false
-            qemu: false
-          - target: i686-pc-windows-msvc
-            host: windows-latest
-            nodejsArch: 'x86'
-            docker: false
-            qemu: false
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             nodejsArch: 'x64'
@@ -317,11 +275,6 @@ jobs:
             qemu: true
             qemuPlatform: arm64
             qemuDockerPlatform: linux/arm64
-          - target: aarch64-pc-windows-msvc
-            host: windows-latest
-            nodejsArch: ''
-            docker: false
-            qemu: false
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout
