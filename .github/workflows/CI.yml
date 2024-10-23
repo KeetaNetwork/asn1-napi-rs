@@ -36,6 +36,116 @@ jobs:
               rustup target add x86_64-apple-darwin
               make all
               strip -x *.node
+          - target: x86_64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-pc-windows-msvc
+              make all
+          - target: i686-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add i686-pc-windows-msvc
+              make all NAPI_LOCAL_BUILD_ARGS='--target i686-pc-windows-msvc'
+          - target: x86_64-unknown-linux-gnu
+            host: ubuntu-latest
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-unknown-linux-gnu
+              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-gnu'
+              strip *.node
+          - target: x86_64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            useZig: false
+            build: |
+              set -xe
+              rustup target add x86_64-unknown-linux-musl
+              make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-musl'
+              strip *.node
+          - target: aarch64-apple-darwin
+            host: macos-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-apple-darwin
+              sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+              export CC=$(xcrun -f clang)
+              export CXX=$(xcrun -f clang++)
+              SYSROOT=$(xcrun --sdk macosx --show-sdk-path)
+              export CFLAGS="-isysroot $SYSROOT -isystem $SYSROOT"
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-apple-darwin'
+              strip -x *.node
+          - target: aarch64-unknown-linux-gnu
+            host: ubuntu-latest
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-unknown-linux-gnu
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-gnu'
+              aarch64-unknown-linux-gnu-strip *.node
+          - target: armv7-unknown-linux-gnueabihf
+            host: ubuntu-latest
+            docker: false
+            useZig: true
+            setup: |
+              set -xe
+              sudo apt-get update
+              sudo apt-get install gcc-arm-linux-gnueabihf -y
+            build: |
+              set -xe
+              rustup target add armv7-unknown-linux-gnueabihf
+              make all NAPI_LOCAL_BUILD_ARGS='--target armv7-unknown-linux-gnueabihf'
+              arm-linux-gnueabihf-strip *.node
+          - target: aarch64-linux-android
+            host: ubuntu-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-linux-android
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-linux-android'
+              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+          - target: armv7-linux-androideabi
+            host: ubuntu-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add armv7-linux-androideabi
+              make all NAPI_LOCAL_BUILD_ARGS='--target armv7-linux-androideabi'
+              ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
+          - target: aarch64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: true
+            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-unknown-linux-musl
+              rustup target add aarch64-unknown-linux-musl
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
+              /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
+          - target: aarch64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            useZig: false
+            build: |
+              set -xe
+              rustup target add aarch64-pc-windows-msvc
+              make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-pc-windows-msvc'
     name: Build - ${{ matrix.settings.target }} - node@18
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -47,6 +157,14 @@ jobs:
           node-version: 18
           check-latest: true
           cache: npm
+      - name: Setup NodeJS x86
+        if: matrix.settings.target == 'i686-pc-windows-msvc'
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          check-latest: true
+          cache: npm
+          architecture: x86
       - name: Install NodeJS Dependencies
         run: make node_modules
       - name: Cache Cargo
@@ -59,6 +177,25 @@ jobs:
             .cargo-cache
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+      - name: Setup Zig
+        if: matrix.settings.useZig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.10.1
+      - name: Setup toolchain
+        if: matrix.settings.setup != ''
+        run: ${{ matrix.settings.setup }}
+        shell: bash
+      - name: Build in Docker
+        if: matrix.settings.docker
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.settings.dockerImage }}
+          options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build'
+          run: ${{ matrix.settings.build }}
+          shell: bash
+        env:
+          CARGO_HOME: /usr/local/cargo
       - name: Build
         if: matrix.settings.docker != true
         run: ${{ matrix.settings.build }}
@@ -93,6 +230,71 @@ jobs:
             host: macos-latest
             docker: false
             qemu: false
+          - target: x86_64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
+          - target: i686-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
+          - target: x86_64-unknown-linux-gnu
+            host: ubuntu-latest
+            docker: true
+            dockerVariant: slim
+            qemu: false
+          - target: x86_64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: true
+            dockerVariant: alpine
+            npmConfig: |
+              npm config set supportedArchitectures:libc musl
+            qemu: false
+          - target: aarch64-apple-darwin
+            host: macos-latest
+            docker: false
+            qemu: false
+          - target: aarch64-unknown-linux-gnu
+            host: ubuntu-latest
+            docker: true
+            dockerVariant: slim
+            npmConfig: |
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures.cpu arm64
+            qemu: true
+            qemuPlatform: arm64
+            qemuDockerPlatform: linux/arm64
+          - target: armv7-unknown-linux-gnueabihf
+            host: ubuntu-latest
+            docker: false
+            npmConfig: |
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures.cpu arm
+            qemu: true
+            qemuPlatform: arm
+            qemuDockerPlatform: linux/arm/v7
+          - target: aarch64-linux-android
+            host: ubuntu-latest
+            docker: false
+            qemu: false
+          - target: armv7-linux-androideabi
+            host: ubuntu-latest
+            docker: false
+            qemu: false
+          - target: aarch64-unknown-linux-musl
+            host: ubuntu-latest
+            docker: true
+            dockerVariant: alpine
+            npmConfig: |
+              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures:cpu arm64
+            qemu: true
+            qemuPlatform: arm64
+            qemuDockerPlatform: linux/arm64
+          - target: aarch64-pc-windows-msvc
+            host: windows-latest
+            docker: false
+            qemu: false
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout
@@ -103,6 +305,14 @@ jobs:
           node-version: ${{ matrix.node }}
           check-latest: true
           cache: npm
+      - name: Setup NodeJS x86
+        if: matrix.settings.target == 'i686-pc-windows-msvc'
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          check-latest: true
+          cache: npm
+          architecture: x86
       - name: Setup NPM
         if: matrix.settings.npmConfig != ''
         run: ${{ matrix.settings.npmConfig }}
