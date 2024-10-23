@@ -65,12 +65,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
+        if: matrix.settings.docker != true
         uses: actions/setup-node@v4
         with:
           node-version: 18
           check-latest: true
           cache: npm
       - name: Install NodeJS Dependencies
+        if: matrix.settings.docker != true
         run: make node_modules
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -97,7 +99,7 @@ jobs:
         with:
           image: ${{ matrix.settings.dockerImage }}
           options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build'
-          run: ${{ matrix.settings.build }}
+          run: make node_modules && ${{ matrix.settings.build }}
           shell: bash
         env:
           CARGO_HOME: /usr/local/cargo
@@ -150,6 +152,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
+        if: matrix.settings.docker != true
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -159,6 +162,7 @@ jobs:
         if: matrix.settings.npmConfig != ''
         run: ${{ matrix.settings.npmConfig }}
       - name: Install NodeJS Dependencies
+        if: matrix.settings.docker != true
         run: make node_modules
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -188,16 +192,18 @@ jobs:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: '--platform ${{ matrix.settings.qemuDockerPlatform }} -v ${{ github.workspace }}:/build -w /build'
           run: set -e && make do-test-no-dep-build
+          shell: bash
       - name: Test Module (No Docker, No QEMU)
         if: matrix.settings.docker != true && matrix.settings.qemu != true
-        run: make do-test-no-dep-build
+        run: set -e && make do-test-no-dep-build
       - name: Test Module in Docker without QEMU
         if: matrix.settings.docker == true && matrix.settings.qemu != true
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
-          options: -v ${{ github.workspace }}:/build -w /build'
-          run: set -e && ( (apt update && apt install -y make) || ( apk add make ) ) && make do-test-no-dep-build
+          options: -v ${{ github.workspace }}:/build -w /build
+          run: ( (apt update && apt install -y make) || ( apk add make ) ) && set -e && make do-test-no-dep-build
+          shell: bash
   publish:
     name: Publish
     if: github.event_name == 'release' && github.event.action == 'created'
@@ -211,12 +217,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup NodeJS
+        if: matrix.settings.docker != true
         uses: actions/setup-node@v4
         with:
           node-version: 18
           check-latest: true
           cache: npm
       - name: Install NodeJS Dependencies
+        if: matrix.settings.docker != true
         run: make node_modules
       - name: Download all artifacts
         uses: actions/download-artifact@v4
