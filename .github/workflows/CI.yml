@@ -269,7 +269,7 @@ jobs:
             host: ubuntu-latest
             nodejsArch: ''
             docker: false
-            dockerVariant: slim
+            dockerVariant: alpine
             npmConfig: |
               npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures:cpu arm64
