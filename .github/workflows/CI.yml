@@ -192,7 +192,7 @@ jobs:
         if: matrix.settings.docker != true && matrix.settings.qemu != true
         run: make do-test-no-dep-build
       - name: Test Module in Docker without QEMU
-        if: matrix.settings.qemu
+        if: matrix.settings.docker == true && matrix.settings.qemu != true
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
