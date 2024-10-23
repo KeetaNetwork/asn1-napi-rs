@@ -197,7 +197,7 @@ jobs:
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
           options: -v ${{ github.workspace }}:/build -w /build'
-          run: set -e && make do-test-no-dep-build
+          run: set -e && ( (apt update && apt install -y make) || ( apk add make ) ) && make do-test-no-dep-build
   publish:
     name: Publish
     if: github.event_name == 'release' && github.event.action == 'created'
