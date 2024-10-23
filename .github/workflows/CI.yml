@@ -29,6 +29,8 @@ jobs:
         settings:
           - target: x86_64-apple-darwin
             host: macos-latest
+            docker: false
+            useZig: false
             build: |
               set -xe
               rustup target add x86_64-apple-darwin
@@ -89,6 +91,8 @@ jobs:
         settings:
           - target: x86_64-apple-darwin
             host: macos-latest
+            docker: false
+            qemu: false
     runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout
