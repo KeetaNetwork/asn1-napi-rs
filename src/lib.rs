@@ -17,7 +17,7 @@ pub use crate::asn1::ASN1Decoder;
 
 use anyhow::Result;
 use asn1::ASN1Encoder;
-use constants::{ASN1_NULL, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
+use constants::{ASN1_NULL, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
 	bindgen_prelude::{Array, Buffer},
 	Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
@@ -26,7 +26,7 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use objects::{
-	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, TypedObject, ASN1OID,
+	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1String, TypedObject, ASN1OID,
 };
 use types::{ASN1Data, JsValue};
 use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
@@ -88,7 +88,7 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 #[napi(strict, js_name = "JStoASN1")]
 pub fn js_to_asn1(
 	#[napi(
-		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 	)]
 	data: JsUnknown,
 ) -> Result<ASN1Encoder> {
@@ -101,7 +101,7 @@ pub fn js_to_asn1(
 #[napi(
 	strict,
 	js_name = "ASN1toJS",
-	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 )]
 pub fn asn1_to_js(
 	env: Env,
@@ -178,6 +178,16 @@ fn get_js_unknown_from_asn1_data(env: Env, data: ASN1Data) -> Result<JsUnknown> 
 	JsUnknown::try_from(JsValue::try_from((env, data))?)
 }
 
+fn get_js_obj_from_asn_string(env: Env, value: String, kind: String) -> Result<JsObject> {
+	let mut obj = env.create_object()?;
+
+	obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1String::TYPE)?)?;
+	obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(&kind)?)?;
+	obj.set_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY, env.create_string(&value)?)?;
+
+	Ok(obj)
+}
+
 /// Get a JsObject from an ANS1Object.
 /// Note: Wrapping native objects results in empty JS objects and therefore
 /// must be manually built.
@@ -210,6 +220,11 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 				ASN1_OBJECT_VALUE_KEY,
 				env.create_string(&val.value)?,
 			)?;
+		}
+		ASN1Object::String(val) => {
+			obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1String::TYPE)?)?;
+			obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(&val.kind)?)?;
+			obj.set_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY, env.create_string(&val.value)?)?;
 		}
 		ASN1Object::BitString(val) => {
 			obj.set_named_property::<JsString>(

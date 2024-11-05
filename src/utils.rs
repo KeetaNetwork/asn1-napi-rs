@@ -11,7 +11,7 @@ use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
 	constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
-	types::ASN1Data,
+	types::{ASN1Data, JsType},
 	ASN1NAPIError,
 };
 
@@ -158,6 +158,30 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
 		// TODO create a pull request for them
 		_ => get_array_buffer_from_js(data)?,
 	})
+}
+
+pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
+	let data = get_string_from_js(data).unwrap();
+	if is_printable_string(&data) {
+		ASN1Data::PrintableString(data.into())
+	} else if is_ia5_string(&data) {
+		ASN1Data::Ia5String(data.into())
+	} else {
+		ASN1Data::Utf8String(data.into())
+	}
+}
+
+pub(crate) fn is_printable_string(data: &str) -> bool {
+	let data: String = data.chars().skip_while(|&c| !c.is_ascii_graphic()).collect();
+	data.chars().all(|c| matches!(c, 
+        'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' |
+        '\'' | '(' | ')' | '+' | ',' | '.' | '/' |
+        ':' | '=' | '?' | '-'
+    ))
+}
+
+pub(crate) fn is_ia5_string(data: &str) -> bool {
+	data.chars().all(|c| c.is_ascii())
 }
 
 #[cfg(test)]

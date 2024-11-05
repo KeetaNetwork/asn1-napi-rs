@@ -65,6 +65,7 @@ pub enum ASN1Object {
 	Oid(ASN1OID),
 	#[rasn(tag(universal, 17))]
 	Set(ASN1Set),
+	String(ASN1String),
 	#[rasn(tag(universal, 3))]
 	BitString(ASN1RawBitString),
 	#[rasn(tag(context, 0))]
@@ -103,6 +104,17 @@ pub struct ASN1Set {
 	pub r#type: &'static str,
 	pub name: ASN1OID,
 	pub value: String,
+}
+
+/// ASN1 JS string.
+#[napi(object, js_name = "ASN1String")]
+#[derive(AsnType, Hash, Clone, Eq, PartialEq, Debug)]
+pub struct ASN1String {
+	#[napi(ts_type = "'string'")]
+	pub r#type: &'static str,
+	pub value: String,
+	#[napi(ts_type = "'ia5' | 'utf8' | 'printable'")]
+	pub kind: String,
 }
 
 /// ASN1 JS Context Tag.
@@ -233,6 +245,7 @@ impl ASN1BitString {
 type_object!(ASN1BitString, "bitstring");
 type_object!(ASN1OID, "oid");
 type_object!(ASN1Set, "set");
+type_object!(ASN1String, "string");
 type_object!(ASN1ContextTag, "context");
 
 /// TODO Mising bits that the rasn library truncates.
@@ -332,6 +345,30 @@ impl Decode for ASN1Set {
 	}
 }
 
+impl Encode for ASN1String {
+	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+		match self.kind.as_str() {
+            "ia5" => { encoder.encode_utf8_string(Tag::IA5_STRING, &self.value)?; }
+            "utf8" => { encoder.encode_utf8_string(Tag::UTF8_STRING, &self.value)?; }
+            "printable" => { encoder.encode_utf8_string(Tag::PRINTABLE_STRING, &self.value)?; }
+            _ => return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownStringFormat)),
+        }
+		Ok(())
+	}
+}
+
+// @TODO String
+impl Decode for ASN1String {
+	fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+		decoder.decode_utf8_string(tag);
+		// Ok(Self {
+		// 	r#type: Self::TYPE,
+		// 	kind: "utf8".to_string(),
+		// })
+		Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownStringFormat))
+	}
+}
+
 impl Encode for ASN1Context {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
 		encoder.encode_explicit_prefix(Tag::new(Class::Context, self.value), &*self.contains)?;
@@ -363,8 +400,12 @@ impl Encode for ASN1Data {
 			ASN1Data::Object(obj) => match obj {
 				ASN1Object::Oid(oid) => oid.encode(encoder),
 				ASN1Object::Set(set) => set.encode(encoder),
+				ASN1Object::String(string) => string.encode(encoder),
 				ASN1Object::BitString(bs) => bs.encode(encoder),
 				ASN1Object::Context(context) => context.encode(encoder),
+			},
+			ASN1Data::Utf8String(string) => {
+				string.encode_with_tag(encoder, Tag::UTF8_STRING)
 			},
 			// rasn library does not encode milliseconds for dates
 			// TODO make a pull request for them
@@ -537,6 +578,32 @@ impl TryFrom<JsObject> for ASN1Set {
 	}
 }
 
+impl TryFrom<JsObject> for ASN1String {
+	type Error = Error;
+
+	/// Attempt to convert a JsObject instance into an ASN1String instance.
+	fn try_from(obj: JsObject) -> Result<Self, Self::Error> {
+		let kind = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_KIND_KEY)?;
+		let value = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_VALUE_KEY)?;
+
+		if let Ok(ValueType::String) = kind.get_type() {
+			if let Ok(ValueType::String) = value.get_type() {
+				let kind = get_string_from_js(kind)?;
+				let value = get_string_from_js(value)?;
+				Ok(Self {
+					r#type: Self::TYPE,
+					kind: kind,
+					value: value,
+				})
+			} else {
+				bail!(ASN1NAPIError::UnknownStringFormat)
+			}
+		} else {
+			bail!(ASN1NAPIError::UnknownStringFormat)
+		}
+	}
+}
+
 impl TryFrom<JsObject> for ASN1Context {
 	type Error = Error;
 
@@ -587,6 +654,7 @@ impl TryFrom<JsObject> for ASN1Object {
 			Ok(match name.as_str() {
 				ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
 				ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
+				ASN1String::TYPE => ASN1Object::String(ASN1String::try_from(obj)?),
 				ASN1BitString::TYPE => ASN1Object::BitString(ASN1RawBitString::try_from(obj)?),
 				ASN1ContextTag::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
 				_ => bail!(ASN1NAPIError::UnknownFieldProperty),

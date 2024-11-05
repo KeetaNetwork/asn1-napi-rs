@@ -6,18 +6,18 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-	types::{Any, Class, Implicit, ObjectIdentifier, OctetString, Open},
+	types::{Any, Class, Ia5String, Implicit, ObjectIdentifier, OctetString, Open, PrintableString, UniversalString},
 	AsnType, Decode, Tag,
 };
 
 use crate::{
 	asn1::{ASN1Decoder, ASN1Iterator},
 	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-	get_js_obj_from_asn_object,
+	get_js_obj_from_asn_object, get_js_obj_from_asn_string,
 	objects::{ASN1Object, ASN1RawBitString, ASN1OID},
 	utils::{
-		get_array_from_js, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
-		get_fixed_date_from_js, get_integer_from_js, get_string_from_js, get_utf16_from_string,
+		get_array_from_js, get_asn_string_type_from_js_unknown, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
+		get_fixed_date_from_js, get_integer_from_js, get_utf16_from_string, is_printable_string
 	},
 	ASN1NAPIError,
 };
@@ -30,6 +30,7 @@ pub enum JsType {
 	Integer,
 	BigInt,
 	String,
+	StringObject,
 	Buffer,
 	Sequence,
 	Object,
@@ -65,6 +66,9 @@ pub enum ASN1Data {
 	Integer(i64),
 	BigInt(BigInt),
 	String(String),
+	PrintableString(PrintableString),
+	Ia5String(Ia5String),
+	Utf8String(UniversalString),
 	Bytes(Vec<u8>),
 	Array(Vec<ASN1Data>),
 	Object(ASN1Object),
@@ -88,13 +92,13 @@ impl From<Tag> for JsType {
 			Tag::BOOL => JsType::Boolean,
 			Tag::INTEGER => JsType::Integer,
 			Tag::NULL => JsType::Null,
-			Tag::UTF8_STRING => JsType::String,
-			Tag::PRINTABLE_STRING => JsType::String,
+			Tag::PRINTABLE_STRING => JsType::StringObject,
+			Tag::IA5_STRING => JsType::StringObject,
+			Tag::UTF8_STRING => JsType::StringObject,
 			Tag::VISIBLE_STRING => JsType::String,
 			Tag::UNIVERSAL_STRING => JsType::String,
 			Tag::GENERAL_STRING => JsType::String,
 			Tag::GRAPHIC_STRING => JsType::String,
-			Tag::IA5_STRING => JsType::String,
 			Tag::VIDEOTEX_STRING => JsType::String,
 			Tag::TELETEX_STRING => JsType::String,
 			Tag::NUMERIC_STRING => JsType::String,
@@ -125,6 +129,12 @@ impl TryFrom<ASN1Decoder> for ASN1Data {
 			JsType::Integer => ASN1Data::try_from(ASN1Number::try_from(value)?)?,
 			JsType::BigInt => ASN1Data::BigInt(value.into_big_integer()?),
 			JsType::String => ASN1Data::String(value.into_string()?),
+			JsType::StringObject => match *value.get_tag() {
+				Tag::IA5_STRING => ASN1Data::Ia5String(Implicit::new(value.into_string()?)),
+				Tag::PRINTABLE_STRING => ASN1Data::PrintableString(Implicit::new(value.into_string()?)),
+				Tag::UTF8_STRING => ASN1Data::Utf8String(Implicit::new(value.into_string()?)),
+				_ => bail!(ASN1NAPIError::UnknownStringFormat),
+			},
 			JsType::Buffer => ASN1Data::Bytes(value.into_bytes()?),
 			JsType::Sequence => ASN1Data::Array(Vec::<ASN1Data>::try_from(&value.into_iter())?),
 			JsType::Object => ASN1Data::Object(value.into_object()?),
@@ -143,11 +153,13 @@ impl TryFrom<&Open> for ASN1Data {
 			Open::BmpString(data) => ASN1Data::String(data.to_string()),
 			Open::Bool(data) => ASN1Data::Boolean(data),
 			Open::GeneralizedTime(data) => ASN1Data::Date(data),
-			Open::Ia5String(data) => ASN1Data::String(data.to_string()),
 			Open::Integer(data) => ASN1Data::BigInt(data),
 			Open::OctetString(data) => ASN1Data::Bytes(data.to_vec()),
+			
+			Open::Ia5String(data) => ASN1Data::String(data.to_string()),
 			Open::PrintableString(data) => ASN1Data::String(data.to_string()),
 			Open::UniversalString(data) => ASN1Data::String(data.to_string()),
+			
 			Open::UtcTime(data) => ASN1Data::Date(DateTime::<FixedOffset>::from(data)),
 			Open::VisibleString(data) => ASN1Data::String(data.to_string()),
 			Open::InstanceOf(data) => ASN1Data::try_from(data.value)?,
@@ -179,7 +191,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
 			ValueType::Boolean => ASN1Data::Boolean(get_boolean_from_js(value)?),
 			ValueType::BigInt => ASN1Data::BigInt(get_big_int_from_js(value)?),
 			ValueType::Number => ASN1Data::Integer(get_integer_from_js(value)?),
-			ValueType::String => ASN1Data::String(get_string_from_js(value)?),
+			ValueType::String => get_asn_string_type_from_js_unknown(value),
 			ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
 			ValueType::Object if value.is_date()? => ASN1Data::Date(get_fixed_date_from_js(value)?),
 			ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
@@ -217,6 +229,11 @@ impl TryFrom<&ASN1Data> for Open {
 			ASN1Data::Integer(data) => Open::Integer(BigInt::from(data)),
 			ASN1Data::BigInt(data) => Open::Integer(data),
 			ASN1Data::String(data) => Open::PrintableString(Implicit::new(data)),
+			
+			ASN1Data::PrintableString(data) => Open::PrintableString(data),
+			ASN1Data::Ia5String(data) => Open::Ia5String(data),
+			ASN1Data::Utf8String(data) => Open::UniversalString(data),
+
 			ASN1Data::Bytes(data) => Open::OctetString(OctetString::from(data)),
 			ASN1Data::Date(data) => Open::GeneralizedTime(data),
 			ASN1Data::Object(data) => match data {
@@ -251,7 +268,24 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
 			ASN1Data::BigInt(val) => JsValue::BigInt(get_js_big_int_from_big_int(env, val)?),
 			ASN1Data::String(val) => {
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(val).as_ref())?)
-			}
+			},
+			ASN1Data::PrintableString(val) => JsValue::String(env.create_string_utf16(get_utf16_from_string(val.value.as_str()).as_ref())?),
+			ASN1Data::Ia5String(val) => {
+				let str = val.value.as_str();
+				if is_printable_string(str) {
+					JsValue::Object(get_js_obj_from_asn_string(env, str.to_string(), "ia5".to_string())?)
+				} else {
+					JsValue::String(env.create_string_utf16(get_utf16_from_string(str).as_ref())?)
+				}
+			},
+			ASN1Data::Utf8String(val) => {
+				let str = val.value.as_str();
+				if is_printable_string(str) {
+					JsValue::Object(get_js_obj_from_asn_string(env, str.to_string(), "utf8".to_string())?)
+				} else {
+					JsValue::String(env.create_string_utf16(get_utf16_from_string(str).as_ref())?)
+				}
+			},			
 			ASN1Data::Bytes(val) => JsValue::Buffer(env.create_buffer_with_data(val)?.into_raw()),
 			ASN1Data::Date(val) => {
 				JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)

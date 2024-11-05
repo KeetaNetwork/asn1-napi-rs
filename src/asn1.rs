@@ -65,7 +65,7 @@ impl ASN1Encoder {
 	#[napi(constructor)]
 	pub fn js_new(
 		#[napi(
-			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 		)]
 		data: JsUnknown,
 	) -> Result<Self> {
