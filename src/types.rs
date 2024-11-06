@@ -12,12 +12,12 @@ use rasn::{
 
 use crate::{
 	asn1::{ASN1Decoder, ASN1Iterator},
-	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
-	get_js_obj_from_asn_object, get_js_obj_from_asn_string,
+	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data, get_js_obj_from_asn_object,
 	objects::{ASN1Object, ASN1RawBitString, ASN1OID},
 	utils::{
-		get_array_from_js, get_asn_string_type_from_js_unknown, get_big_int_from_js, get_boolean_from_js, get_buffer_from_js,
-		get_fixed_date_from_js, get_integer_from_js, get_utf16_from_string, is_printable_string
+		get_array_from_js, get_asn_string_type_from_js_unknown, get_big_int_from_js, get_boolean_from_js,
+		get_buffer_from_js, get_fixed_date_from_js, get_integer_from_js, get_js_value_from_asn1_data,
+		get_utf16_from_string,
 	},
 	ASN1NAPIError,
 };
@@ -269,23 +269,9 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
 			ASN1Data::String(val) => {
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(val).as_ref())?)
 			},
-			ASN1Data::PrintableString(val) => JsValue::String(env.create_string_utf16(get_utf16_from_string(val.value.as_str()).as_ref())?),
-			ASN1Data::Ia5String(val) => {
-				let str = val.value.as_str();
-				if is_printable_string(str) {
-					JsValue::Object(get_js_obj_from_asn_string(env, str.to_string(), "ia5".to_string())?)
-				} else {
-					JsValue::String(env.create_string_utf16(get_utf16_from_string(str).as_ref())?)
-				}
-			},
-			ASN1Data::Utf8String(val) => {
-				let str = val.value.as_str();
-				if is_printable_string(str) {
-					JsValue::Object(get_js_obj_from_asn_string(env, str.to_string(), "utf8".to_string())?)
-				} else {
-					JsValue::String(env.create_string_utf16(get_utf16_from_string(str).as_ref())?)
-				}
-			},			
+			ASN1Data::PrintableString(val) => get_js_value_from_asn1_data(env, "PrintableString", &val.value)?,
+			ASN1Data::Ia5String(val) => get_js_value_from_asn1_data(env, "Ia5String", &val.value)?,
+			ASN1Data::Utf8String(val) => get_js_value_from_asn1_data(env, "Utf8String", &val.value)?,
 			ASN1Data::Bytes(val) => JsValue::Buffer(env.create_buffer_with_data(val)?.into_raw()),
 			ASN1Data::Date(val) => {
 				JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)

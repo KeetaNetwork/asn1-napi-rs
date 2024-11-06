@@ -171,9 +171,10 @@ fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
 pub trait TypedObject<'a> {
 	const TYPE: &'a str;
 
-	fn get_type() -> &'a str {
-		Self::TYPE
-	}
+	// @TODO Remove this
+	// fn get_type() -> &'a str {
+	// 	Self::TYPE
+	// }
 }
 
 impl ASN1RawBitString {
@@ -346,7 +347,7 @@ impl Decode for ASN1Set {
 }
 
 impl Encode for ASN1String {
-	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
 		match self.kind.as_str() {
             "ia5" => { encoder.encode_utf8_string(Tag::IA5_STRING, &self.value)?; }
             "utf8" => { encoder.encode_utf8_string(Tag::UTF8_STRING, &self.value)?; }
@@ -359,8 +360,8 @@ impl Encode for ASN1String {
 
 // @TODO String
 impl Decode for ASN1String {
-	fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-		decoder.decode_utf8_string(tag);
+	fn decode_with_tag<D: Decoder>(_: &mut D, _: Tag) -> Result<Self, D::Error> {
+		// decoder.decode_utf8_string(tag);
 		// Ok(Self {
 		// 	r#type: Self::TYPE,
 		// 	kind: "utf8".to_string(),

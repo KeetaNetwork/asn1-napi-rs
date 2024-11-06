@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{bail, Result};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-	bindgen_prelude::FromNapiValue, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
+	bindgen_prelude::FromNapiValue, Env, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
 	JsUnknown, ValueType,
 };
 use num_bigint::{BigInt, Sign};
@@ -11,7 +11,8 @@ use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
 	constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
-	types::{ASN1Data, JsType},
+	get_js_obj_from_asn_string,
+	types::{ASN1Data, JsValue},
 	ASN1NAPIError,
 };
 
@@ -160,6 +161,7 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
 	})
 }
 
+// @TODO Add tests
 pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
 	let data = get_string_from_js(data).unwrap();
 	if is_printable_string(&data) {
@@ -169,6 +171,29 @@ pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
 	} else {
 		ASN1Data::Utf8String(data.into())
 	}
+}
+
+pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> Result<JsValue> {
+	Ok(match kind {
+		"PrintableString" => {
+			JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+		},
+		"Ia5String" => {
+			if is_printable_string(value) {
+				JsValue::Object(get_js_obj_from_asn_string(env, value.to_string(), "ia5".to_string())?)
+			} else {
+				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+			}
+		},
+		"Utf8String" => {
+			if is_printable_string(value) || is_ia5_string(value) {
+				JsValue::Object(get_js_obj_from_asn_string(env, value.to_string(), "utf8".to_string())?)
+			} else {
+				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+			}
+		},
+		_ => bail!(ASN1NAPIError::MalformedData),
+	})
 }
 
 pub(crate) fn is_printable_string(data: &str) -> bool {
