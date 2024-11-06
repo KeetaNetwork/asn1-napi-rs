@@ -16,7 +16,18 @@ test('Complex structure', (t) => {
 						'keeta_aaaervzquo7sam2j4vrnmbwpln6dugaty37qqlduylti6pejpuu3xeohxxbupge',
 				} as lib.ASN1Set,
 			],
-			[new Date('2022-09-26T10:10:32.420+00:00')],
+			[new Date('2022-09-26T10:10:32.000+00:00')],
+			[new Date('2052-09-26T10:10:32.420+00:00')],
+			[
+				'Test', // kind: printable
+				{ type: 'string', kind: 'ia5', value: 'Test' } as lib.ASN1String,
+				{ type: 'string', kind: 'utf8', value: 'Test' } as lib.ASN1String,
+				
+				'Test_', // kind: ia5
+				{ type: 'string', kind: 'utf8', value: 'Test_' } as lib.ASN1String,
+				
+				'Test\uD83D\uDE03', // kind: utf8
+			],
 			[
 				{
 					type: 'set',
@@ -93,8 +104,23 @@ test('Node ASN1 Tests', (t) => {
 		'This is a Test String!',
 		'This is a Test String!\uD83D\uDE03',
 		new Date(0),
-		new Date('2022-09-26T10:10:32.420+00:00'),
-		new Date(),
+		new Date('2022-09-26T10:10:32.000+00:00'),
+		new Date('2052-09-26T10:10:32.420+00:00'),
+		
+		// Match tests from node library using ASN1.js
+		// new Date(),
+		new Date(1729533771000),
+		new Date(2524608000001),
+
+		'Test', // kind: printable
+		{ type: 'string', kind: 'ia5', value: 'Test' } as lib.ASN1String,
+		{ type: 'string', kind: 'utf8', value: 'Test' } as lib.ASN1String,
+		
+		'Test_', // kind: ia5
+		{ type: 'string', kind: 'utf8', value: 'Test_' } as lib.ASN1String,
+		
+		'Test\uD83D\uDE03', // kind: utf8
+		
 		true,
 		false,
 		null,

@@ -17,16 +17,16 @@ pub use crate::asn1::ASN1Decoder;
 
 use anyhow::Result;
 use asn1::ASN1Encoder;
-use constants::{ASN1_NULL, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
+use constants::{ASN1_NULL, ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
 use napi::{
 	bindgen_prelude::{Array, Buffer},
-	Env, JsBigInt, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType,
+	Env, JsBigInt, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
 use thiserror::Error;
 
 use objects::{
-	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1String, TypedObject, ASN1OID,
+	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1String, TypedObject, ASN1OID, ASN1Date,
 };
 use types::{ASN1Data, JsValue};
 use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
@@ -44,12 +44,18 @@ enum ASN1NAPIError {
 	UnknownOid,
 	#[error("The provided string is of an unknown format")]
 	UnknownStringFormat,
+	#[error("The provided date is of an unknown format")]
+	UnknownDateFormat,
 	#[error("The provided context is of an unknown format")]
 	UknownContext,
 	#[error("The provided ASN1 data is malformed and cannot be decoded")]
 	MalformedData,
 	#[error("Cannot decode bit string")]
 	InvalidBitString,
+	#[error("Invalid string for ASN.1 encoding")]
+	InvalidStringEncoding,
+	#[error("Invalid UTC time")]
+	InvalidUtcTime,
 	#[error("Can only handle Universal simple types for this operation")]
 	InvalidSimpleTypesOnly,
 	#[error("Context data must be a sequence")]
@@ -88,7 +94,7 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 #[napi(strict, js_name = "JStoASN1")]
 pub fn js_to_asn1(
 	#[napi(
-		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 	)]
 	data: JsUnknown,
 ) -> Result<ASN1Encoder> {
@@ -101,7 +107,7 @@ pub fn js_to_asn1(
 #[napi(
 	strict,
 	js_name = "ASN1toJS",
-	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 )]
 pub fn asn1_to_js(
 	env: Env,
@@ -225,6 +231,16 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 			obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1String::TYPE)?)?;
 			obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(&val.kind)?)?;
 			obj.set_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY, env.create_string(&val.value)?)?;
+		}
+		ASN1Object::Date(val) => {
+			obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1Date::TYPE)?)?;
+
+			if let Some(kind_str) = val.kind.as_deref() {
+				obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(kind_str)?)?;
+			}
+			
+			let timestamp_ms = val.date.timestamp_millis() as f64;
+			obj.set_named_property::<JsDate>(ASN1_OBJECT_DATE_KEY, env.create_date(timestamp_ms)?)?;
 		}
 		ASN1Object::BitString(val) => {
 			obj.set_named_property::<JsString>(

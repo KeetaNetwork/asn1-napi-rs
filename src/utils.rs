@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::{bail, Result};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc, Datelike};
 use napi::{
 	bindgen_prelude::FromNapiValue, Env, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
 	JsUnknown, ValueType,
@@ -173,6 +173,15 @@ pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
 	}
 }
 
+pub(crate) fn get_asn_date_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
+	let date = get_fixed_date_from_js(data).unwrap();
+	if date.year() < 2050 {
+		ASN1Data::UtcTime(date.to_utc())
+	} else {
+		ASN1Data::GeneralizedTime(date)
+	}
+}
+
 pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> Result<JsValue> {
 	Ok(match kind {
 		"PrintableString" => {
@@ -192,7 +201,7 @@ pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> 
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
 			}
 		},
-		_ => bail!(ASN1NAPIError::MalformedData),
+		_ => bail!(ASN1NAPIError::UnknownStringFormat),
 	})
 }
 
