@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use anyhow::{bail, Result};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc, Datelike};
+use chrono::{DateTime, Datelike, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-	bindgen_prelude::FromNapiValue, Env, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
-	JsUnknown, ValueType,
+	bindgen_prelude::FromNapiValue, Env, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber,
+	JsString, JsUnknown, ValueType,
 };
 use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
@@ -186,32 +186,45 @@ pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> 
 	Ok(match kind {
 		"PrintableString" => {
 			JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
-		},
+		}
 		"Ia5String" => {
 			if is_printable_string(value) {
-				JsValue::Object(get_js_obj_from_asn_string(env, value.to_string(), "ia5".to_string())?)
+				JsValue::Object(get_js_obj_from_asn_string(
+					env,
+					value.to_string(),
+					"ia5".to_string(),
+				)?)
 			} else {
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
 			}
-		},
+		}
 		"Utf8String" => {
 			if is_printable_string(value) || is_ia5_string(value) {
-				JsValue::Object(get_js_obj_from_asn_string(env, value.to_string(), "utf8".to_string())?)
+				JsValue::Object(get_js_obj_from_asn_string(
+					env,
+					value.to_string(),
+					"utf8".to_string(),
+				)?)
 			} else {
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
 			}
-		},
+		}
 		_ => bail!(ASN1NAPIError::UnknownStringFormat),
 	})
 }
 
 pub(crate) fn is_printable_string(data: &str) -> bool {
-	let data: String = data.chars().skip_while(|&c| !c.is_ascii_graphic()).collect();
-	data.chars().all(|c| matches!(c, 
-        'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' |
-        '\'' | '(' | ')' | '+' | ',' | '.' | '/' |
-        ':' | '=' | '?' | '-'
-    ))
+	let data: String = data
+		.chars()
+		.skip_while(|&c| !c.is_ascii_graphic())
+		.collect();
+	data.chars().all(|c| {
+		matches!(c,
+			'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' |
+			'\'' | '(' | ')' | '+' | ',' | '.' | '/' |
+			':' | '=' | '?' | '-'
+		)
+	})
 }
 
 pub(crate) fn is_ia5_string(data: &str) -> bool {

@@ -17,7 +17,10 @@ pub use crate::asn1::ASN1Decoder;
 
 use anyhow::Result;
 use asn1::ASN1Encoder;
-use constants::{ASN1_NULL, ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY};
+use constants::{
+	ASN1_NULL, ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY,
+	ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY,
+};
 use napi::{
 	bindgen_prelude::{Array, Buffer},
 	Env, JsBigInt, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
@@ -26,7 +29,8 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use objects::{
-	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1Set, ASN1String, TypedObject, ASN1OID, ASN1Date,
+	ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Date, ASN1Object, ASN1Set, ASN1String,
+	TypedObject, ASN1OID,
 };
 use types::{ASN1Data, JsValue};
 use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
@@ -228,17 +232,32 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 			)?;
 		}
 		ASN1Object::String(val) => {
-			obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1String::TYPE)?)?;
-			obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(&val.kind)?)?;
-			obj.set_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY, env.create_string(&val.value)?)?;
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_TYPE_KEY,
+				env.create_string(ASN1String::TYPE)?,
+			)?;
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_KIND_KEY,
+				env.create_string(&val.kind)?,
+			)?;
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_VALUE_KEY,
+				env.create_string(&val.value)?,
+			)?;
 		}
 		ASN1Object::Date(val) => {
-			obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1Date::TYPE)?)?;
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_TYPE_KEY,
+				env.create_string(ASN1Date::TYPE)?,
+			)?;
 
 			if let Some(kind_str) = val.kind.as_deref() {
-				obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string(kind_str)?)?;
+				obj.set_named_property::<JsString>(
+					ASN1_OBJECT_KIND_KEY,
+					env.create_string(kind_str)?,
+				)?;
 			}
-			
+
 			let timestamp_ms = val.date.timestamp_millis() as f64;
 			obj.set_named_property::<JsDate>(ASN1_OBJECT_DATE_KEY, env.create_date(timestamp_ms)?)?;
 		}

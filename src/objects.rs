@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use anyhow::{bail, Error, Result};
-use chrono::{DateTime, FixedOffset, Utc, Datelike};
+use chrono::{DateTime, Datelike, FixedOffset, Utc};
 use napi::bindgen_prelude::FromNapiValue;
 use napi::{Env, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
@@ -17,7 +17,8 @@ use crate::{
 	type_object,
 	types::ASN1Data,
 	utils::{
-		get_buffer_from_js, get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements, is_ia5_string, is_printable_string,
+		get_buffer_from_js, get_oid_elements_from_string, get_string_from_js,
+		get_string_from_oid_elements, is_ia5_string, is_printable_string,
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
@@ -367,11 +368,21 @@ impl Decode for ASN1Set {
 impl Encode for ASN1String {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
 		match self.kind.as_str() {
-            "ia5" => { encoder.encode_utf8_string(Tag::IA5_STRING, &self.value)?; }
-            "utf8" => { encoder.encode_utf8_string(Tag::UTF8_STRING, &self.value)?; }
-            "printable" => { encoder.encode_utf8_string(Tag::PRINTABLE_STRING, &self.value)?; }
-            _ => return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownStringFormat)),
-        }
+			"ia5" => {
+				encoder.encode_utf8_string(Tag::IA5_STRING, &self.value)?;
+			}
+			"utf8" => {
+				encoder.encode_utf8_string(Tag::UTF8_STRING, &self.value)?;
+			}
+			"printable" => {
+				encoder.encode_utf8_string(Tag::PRINTABLE_STRING, &self.value)?;
+			}
+			_ => {
+				return Err(<E as Encoder>::Error::custom(
+					ASN1NAPIError::UnknownStringFormat,
+				))
+			}
+		}
 		Ok(())
 	}
 }
@@ -379,7 +390,9 @@ impl Encode for ASN1String {
 // @TODO String
 impl Decode for ASN1String {
 	fn decode_with_tag<D: Decoder>(_: &mut D, _: Tag) -> Result<Self, D::Error> {
-		Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownStringFormat))
+		Err(<D as Decoder>::Error::custom(
+			ASN1NAPIError::UnknownStringFormat,
+		))
 	}
 }
 
@@ -390,23 +403,50 @@ impl Encode for ASN1Date {
 				"utc" => {
 					encoder.encode_utf8_string(
 						Tag::UTC_TIME,
-						&self.date.with_timezone(&Utc).format(ASN1_DATE_TIME_UTC_FORMAT).to_string()
+						&self
+							.date
+							.with_timezone(&Utc)
+							.format(ASN1_DATE_TIME_UTC_FORMAT)
+							.to_string(),
 					)?;
 				}
 				"general" => {
-					encoder.encode_utf8_string(Tag::GENERALIZED_TIME, &self.date.with_timezone(&Utc).format(ASN1_DATE_TIME_GENERAL_FORMAT).to_string())?;
+					encoder.encode_utf8_string(
+						Tag::GENERALIZED_TIME,
+						&self
+							.date
+							.with_timezone(&Utc)
+							.format(ASN1_DATE_TIME_GENERAL_FORMAT)
+							.to_string(),
+					)?;
 				}
 				_ => {
 					if self.date.year() < 2050 {
-						encoder.encode_utf8_string(Tag::UTC_TIME, &self.date.with_timezone(&Utc).format(ASN1_DATE_TIME_UTC_FORMAT).to_string())?;
+						encoder.encode_utf8_string(
+							Tag::UTC_TIME,
+							&self
+								.date
+								.with_timezone(&Utc)
+								.format(ASN1_DATE_TIME_UTC_FORMAT)
+								.to_string(),
+						)?;
 					} else {
-						encoder.encode_utf8_string(Tag::GENERALIZED_TIME, &self.date.with_timezone(&Utc).format(ASN1_DATE_TIME_GENERAL_FORMAT).to_string())?;
+						encoder.encode_utf8_string(
+							Tag::GENERALIZED_TIME,
+							&self
+								.date
+								.with_timezone(&Utc)
+								.format(ASN1_DATE_TIME_GENERAL_FORMAT)
+								.to_string(),
+						)?;
 					}
 				}
 			}
 			Ok(())
 		} else {
-			Err(<E as Encoder>::Error::custom(ASN1NAPIError::UnknownDateFormat))
+			Err(<E as Encoder>::Error::custom(
+				ASN1NAPIError::UnknownDateFormat,
+			))
 		}
 	}
 }
@@ -414,7 +454,9 @@ impl Encode for ASN1Date {
 // @TODO Date
 impl Decode for ASN1Date {
 	fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-		Err(<D as Decoder>::Error::custom(ASN1NAPIError::UnknownDateFormat))
+		Err(<D as Decoder>::Error::custom(
+			ASN1NAPIError::UnknownDateFormat,
+		))
 	}
 }
 
@@ -454,18 +496,13 @@ impl Encode for ASN1Data {
 				ASN1Object::BitString(bs) => bs.encode(encoder),
 				ASN1Object::Context(context) => context.encode(encoder),
 			},
-			ASN1Data::Utf8String(string) => {
-				string.encode_with_tag(encoder, Tag::UTF8_STRING)
-			},
-			ASN1Data::UtcTime(date) => {
-				date.encode(encoder)
-			},
-			ASN1Data::GeneralizedTime(date) => {
-				date.naive_utc()
-					.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-					.to_string()
-					.encode_with_tag(encoder, Tag::GENERALIZED_TIME)
-			},
+			ASN1Data::Utf8String(string) => string.encode_with_tag(encoder, Tag::UTF8_STRING),
+			ASN1Data::UtcTime(date) => date.encode(encoder),
+			ASN1Data::GeneralizedTime(date) => date
+				.naive_utc()
+				.format(ASN1_DATE_TIME_GENERAL_FORMAT)
+				.to_string()
+				.encode_with_tag(encoder, Tag::GENERALIZED_TIME),
 			_ => {
 				if let Ok(open) = Open::try_from(self) {
 					open.encode(encoder)
@@ -670,12 +707,12 @@ impl TryFrom<JsObject> for ASN1Date {
 			Ok(ValueType::String) => Some(get_string_from_js(kind)?),
 			_ => Some("default".to_string()),
 		};
-		
+
 		if date.is_date()? {
 			let date = DateTime::<FixedOffset>::from_unknown(date)?;
 
 			if kind.as_deref() == Some("utc") && date.year() >= 2050 {
-				bail!(ASN1NAPIError::InvalidUtcTime)	
+				bail!(ASN1NAPIError::InvalidUtcTime)
 			}
 
 			Ok(Self {

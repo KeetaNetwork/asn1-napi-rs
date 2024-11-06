@@ -6,18 +6,23 @@ use napi::{
 };
 use num_bigint::BigInt;
 use rasn::{
-	types::{Any, Class, Ia5String, Implicit, ObjectIdentifier, OctetString, Open, PrintableString, UniversalString},
+	types::{
+		Any, Class, Ia5String, Implicit, ObjectIdentifier, OctetString, Open, PrintableString,
+		UniversalString,
+	},
 	AsnType, Decode, Tag,
 };
 
 use crate::{
 	asn1::{ASN1Decoder, ASN1Iterator},
 	constants::{ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_TYPE_KEY},
-	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data, get_js_obj_from_asn_object,
+	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
+	get_js_obj_from_asn_object,
 	objects::{ASN1Date, ASN1Object, ASN1RawBitString, TypedObject, ASN1OID},
 	utils::{
-		get_array_from_js, get_asn_date_type_from_js_unknown, get_asn_string_type_from_js_unknown, get_big_int_from_js,
-		get_boolean_from_js, get_buffer_from_js, get_integer_from_js, get_js_value_from_asn1_data, get_utf16_from_string,
+		get_array_from_js, get_asn_date_type_from_js_unknown, get_asn_string_type_from_js_unknown,
+		get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_integer_from_js,
+		get_js_value_from_asn1_data, get_utf16_from_string,
 	},
 	ASN1NAPIError,
 };
@@ -132,7 +137,9 @@ impl TryFrom<ASN1Decoder> for ASN1Data {
 			JsType::String => ASN1Data::String(value.into_string()?),
 			JsType::StringObject => match *value.get_tag() {
 				Tag::IA5_STRING => ASN1Data::Ia5String(Implicit::new(value.into_string()?)),
-				Tag::PRINTABLE_STRING => ASN1Data::PrintableString(Implicit::new(value.into_string()?)),
+				Tag::PRINTABLE_STRING => {
+					ASN1Data::PrintableString(Implicit::new(value.into_string()?))
+				}
 				Tag::UTF8_STRING => ASN1Data::Utf8String(Implicit::new(value.into_string()?)),
 				_ => bail!(ASN1NAPIError::UnknownStringFormat),
 			},
@@ -141,7 +148,9 @@ impl TryFrom<ASN1Decoder> for ASN1Data {
 			JsType::Object => ASN1Data::Object(value.into_object()?),
 			JsType::DateTime => match *value.get_tag() {
 				Tag::UTC_TIME => ASN1Data::UtcTime(DateTime::<Utc>::from(value.into_date()?)),
-				Tag::GENERALIZED_TIME => ASN1Data::GeneralizedTime(DateTime::<FixedOffset>::from(value.into_date()?)),
+				Tag::GENERALIZED_TIME => {
+					ASN1Data::GeneralizedTime(DateTime::<FixedOffset>::from(value.into_date()?))
+				}
 				_ => bail!(ASN1NAPIError::UnknownDateFormat),
 			},
 			JsType::Unknown => ASN1Data::Unknown(value.into_any()?),
@@ -269,20 +278,35 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
 			ASN1Data::BigInt(val) => JsValue::BigInt(get_js_big_int_from_big_int(env, val)?),
 			ASN1Data::String(val) => {
 				JsValue::String(env.create_string_utf16(get_utf16_from_string(val).as_ref())?)
-			},
-			ASN1Data::PrintableString(val) => get_js_value_from_asn1_data(env, "PrintableString", &val.value)?,
+			}
+			ASN1Data::PrintableString(val) => {
+				get_js_value_from_asn1_data(env, "PrintableString", &val.value)?
+			}
 			ASN1Data::Ia5String(val) => get_js_value_from_asn1_data(env, "Ia5String", &val.value)?,
-			ASN1Data::Utf8String(val) => get_js_value_from_asn1_data(env, "Utf8String", &val.value)?,
+			ASN1Data::Utf8String(val) => {
+				get_js_value_from_asn1_data(env, "Utf8String", &val.value)?
+			}
 			ASN1Data::Bytes(val) => JsValue::Buffer(env.create_buffer_with_data(val)?.into_raw()),
-			ASN1Data::UtcTime(val) => JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?),
+			ASN1Data::UtcTime(val) => {
+				JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)
+			}
 			ASN1Data::GeneralizedTime(val) => {
 				if val.year() < 2050 {
 					let mut obj = env.create_object()?;
-					obj.set_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY, env.create_string(ASN1Date::TYPE)?)?;
-					obj.set_named_property::<JsString>(ASN1_OBJECT_KIND_KEY, env.create_string("general")?)?;
+					obj.set_named_property::<JsString>(
+						ASN1_OBJECT_TYPE_KEY,
+						env.create_string(ASN1Date::TYPE)?,
+					)?;
+					obj.set_named_property::<JsString>(
+						ASN1_OBJECT_KIND_KEY,
+						env.create_string("general")?,
+					)?;
 
 					let timestamp_ms = val.timestamp_millis() as f64;
-					obj.set_named_property::<JsDate>(ASN1_OBJECT_DATE_KEY, env.create_date(timestamp_ms)?)?;
+					obj.set_named_property::<JsDate>(
+						ASN1_OBJECT_DATE_KEY,
+						env.create_date(timestamp_ms)?,
+					)?;
 					JsValue::Object(obj)
 				} else {
 					JsValue::DateTime(env.create_date(val.timestamp_millis() as f64)?)
