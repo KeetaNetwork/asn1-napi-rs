@@ -161,27 +161,29 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
 	})
 }
 
-// @TODO Add tests
-pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
-	let data = get_string_from_js(data).unwrap();
+/// Get an ASN1Data String from a JsUnknown.
+pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> Result<ASN1Data> {
+	let data = get_string_from_js(data)?;
 	if is_printable_string(&data) {
-		ASN1Data::PrintableString(data.into())
+		Ok(ASN1Data::PrintableString(data.into()))
 	} else if is_ia5_string(&data) {
-		ASN1Data::Ia5String(data.into())
+		Ok(ASN1Data::Ia5String(data.into()))
 	} else {
-		ASN1Data::Utf8String(data.into())
+		Ok(ASN1Data::Utf8String(data.into()))
 	}
 }
 
-pub(crate) fn get_asn_date_type_from_js_unknown(data: JsUnknown) -> ASN1Data {
-	let date = get_fixed_date_from_js(data).unwrap();
+/// Get an ASN1Data Date from a JsUnknown.
+pub(crate) fn get_asn_date_type_from_js_unknown(data: JsUnknown) -> Result<ASN1Data> {
+	let date = get_fixed_date_from_js(data)?;
 	if date.year() < 2050 {
-		ASN1Data::UtcTime(date.to_utc())
+		Ok(ASN1Data::UtcTime(date.to_utc()))
 	} else {
-		ASN1Data::GeneralizedTime(date)
+		Ok(ASN1Data::GeneralizedTime(date))
 	}
 }
 
+/// Get an JsValue String from an ASN1Data.
 pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> Result<JsValue> {
 	Ok(match kind {
 		"PrintableString" => {
@@ -213,6 +215,7 @@ pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> 
 	})
 }
 
+/// Check if a string is a printable string.
 pub(crate) fn is_printable_string(data: &str) -> bool {
 	let data: String = data
 		.chars()
@@ -227,6 +230,7 @@ pub(crate) fn is_printable_string(data: &str) -> bool {
 	})
 }
 
+/// Check if a string is an IA5 string.
 pub(crate) fn is_ia5_string(data: &str) -> bool {
 	data.chars().all(|c| c.is_ascii())
 }

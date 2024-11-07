@@ -189,10 +189,9 @@ fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
 pub trait TypedObject<'a> {
 	const TYPE: &'a str;
 
-	// @TODO Remove this
-	// fn get_type() -> &'a str {
-	// 	Self::TYPE
-	// }
+	fn get_type() -> &'a str {
+		Self::TYPE
+	}
 }
 
 impl ASN1RawBitString {
@@ -397,7 +396,7 @@ impl Decode for ASN1String {
 }
 
 impl Encode for ASN1Date {
-	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
 		if let Some(kind) = self.kind.as_deref() {
 			match kind {
 				"utc" => {
@@ -453,7 +452,7 @@ impl Encode for ASN1Date {
 
 // @TODO Date
 impl Decode for ASN1Date {
-	fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+	fn decode_with_tag<D: Decoder>(_: &mut D, _: Tag) -> Result<Self, D::Error> {
 		Err(<D as Decoder>::Error::custom(
 			ASN1NAPIError::UnknownDateFormat,
 		))
