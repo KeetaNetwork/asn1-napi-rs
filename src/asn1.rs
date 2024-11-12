@@ -65,7 +65,7 @@ impl ASN1Encoder {
 	#[napi(constructor)]
 	pub fn js_new(
 		#[napi(
-			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
+			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
 		)]
 		data: JsUnknown,
 	) -> Result<Self> {
@@ -428,7 +428,7 @@ mod test {
 			ASN1Data::Integer(0),
 			ASN1Data::Integer(456),
 			ASN1Data::Integer(123),
-			ASN1Data::Date(DateTime::<FixedOffset>::from(
+			ASN1Data::GeneralizedTime(DateTime::<FixedOffset>::from(
 				Utc.timestamp_millis_opt(1655921880210).unwrap(),
 			)),
 			ASN1Data::Bytes(
@@ -492,10 +492,10 @@ mod test {
 					))),
 				]),
 				ASN1Data::Array(vec![
-					ASN1Data::Date(DateTime::<FixedOffset>::from(
+					ASN1Data::UtcTime(DateTime::<Utc>::from(
 						Utc.with_ymd_and_hms(2022, 11, 03, 1, 29, 58).unwrap(),
 					)),
-					ASN1Data::Date(DateTime::<FixedOffset>::from(
+					ASN1Data::UtcTime(DateTime::<Utc>::from(
 						Utc.with_ymd_and_hms(2027, 05, 11, 1, 29, 58).unwrap(),
 					)),
 				]),

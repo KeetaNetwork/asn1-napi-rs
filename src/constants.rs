@@ -2,6 +2,10 @@
 pub(crate) const ASN1_OBJECT_TYPE_KEY: &str = "type";
 /// Key string for "value" attribute of objects.
 pub(crate) const ASN1_OBJECT_VALUE_KEY: &str = "value";
+/// Key string for "kind" attribute of objects.
+pub(crate) const ASN1_OBJECT_KIND_KEY: &str = "kind";
+/// Key string for "date" attribute of objects.
+pub(crate) const ASN1_OBJECT_DATE_KEY: &str = "date";
 /// Key string for "name" attribute of objects.
 pub(crate) const ASN1_OBJECT_NAME_KEY: &str = "name";
 /// ASN1 Date format with milliseconds.

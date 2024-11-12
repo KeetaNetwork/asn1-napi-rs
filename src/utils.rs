@@ -1,17 +1,18 @@
 use std::str::FromStr;
 
 use anyhow::{bail, Result};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, NaiveDateTime, Utc};
 use napi::{
-	bindgen_prelude::FromNapiValue, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber, JsString,
-	JsUnknown, ValueType,
+	bindgen_prelude::FromNapiValue, Env, JsArrayBuffer, JsBoolean, JsBuffer, JsDate, JsNumber,
+	JsString, JsUnknown, ValueType,
 };
 use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
 	constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
-	types::ASN1Data,
+	get_js_obj_from_asn_string,
+	types::{ASN1Data, JsValue},
 	ASN1NAPIError,
 };
 
@@ -158,6 +159,80 @@ pub(crate) fn get_vec_from_js_unknown(data: JsUnknown) -> Result<Vec<u8>> {
 		// TODO create a pull request for them
 		_ => get_array_buffer_from_js(data)?,
 	})
+}
+
+/// Get an ASN1Data String from a JsUnknown.
+pub(crate) fn get_asn_string_type_from_js_unknown(data: JsUnknown) -> Result<ASN1Data> {
+	let data = get_string_from_js(data)?;
+	if is_printable_string(&data) {
+		Ok(ASN1Data::PrintableString(data.into()))
+	} else if is_ia5_string(&data) {
+		Ok(ASN1Data::Ia5String(data.into()))
+	} else {
+		Ok(ASN1Data::Utf8String(data.into()))
+	}
+}
+
+/// Get an ASN1Data Date from a JsUnknown.
+pub(crate) fn get_asn_date_type_from_js_unknown(data: JsUnknown) -> Result<ASN1Data> {
+	let date = get_fixed_date_from_js(data)?;
+	if date.year() < 2050 {
+		Ok(ASN1Data::UtcTime(date.to_utc()))
+	} else {
+		Ok(ASN1Data::GeneralizedTime(date))
+	}
+}
+
+/// Get an JsValue String from an ASN1Data.
+pub(crate) fn get_js_value_from_asn1_data(env: Env, kind: &str, value: &str) -> Result<JsValue> {
+	Ok(match kind {
+		"PrintableString" => {
+			JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+		}
+		"Ia5String" => {
+			if is_printable_string(value) {
+				JsValue::Object(get_js_obj_from_asn_string(
+					env,
+					value.to_string(),
+					"ia5".to_string(),
+				)?)
+			} else {
+				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+			}
+		}
+		"Utf8String" => {
+			if is_printable_string(value) || is_ia5_string(value) {
+				JsValue::Object(get_js_obj_from_asn_string(
+					env,
+					value.to_string(),
+					"utf8".to_string(),
+				)?)
+			} else {
+				JsValue::String(env.create_string_utf16(get_utf16_from_string(value).as_ref())?)
+			}
+		}
+		_ => bail!(ASN1NAPIError::UnknownStringFormat),
+	})
+}
+
+/// Check if a string is a printable string.
+pub(crate) fn is_printable_string(data: &str) -> bool {
+	let data: String = data
+		.chars()
+		.skip_while(|&c| !c.is_ascii_graphic())
+		.collect();
+	data.chars().all(|c| {
+		matches!(c,
+			'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' |
+			'\'' | '(' | ')' | '+' | ',' | '.' | '/' |
+			':' | '=' | '?' | '-'
+		)
+	})
+}
+
+/// Check if a string is an IA5 string.
+pub(crate) fn is_ia5_string(data: &str) -> bool {
+	data.chars().all(|c| c.is_ascii())
 }
 
 #[cfg(test)]
