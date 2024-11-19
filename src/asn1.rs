@@ -471,10 +471,11 @@ mod test {
 	fn fixture_get_test_cert() -> Vec<ASN1Data> {
 		vec![
 			ASN1Data::Array(vec![
-				ASN1Data::Object(ASN1Object::Context(ASN1Context {
-					value: 0,
-					contains: Box::new(ASN1Data::Integer(2)),
-				})),
+				ASN1Data::Object(ASN1Object::Context(ASN1Context::new(
+					0,
+					ASN1Data::Integer(2),
+					"explicit",
+				))),
 				ASN1Data::Integer(1),
 				ASN1Data::Array(vec![ASN1Data::Object(ASN1Object::Oid(ASN1OID::new(
 					"sha256WithEcDSA",
@@ -554,6 +555,7 @@ mod test {
 							ASN1Data::Bytes(vec![0x30, 0]),
 						]),
 					]),
+					"explicit",
 				))),
 			]),
 			ASN1Data::Array(vec![ASN1Data::Object(ASN1Object::Oid(ASN1OID::new(
@@ -724,7 +726,10 @@ mod test {
 			]),
 		]);
 
-		assert_eq!(obj.get_context().unwrap(), ASN1Context::new(0, contents));
+		assert_eq!(
+			obj.get_context().unwrap(),
+			ASN1Context::new(0, contents, "explicit")
+		);
 	}
 
 	#[test]

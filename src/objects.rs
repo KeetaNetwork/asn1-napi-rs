@@ -88,6 +88,7 @@ pub struct ASN1RawBitString(BitString);
 pub struct ASN1Context {
 	pub value: u32,
 	pub contains: Box<ASN1Data>,
+	pub kind: String,
 }
 
 /// ASN1 OID.
@@ -140,6 +141,8 @@ pub struct ASN1Date {
 pub struct ASN1ContextTag {
 	#[napi(ts_type = "'context'")]
 	pub r#type: &'static str,
+	#[napi(ts_type = "'implicit' | 'explicit'")]
+	pub kind: String,
 	pub value: u32,
 	#[napi(ts_type = "any")]
 	pub contains: JsUnknown,
@@ -230,19 +233,21 @@ impl ASN1Set {
 
 impl ASN1Context {
 	/// Create a new instance of an ASN1Context from a number and ASN1Data.
-	pub fn new(value: u32, data: ASN1Data) -> Self {
+	pub fn new<T: ToString>(value: u32, data: ASN1Data, kind: T) -> Self {
 		Self {
 			value,
 			contains: Box::new(data),
+			kind: kind.to_string(),
 		}
 	}
 }
 
 impl ASN1ContextTag {
 	/// Create a new instance of an ASN1ContextTag from a number and JsUnknown.
-	pub fn new(value: u32, contains: JsUnknown) -> Self {
+	pub fn new(value: u32, contains: JsUnknown, kind: String) -> Self {
 		Self {
 			r#type: Self::TYPE,
+			kind,
 			value,
 			contains,
 		}
@@ -474,7 +479,7 @@ impl Decode for ASN1Context {
 
 		if let Ok(ASN1Data::Unknown(any)) = decoder.decode_explicit_prefix::<ASN1Data>(tag) {
 			if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(any.as_bytes().to_owned())) {
-				return Ok(Self::new(tag.value, data));
+				return Ok(Self::new(tag.value, data, "explicit"));
 			};
 		}
 
@@ -734,10 +739,7 @@ impl TryFrom<JsObject> for ASN1Context {
 		let contains = obj.get_named_property::<JsUnknown>("contains")?;
 
 		if let Ok(contains) = ASN1Data::try_from(contains) {
-			Ok(Self {
-				value: value.get_uint32()?,
-				contains: Box::new(contains),
-			})
+			Ok(Self::new(value.get_uint32()?, contains, "explicit"))
 		} else {
 			bail!(ASN1NAPIError::InvalidContextNonSequence)
 		}
@@ -751,6 +753,7 @@ impl TryFrom<ASN1Decoder> for ASN1Context {
 		Ok(Self::new(
 			value.get_tag().value / 0xa0,
 			ASN1Data::try_from(value)?,
+			"explicit",
 		))
 	}
 }

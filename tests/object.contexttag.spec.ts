@@ -5,6 +5,7 @@ import * as lib from '..'
 const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
 	{
 		type: 'context',
+		kind: 'explicit',
 		value: 0,
 		contains: [
 			{ type: 'oid', oid: 'sha3-256' },
@@ -26,9 +27,10 @@ const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
 			],
 		],
 	},
-	{ type: 'context', value: 3, contains: 42n },
+	{ type: 'context', kind: 'explicit', value: 3, contains: 42n },
 	{
 		type: 'context',
+		kind: 'explicit',
 		value: 5,
 		contains: [
 			{
