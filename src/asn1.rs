@@ -32,6 +32,7 @@ pub struct ASN1Decoder {
 	tag: Tag,
 	js_type: JsType,
 	data: Vec<u8>,
+	is_constructed: bool,
 }
 
 /// Convert ASN1Data into ASN1 encoded data. This is the main encoder
@@ -113,22 +114,25 @@ impl ASN1Decoder {
 	pub fn new(data: Vec<u8>) -> Self {
 		// Match constructed Sequence/Set tag
 		let bit = match *data.first().unwrap_or(&0x5) as u32 {
-			0x30 => 0x10,
-			0x31 => 0x11,
+			0x30 => 0x10, // Sequence
+			0x31 => 0x11, // Set
 			n => n,
 		};
 
-		// ASN1 Contexts range from 0xa0 to 0xbf
-		let tag = if (0xa0..=0xbf).contains(&bit) {
-			Tag::new(Class::Context, bit ^ 0xa0)
-		} else {
-			Tag::new(Class::Universal, bit)
+		// Match tag
+		let (tag, is_constructed) = match bit {
+			0x00..=0x3F => (Tag::new(Class::Universal, bit), (bit & 0x20) != 0),
+			0x40..=0x7F => (Tag::new(Class::Application, bit & 0x1F), (bit & 0x20) != 0),
+			0x80..=0xBF => (Tag::new(Class::Context, bit & 0x1F), (bit & 0x20) != 0),
+			0xC0..=0xFF => (Tag::new(Class::Private, bit & 0x1F), (bit & 0x20) != 0),
+			_ => panic!("Invalid bit value"),
 		};
 
 		ASN1Decoder {
 			js_type: JsType::from(tag),
 			tag,
 			data,
+			is_constructed,
 		}
 	}
 
@@ -145,6 +149,10 @@ impl ASN1Decoder {
 	/// Get the raw ASN.1 data.
 	pub fn get_raw(&self) -> &[u8] {
 		&self.data
+	}
+
+	pub fn get_is_constructed(&self) -> bool {
+		self.is_constructed
 	}
 
 	/// Create an instance of ANS1 from a buffer.
