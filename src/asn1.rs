@@ -121,10 +121,21 @@ impl ASN1Decoder {
 
 		// Match tag
 		let (tag, is_constructed) = match bit {
+			// Universal
 			0x00..=0x3F => (Tag::new(Class::Universal, bit), (bit & 0x20) != 0),
-			0x40..=0x7F => (Tag::new(Class::Application, bit & 0x1F), (bit & 0x20) != 0),
+
+			// Application: As on `types.rs` the Application class is not implemented, we will use the Universal class
+			// impl From<Tag> for JsType { (...) Class::Application => todo!(),
+			0x40..=0x7F => (Tag::new(Class::Universal, bit & 0x1F), (bit & 0x20) != 0),
+			// 0x40..=0x7F => (Tag::new(Class::Application, bit & 0x1F), (bit & 0x20) != 0),
+
+			// Context
 			0x80..=0xBF => (Tag::new(Class::Context, bit & 0x1F), (bit & 0x20) != 0),
-			0xC0..=0xFF => (Tag::new(Class::Private, bit & 0x1F), (bit & 0x20) != 0),
+
+			// Private: As on `types.rs` the Private class is not implemented, we will use the Universal class
+			// impl From<Tag> for JsType { (...) Class::Private => todo!(),
+			0xC0..=0xFF => (Tag::new(Class::Universal, bit & 0x1F), (bit & 0x20) != 0),
+			// 0xC0..=0xFF => (Tag::new(Class::Private, bit & 0x1F), (bit & 0x20) != 0),
 			_ => panic!("Invalid bit value"),
 		};
 
