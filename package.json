@@ -1,14 +1,14 @@
 {
-	"name": "@keetapay/asn1-napi-rs",
-	"version": "1.1.6",
-	"homepage": "https://github.com/KeetaPay/asn1-napi-rs#readme",
+	"name": "@keetanetwork/asn1-napi-rs",
+	"version": "1.1.7",
+	"homepage": "https://github.com/KeetaNetwork/asn1-napi-rs#readme",
 	"author": "Tanveer Wahid <twahid@keeta.com>",
-	"description": "KeetaPay ASN.1 TypeScript-Rust NAPI library",
+	"description": "KeetaNetwork ASN.1 TypeScript-Rust NAPI library",
 	"main": "index.js",
 	"types": "index.d.ts",
 	"repository": {
 		"type": "git",
-		"url": "git+ssh://git@github.com/KeetaPay/asn1-napi-rs.git"
+		"url": "git+ssh://git@github.com/KeetaNetwork/asn1-napi-rs.git"
 	},
 	"license": "Proprietary",
 	"files": [
@@ -88,6 +88,6 @@
 		}
 	},
 	"bugs": {
-		"url": "https://github.com/KeetaPay/asn1-napi-rs/issues"
+		"url": "https://github.com/KeetaNetwork/asn1-napi-rs/issues"
 	}
 }
