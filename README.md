@@ -1,20 +1,20 @@
-# `@keetapay/asn1-napi-rs`
+# `@keetanetwork/asn1-napi-rs`
 
-[ci_status]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/CI.yml/badge.svg
-[ci]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/CI.yml
-[lint_status]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/lint.yml/badge.svg
-[lint]: https://github.com/KeetaPay/asn1-napi-rs/actions/workflows/lint.yml
+[ci_status]: https://github.com/KeetaNetwork/asn1-napi-rs/actions/workflows/CI.yml/badge.svg
+[ci]: https://github.com/KeetaNetwork/asn1-napi-rs/actions/workflows/CI.yml
+[lint_status]: https://github.com/KeetaNetwork/asn1-napi-rs/actions/workflows/lint.yml/badge.svg
+[lint]: https://github.com/KeetaNetwork/asn1-napi-rs/actions/workflows/lint.yml
 
 [![ci_status]][ci] [![lint_status]][lint]
 
 # About
 
-This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build native Rust functionality that can be consumed in NodeJS. This library specifically addresses ASN.1 encoding and decoding for the [@keetapay/node](https://github.com/KeetaPay/node) project. It contains all critical functionality for encoding/decoding ASN.1 BER for all KeetaNet node functionality.
+This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build native Rust functionality that can be consumed in NodeJS. This library specifically addresses ASN.1 encoding and decoding for the [@keetanetwork/node](https://github.com/KeetaNetwork/node) project. It contains all critical functionality for encoding/decoding ASN.1 BER for all KeetaNet node functionality.
 
 ## Install this package
 
 ```bash
-npm install @keetapay/asn1-napi-rs
+npm install @keetanetwork/asn1-napi-rs
 ```
 
 Note: You will need a [GitHub personal access token](https://github.com/settings/tokens) added to your `~/.npmrc` file like so:
