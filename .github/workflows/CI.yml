@@ -398,8 +398,6 @@ jobs:
           name: napi-module-aarch64-unknown-linux-musl
           path: .
       - name: Configure NPM Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' >> .npmrc
           npm config set "@keetanetwork:registry=https://npm.pkg.github.com"
@@ -407,3 +405,5 @@ jobs:
           npm config set -- '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}'
       - name: Publish
         run: make do-npm-publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

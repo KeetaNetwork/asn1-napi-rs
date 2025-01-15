@@ -816,8 +816,6 @@ for (const target of packageTargets) {
 output.push(
 	/* Setup NPM for Publishing to a GitHub Package Registry */
 	'      - name: Configure NPM Publish',
-	'        env:',
-	'          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
 	...emitMultiLineScript(4, 'run', [
 		'echo \'//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\' >> .npmrc',
 		'npm config set "@keetanetwork:registry=https://npm.pkg.github.com"',
@@ -827,7 +825,9 @@ output.push(
 
 	/* Publish the package */
 	'      - name: Publish',
-	'        run: make do-npm-publish'
+	'        run: make do-npm-publish',
+	'        env:',
+	'          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
 );
 
 const outputString = output.join('\n') + '\n';
