@@ -5,6 +5,7 @@ import * as lib from '..'
 const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
 	{
 		type: 'context',
+		kind: 'explicit',
 		value: 0,
 		contains: [
 			{ type: 'oid', oid: 'sha3-256' },
@@ -26,9 +27,10 @@ const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
 			],
 		],
 	},
-	{ type: 'context', value: 3, contains: 42n },
+	{ type: 'context', kind: 'explicit', value: 3, contains: 42n },
 	{
 		type: 'context',
+		kind: 'explicit',
 		value: 5,
 		contains: [
 			{
@@ -39,6 +41,7 @@ const TEST_CONTEXT_TAGS: lib.ASN1ContextTag[] = [
 			100n,
 		],
 	},
+	{ type: 'context', value: 3, kind: 'implicit', contains: new Uint8Array([0x01, 0x02, 0x03, 0x04]).buffer },
 ]
 
 const TEST_CONTEXT_TAGS_ASN1 = [
@@ -57,6 +60,7 @@ const TEST_CONTEXT_TAGS_ASN1 = [
 		0xa5, 0x16, 0x30, 0x14, 0x31, 0x0f, 0x30, 0x0d, 0x06, 0x05, 0xf7, 0x40,
 		0x01, 0x87, 0x67, 0x13, 0x04, 0x54, 0x65, 0x73, 0x74, 0x02, 0x01, 0x64,
 	]).buffer,
+	new Uint8Array([0x83, 0x04, 0x01, 0x02, 0x03, 0x04]).buffer,
 ]
 
 test('JS Context Tag to ASN1 conversion', (t) => {
