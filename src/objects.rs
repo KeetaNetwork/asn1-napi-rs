@@ -111,6 +111,7 @@ pub struct ASN1Set {
 	#[napi(ts_type = "'set'")]
 	pub r#type: &'static str,
 	pub name: ASN1OID,
+	#[napi(ts_type = "string | ASN1String")]
 	pub value: String,
 }
 
