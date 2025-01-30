@@ -176,7 +176,7 @@ impl TryFrom<&Open> for ASN1Data {
 			Open::VisibleString(data) => ASN1Data::String(data.to_string()),
 			Open::InstanceOf(data) => ASN1Data::try_from(data.value)?,
 			Open::BitString(data) => {
-				ASN1Data::Object(ASN1Object::BitString(ASN1RawBitString::new(data)))
+				ASN1Data::Object(ASN1Object::BitString(ASN1RawBitString::new(data, None)))
 			}
 			Open::ObjectIdentifier(data) => {
 				ASN1Data::Object(ASN1Object::Oid(ASN1OID::try_from(data.to_vec())?))
