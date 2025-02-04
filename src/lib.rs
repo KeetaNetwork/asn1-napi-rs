@@ -69,7 +69,7 @@ enum ASN1NAPIError {
 }
 
 /// Helper to convert a JS bigint to a JS Buffer
-#[napi(strict, js_name = "BigIntToBuffer")]
+#[napi(strict, js_name = "ASN1BigIntToBuffer")]
 pub fn get_buffer_from_big_int(data: JsBigInt) -> Result<Buffer> {
 	Ok(get_big_int_from_js(data.into_unknown()?)?
 		.to_signed_bytes_be()
@@ -83,8 +83,12 @@ pub fn get_big_int_from_buffer(env: Env, data: Buffer) -> Result<JsBigInt> {
 }
 
 /// Helper to convert a JS number to a JS BigInt
-#[napi(strict, js_name = "IntegerToBigInt")]
-pub fn get_big_int_from_integer(env: Env, data: i64) -> Result<JsBigInt> {
+#[napi(strict, js_name = "ASN1IntegerToBigInt")]
+pub fn get_big_int_from_integer(
+	env: Env,
+	// Using 'object' because the JS library is using internal object that we don't have here.
+	#[napi(ts_arg_type = "object | number")] data: i64,
+) -> Result<JsBigInt> {
 	get_js_big_int_from_big_int(env, BigInt::from(data))
 }
 
@@ -95,12 +99,9 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 }
 
 /// Convert JS input into ASN1 BER encoded data.
-#[napi(strict, js_name = "JStoASN1")]
+#[napi(strict, js_name = "JStoASN1", ts_return_type = "any")]
 pub fn js_to_asn1(
-	#[napi(
-		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-	)]
-	data: JsUnknown,
+	#[napi(ts_arg_type = "Readonly<ASN1AnyJS>")] data: JsUnknown,
 ) -> Result<ASN1Encoder> {
 	ASN1Encoder::js_new(data)
 }
@@ -108,14 +109,10 @@ pub fn js_to_asn1(
 /// Convert ASN1 BER encoded data to JS native types.
 /// This supports number arrays, Buffer, ArrayBufferLike, base64 or hex
 /// encded strings, or null input.
-#[napi(
-	strict,
-	js_name = "ASN1toJS",
-	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-)]
+#[napi(strict, js_name = "ASN1toJS", ts_return_type = "ASN1AnyJS")]
 pub fn asn1_to_js(
 	env: Env,
-	#[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
+	#[napi(ts_arg_type = "ArrayBuffer")] data: JsUnknown,
 ) -> Result<JsUnknown> {
 	let asn1 = match data.get_type()? {
 		ValueType::String => {

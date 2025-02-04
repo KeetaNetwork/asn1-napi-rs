@@ -64,12 +64,7 @@ impl ASN1Iterator {
 impl ASN1Encoder {
 	/// Create a new ASN1Encoder instance from any ASN1 encodable type.
 	#[napi(constructor)]
-	pub fn js_new(
-		#[napi(
-			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-		)]
-		data: JsUnknown,
-	) -> Result<Self> {
+	pub fn js_new(#[napi(ts_arg_type = "ASN1AnyJS")] data: JsUnknown) -> Result<Self> {
 		Ok(Self(ASN1Data::try_from(data)?))
 	}
 

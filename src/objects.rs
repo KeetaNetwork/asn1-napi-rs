@@ -811,9 +811,9 @@ impl TryFrom<JsObject> for ASN1Object {
 		let field = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_TYPE_KEY)?;
 
 		if let Ok(ValueType::String) = field.get_type() {
-			let name = get_string_from_js(field)?;
+			let r#type = get_string_from_js(field)?;
 
-			Ok(match name.as_str() {
+			Ok(match r#type.as_str() {
 				ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
 				ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
 				ASN1String::TYPE => ASN1Object::String(ASN1String::try_from(obj)?),

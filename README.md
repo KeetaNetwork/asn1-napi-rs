@@ -120,7 +120,8 @@ Key function exports:
 
 - JStoASN1
 - ASN1toJS
-- BigIntToBuffer
+- ASN1BigIntToBuffer
+- ASN1IntegerToBigInt
 
 ## CI/CD
 
