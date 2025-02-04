@@ -1,8 +1,8 @@
 use anyhow::{bail, Error, Result};
 use chrono::{DateTime, Datelike, FixedOffset, Utc};
 use napi::{
-	Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNull, JsNumber, JsObject, JsString, JsUndefined,
-	JsUnknown, ValueType,
+	Env, JsArrayBuffer, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNull, JsNumber, JsObject,
+	JsString, JsUndefined, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
 use rasn::{
@@ -20,9 +20,10 @@ use crate::{
 	get_js_obj_from_asn_object,
 	objects::{ASN1Date, ASN1Object, ASN1RawBitString, TypedObject, ASN1OID},
 	utils::{
-		get_array_from_js, get_asn_date_type_from_js_unknown, get_asn_string_type_from_js_unknown,
-		get_big_int_from_js, get_boolean_from_js, get_buffer_from_js, get_integer_from_js,
-		get_js_value_from_asn1_data, get_utf16_from_string,
+		get_array_buffer_from_js, get_array_from_js, get_asn_date_type_from_js_unknown,
+		get_asn_string_type_from_js_unknown, get_big_int_from_js, get_boolean_from_js,
+		get_buffer_from_js, get_integer_from_js, get_js_value_from_asn1_data,
+		get_utf16_from_string,
 	},
 	ASN1NAPIError,
 };
@@ -89,6 +90,32 @@ pub enum ASN1Data {
 pub enum ASN1Number {
 	Integer(i64),
 	BigInt(BigInt),
+}
+
+impl ASN1Data {
+	/// Converts `ASN1Data` to a `Vec<u8>`, handling all variants.
+	pub fn to_bytes(&self) -> Result<Vec<u8>> {
+		Ok(match self {
+			ASN1Data::Boolean(b) => vec![*b as u8],
+			ASN1Data::Integer(i) => i.to_be_bytes().to_vec(), // Big-endian representation
+			ASN1Data::BigInt(bi) => bi.to_signed_bytes_be(),
+			ASN1Data::String(s) => s.clone().into_bytes(),
+			ASN1Data::PrintableString(ps) => ps.as_bytes().to_vec(),
+			ASN1Data::Ia5String(ia5) => ia5.as_bytes().to_vec(),
+			ASN1Data::Utf8String(us) => us.as_bytes().to_vec(),
+			ASN1Data::Bytes(b) => b.clone(),
+			// ASN1Data::Array(arr) => arr
+			// 	.iter()
+			// 	.flat_map(|item| item.to_bytes()) // Flatten byte representations
+			// 	.collect(),
+			// ASN1Data::Object(obj) => obj.to_bytes(), // Assuming ASN1Object implements `to_bytes`
+			ASN1Data::UtcTime(dt) => dt.timestamp().to_be_bytes().to_vec(),
+			ASN1Data::GeneralizedTime(dt) => dt.timestamp().to_be_bytes().to_vec(),
+			ASN1Data::Unknown(any) => any.as_bytes().to_vec(), // Assuming `Any` provides `as_bytes`
+			ASN1Data::Null => vec![],
+			_ => bail!(ASN1NAPIError::UnknownDateFormat),
+		})
+	}
 }
 
 impl From<Tag> for JsType {
@@ -191,6 +218,15 @@ impl TryFrom<Open> for ASN1Data {
 
 	fn try_from(data: Open) -> Result<Self, Self::Error> {
 		Self::try_from(&data)
+	}
+}
+
+impl TryFrom<JsArrayBuffer> for ASN1Data {
+	type Error = Error;
+
+	fn try_from(value: JsArrayBuffer) -> Result<Self, Self::Error> {
+		let buffer = get_array_buffer_from_js(value.into_unknown())?;
+		Ok(ASN1Data::Bytes(buffer))
 	}
 }
 

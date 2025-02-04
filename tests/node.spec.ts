@@ -5,7 +5,7 @@ import * as lib from '..'
 test('Complex structure', (t) => {
 	const input = [
 		[
-			{ type: 'context', value: 0, contains: 2n } as lib.ASN1ContextTag,
+			{ type: 'context', kind: 'explicit', value: 0, contains: 2n } as lib.ASN1ContextTag,
 			1n,
 			[{ type: 'oid', oid: 'sha3-256WithEcDSA' } as lib.ASN1OID],
 			[
@@ -51,6 +51,7 @@ test('Complex structure', (t) => {
 			],
 			{
 				type: 'context',
+				kind: 'explicit',
 				value: 3,
 				contains: [
 					{ type: 'oid', oid: 'sha3-256WithEcDSA' } as lib.ASN1OID,
@@ -89,7 +90,7 @@ test('Node ASN1 Tests', (t) => {
 			'0x8bcbbf49c554d3f1b26e39005546b9f5910a12c5a61dc4cff707367a548264c2',
 		),
 		{ type: 'oid', oid: '1.2.3.4' } as lib.ASN1OID,
-		{ type: 'context', value: 3, contains: 42n } as lib.ASN1ContextTag,
+		{ type: 'context', kind: 'explicit', value: 3, contains: 42n } as lib.ASN1ContextTag,
 		{
 			type: 'bitstring',
 			value: Buffer.from(
@@ -129,6 +130,7 @@ test('Node ASN1 Tests', (t) => {
 		null,
 		{
 			type: 'context',
+			kind: 'explicit',
 			value: 5,
 			contains: [
 				{
