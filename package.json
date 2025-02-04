@@ -1,6 +1,6 @@
 {
 	"name": "@keetanetwork/asn1-napi-rs",
-	"version": "1.1.8",
+	"version": "1.1.9",
 	"homepage": "https://github.com/KeetaNetwork/asn1-napi-rs#readme",
 	"author": "Tanveer Wahid <twahid@keeta.com>",
 	"description": "KeetaNetwork ASN.1 TypeScript-Rust NAPI library",
