@@ -180,6 +180,7 @@ pub(crate) fn get_js_context_tag_from_asn1_context(
 	Ok(ASN1ContextTag::new(
 		data.value,
 		get_js_unknown_from_asn1_data(env, *data.contains)?,
+		data.kind,
 	))
 }
 
@@ -281,6 +282,10 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 			obj.set_named_property::<JsString>(
 				ASN1_OBJECT_TYPE_KEY,
 				env.create_string(ASN1ContextTag::TYPE)?,
+			)?;
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_KIND_KEY,
+				env.create_string(&val.kind)?,
 			)?;
 			obj.set_named_property::<JsNumber>(
 				ASN1_OBJECT_VALUE_KEY,
