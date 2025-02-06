@@ -269,8 +269,14 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 			)?;
 			obj.set_named_property::<JsBuffer>(
 				ASN1_OBJECT_VALUE_KEY,
-				ASN1BitString::new(env, val.into_vec()).value,
+				ASN1BitString::new(env, val.value.into_vec(), None).value,
 			)?;
+			if let Some(unused_bits) = val.unused_bits {
+				obj.set_named_property::<JsNumber>(
+					"unusedBits",
+					env.create_uint32(unused_bits.into())?,
+				)?;
+			}
 		}
 		ASN1Object::Context(val) => {
 			obj.set_named_property::<JsString>(

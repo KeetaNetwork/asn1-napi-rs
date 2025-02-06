@@ -1,6 +1,7 @@
-import test from 'ava'
 
-import * as lib from '..'
+import test from 'ava';
+
+import * as lib from '..';
 
 const TEST_BITSTRINGS: lib.ASN1BitString[] = [
 	{
@@ -9,6 +10,7 @@ const TEST_BITSTRINGS: lib.ASN1BitString[] = [
 			'MEQCIHmXWc+ASZ/3agYiWczwPR7JkRbJSAdL26s0/YPyHb0/AiBUOWxP9BGZG9oPX6LEaJ3WNQjqCF/Yk69p3x37srdqAA==',
 			'base64',
 		),
+		unusedBits: 0,
 	},
 	{
 		type: 'bitstring',
@@ -16,6 +18,7 @@ const TEST_BITSTRINGS: lib.ASN1BitString[] = [
 			'MEQCIBP/1C6LRFzXPjPEadaeHh8okxc46rLNYf2G6xth4OsmAiBL/j9GOHrMMMCe2ddIVsl43UVEZdQsz+wqajCtR+F+AA==',
 			'base64',
 		),
+		unusedBits: 0,
 	},
 	{
 		type: 'bitstring',
@@ -23,7 +26,18 @@ const TEST_BITSTRINGS: lib.ASN1BitString[] = [
 			'MEQCIHd0xqmKNBV76Rqp65DJjZMoWsv6Z5THAtyNqkKeYX6pAiAwWqVPgu7W8WIQHOI6JIDsfve1xPskMUIgu56TFFqitA==',
 			'base64',
 		),
+		unusedBits: 0,
 	},
+	{
+		type: 'bitstring',
+		value: Buffer.from([0]),
+		unusedBits: 7
+	},
+	{
+		type: 'bitstring',
+		value: Buffer.from('xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=', 'base64'),
+		unusedBits: 0,
+	}
 ]
 
 const TEST_BITSTRINGS_ASN1 = [
@@ -54,8 +68,15 @@ const TEST_BITSTRINGS_ASN1 = [
 		0xc4, 0xfb, 0x24, 0x31, 0x42, 0x20, 0xbb, 0x9e, 0x93, 0x14, 0x5a, 0xa2,
 		0xb4,
 	]).buffer,
+	new Uint8Array([
+		0x03, 0x02, 0x07, 0x00,
+	]).buffer,
+	new Uint8Array([
+		0x03, 0x21, 0x00, 0xc5, 0xb8, 0xdd, 0xf7, 0x48, 0xe3, 0x07, 0x9e, 0xa1,
+		0x87, 0x86, 0x49, 0x35, 0xdd, 0xb8, 0xc2, 0xea, 0x4e, 0xaa, 0x9c, 0xdf,
+		0x06, 0xaf, 0xe2, 0x83, 0xed, 0xb5, 0x5d, 0x6b, 0x38, 0x49, 0xb4,
+	]).buffer,
 ]
-
 test('JS ASN1BitString to ASN1 conversion', (t) => {
 	TEST_BITSTRINGS.forEach((v, i) => {
 		t.deepEqual(lib.JStoASN1(v).toBER(), TEST_BITSTRINGS_ASN1[i])
@@ -88,6 +109,7 @@ test('ASN1 to ASN1BitString conversion from base64', (t) => {
 				0x93, 0xaf, 0x69, 0xdf, 0x1d, 0xfb, 0xb2, 0xb7, 0x6a, 0x00,
 			]),
 		),
+		unusedBits: 0,
 	})
 })
 

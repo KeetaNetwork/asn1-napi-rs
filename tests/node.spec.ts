@@ -46,6 +46,7 @@ test('Complex structure', (t) => {
 						'xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=',
 						'base64',
 					),
+					unusedBits: 0,
 				} as lib.ASN1BitString,
 			],
 			{
@@ -66,6 +67,7 @@ test('Complex structure', (t) => {
 				'xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=',
 				'base64',
 			),
+			unusedBits: 0,
 		} as lib.ASN1BitString,
 	]
 
@@ -95,6 +97,7 @@ test('Node ASN1 Tests', (t) => {
 				'xbjd90jjB56hh4ZJNd24wupOqpzfBq/ig+21XWs4SbQ=',
 				'base64',
 			),
+			unusedBits: 0,
 		} as lib.ASN1BitString,
 		{
 			type: 'set',

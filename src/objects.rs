@@ -17,8 +17,8 @@ use crate::{
 	type_object,
 	types::ASN1Data,
 	utils::{
-		get_buffer_from_js, get_oid_elements_from_string, get_string_from_js,
-		get_string_from_oid_elements, is_ia5_string, is_printable_string,
+		get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements,
+		is_ia5_string, is_printable_string,
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
@@ -80,7 +80,10 @@ pub enum ASN1Object {
 /// ASN1 raw bit string.
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
 #[rasn(tag(universal, 3))]
-pub struct ASN1RawBitString(BitString);
+pub struct ASN1RawBitString {
+	pub value: BitString,
+	pub unused_bits: Option<u8>,
+}
 
 /// ASN1 Context.
 #[derive(AsnType, Clone, Eq, PartialEq, Debug)]
@@ -154,6 +157,7 @@ pub struct ASN1BitString {
 	#[napi(ts_type = "'bitstring'")]
 	pub r#type: &'static str,
 	pub value: JsBuffer,
+	pub unused_bits: Option<u8>,
 }
 
 /// Get an oid as u32 words from a canonically named identifier.
@@ -198,15 +202,15 @@ pub trait TypedObject<'a> {
 }
 
 impl ASN1RawBitString {
-	pub fn new(mut value: BitString) -> Self {
+	pub fn new(mut value: BitString, unused_bits: Option<u8>) -> Self {
 		value.force_align();
 		value.set_uninitialized(false);
 
-		Self(value)
+		Self { value, unused_bits }
 	}
 
 	pub fn into_vec(self) -> Vec<u8> {
-		self.0.into_vec()
+		self.value.into_vec()
 	}
 }
 
@@ -256,10 +260,11 @@ impl ASN1ContextTag {
 
 impl ASN1BitString {
 	/// Create a new instance of a ASN1JsBitString from a string.
-	pub fn new(env: Env, value: Vec<u8>) -> Self {
+	pub fn new(env: Env, value: Vec<u8>, unused_bits: Option<u8>) -> Self {
 		Self {
 			r#type: Self::TYPE,
 			value: env.create_buffer_with_data(value).unwrap().into_raw(),
+			unused_bits,
 		}
 	}
 }
@@ -272,29 +277,27 @@ type_object!(ASN1String, "string");
 type_object!(ASN1Date, "date");
 type_object!(ASN1ContextTag, "context");
 
-/// TODO Mising bits that the rasn library truncates.
 impl Encode for ASN1RawBitString {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-		let mut data = VecDeque::from(self.0.clone().into_vec());
-		data.push_front(0x00);
+		let mut data = VecDeque::from(self.value.clone().into_vec());
+
+		let unused_bits = self.unused_bits.unwrap_or(0x00);
+		data.push_front(unused_bits);
 
 		encoder.encode_octet_string(tag, &Vec::from(data))?;
 		Ok(())
 	}
 }
 
-/// TODO Mising bits that the rasn library truncates.
 impl Decode for ASN1RawBitString {
 	fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
 		let mut data = VecDeque::from(decoder.decode_octet_string(tag)?);
+		let unused_bits = data.pop_front();
 
-		if let Some(val) = data.get(0) {
-			if val == &0x00 {
-				data.pop_front();
-			}
-		}
-
-		Ok(ASN1RawBitString::new(BitString::from_vec(Vec::from(data))))
+		Ok(ASN1RawBitString::new(
+			BitString::from_vec(Vec::from(data)),
+			unused_bits,
+		))
 	}
 }
 
@@ -547,29 +550,21 @@ impl AsRef<[u32]> for ASN1OID {
 
 impl AsRef<[u8]> for ASN1RawBitString {
 	fn as_ref(&self) -> &[u8] {
-		self.0.as_raw_slice()
+		self.value.as_raw_slice()
 	}
 }
 
-impl From<Vec<u8>> for ASN1RawBitString {
-	fn from(value: Vec<u8>) -> Self {
-		ASN1RawBitString::new(BitString::from_vec(value))
+impl From<VecDeque<u8>> for ASN1RawBitString {
+	fn from(value: VecDeque<u8>) -> Self {
+		let mut data = value.clone();
+		let unused_bits = data.pop_front();
+		ASN1RawBitString::new(BitString::from_vec(Vec::from(data)), unused_bits)
 	}
 }
 
 impl From<ASN1RawBitString> for BitString {
 	fn from(value: ASN1RawBitString) -> Self {
-		value.0
-	}
-}
-
-impl TryFrom<JsBuffer> for ASN1RawBitString {
-	type Error = Error;
-
-	fn try_from(value: JsBuffer) -> Result<Self, Self::Error> {
-		Ok(ASN1RawBitString::from(get_buffer_from_js(
-			value.into_unknown(),
-		)?))
+		value.value
 	}
 }
 
@@ -578,7 +573,14 @@ impl TryFrom<JsObject> for ASN1RawBitString {
 
 	fn try_from(value: JsObject) -> Result<Self, Self::Error> {
 		if let Ok(buffer) = value.get_named_property::<JsBuffer>(ASN1_OBJECT_VALUE_KEY) {
-			Self::try_from(buffer)
+			let unused_bits = value
+				.get_named_property::<Option<JsNumber>>("unusedBits")?
+				.map(|v| v.get_uint32().unwrap() as u8);
+
+			let mut data = VecDeque::from(buffer.into_value()?.to_vec());
+			data.push_front(unused_bits.unwrap_or(0x00));
+
+			Ok(ASN1RawBitString::from(data))
 		} else {
 			bail!(ASN1NAPIError::InvalidBitString)
 		}

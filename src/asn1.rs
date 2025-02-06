@@ -284,9 +284,12 @@ impl ASN1Decoder {
 	/// Convert to a JS ASN1BitString object.
 	#[napi]
 	pub fn into_bit_string(&self, env: Env) -> Result<ASN1BitString> {
+		let raw = self.get_raw_bit_string()?;
+		let unused_bits = raw.unused_bits;
 		Ok(ASN1BitString::new(
 			env,
-			BitString::from(self.get_raw_bit_string()?).into_vec(),
+			BitString::from(raw).into_vec(),
+			unused_bits,
 		))
 	}
 
@@ -549,6 +552,7 @@ mod test {
 							0x7B, 0x5A, 0x18, 0x85, 0xC7, 0x61, 0xE5, 0xE5, 0x61, 0xFF, 0xAB, 0x67,
 							0xD2, 0x9F, 0x9D, 0x42, 0xDD,
 						]),
+						Some(0x00),
 					))),
 				]),
 				ASN1Data::Object(ASN1Object::Context(ASN1Context::new(
@@ -589,6 +593,7 @@ mod test {
 					0x04, 0xA7, 0x98, 0xB5, 0xC9, 0xD8, 0x98, 0xCF, 0x12, 0x82, 0x53, 0x54, 0x45,
 					0x01, 0x97, 0xF9, 0xE3, 0x47,
 				]),
+				Some(0x00),
 			))),
 		]
 	}
