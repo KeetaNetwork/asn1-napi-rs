@@ -83,6 +83,7 @@ pub enum ASN1Data {
 	Unknown(Any),
 	#[rasn(tag(universal, 5))]
 	Null,
+	Undefined,
 }
 
 /// Integer or Big Integer
@@ -113,6 +114,7 @@ impl ASN1Data {
 			ASN1Data::GeneralizedTime(dt) => dt.timestamp().to_be_bytes().to_vec(),
 			ASN1Data::Unknown(any) => any.as_bytes().to_vec(), // Assuming `Any` provides `as_bytes`
 			ASN1Data::Null => vec![],
+			ASN1Data::Undefined => vec![],
 			_ => bail!(ASN1NAPIError::UnknownDateFormat),
 		})
 	}
@@ -244,6 +246,7 @@ impl TryFrom<JsUnknown> for ASN1Data {
 			ValueType::Object if value.is_date()? => get_asn_date_type_from_js_unknown(value)?,
 			ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
 			ValueType::Object => ASN1Data::Object(ASN1Object::try_from(value)?),
+			ValueType::Undefined => ASN1Data::Undefined,
 			_ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
 		})
 	}
@@ -357,6 +360,7 @@ impl TryFrom<(Env, ASN1Data)> for JsValue {
 			}
 			ASN1Data::Object(val) => JsValue::Object(get_js_obj_from_asn_object(env, val)?),
 			ASN1Data::Null => JsValue::Null(env.get_null()?),
+			ASN1Data::Undefined => JsValue::Undefined(env.get_undefined()?),
 		})
 	}
 }

@@ -156,4 +156,23 @@ test('Node ASN1 Tests', (t) => {
 
 	t.deepEqual(js.intoArray(), input)
 	t.deepEqual(lib.ASN1toJS(asn1.toBER()), input)
+
+	/**
+	 * JStoASN1 with undefined should throw an error
+	 */
+	t.throws(function() {
+		lib.JStoASN1(undefined);
+	});
+
+	/**
+	 * ... unless "allowUndefined" is set to true
+	 */
+	t.is(lib.JStoASN1(undefined, true), undefined);
+
+
+	/**
+	 * An array with an element containing undefined should be elided
+	 */
+	const arrayCheck = lib.ASN1toJS(lib.JStoASN1(['Test', undefined]).toBER());
+	t.deepEqual(arrayCheck, ['Test']);
 })

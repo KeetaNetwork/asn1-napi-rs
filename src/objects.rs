@@ -529,6 +529,7 @@ impl Encode for ASN1Data {
 				.format(ASN1_DATE_TIME_GENERAL_FORMAT)
 				.to_string()
 				.encode_with_tag(encoder, Tag::GENERALIZED_TIME),
+			ASN1Data::Undefined => Ok(()),
 			_ => {
 				if let Ok(open) = Open::try_from(self) {
 					open.encode(encoder)

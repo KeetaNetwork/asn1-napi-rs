@@ -23,7 +23,7 @@ use constants::{
 };
 use napi::{
 	bindgen_prelude::{Array, Buffer},
-	Env, JsBigInt, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
+	Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
 use thiserror::Error;
@@ -99,11 +99,31 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 }
 
 /// Convert JS input into ASN1 BER encoded data.
+// May return undefined if "allowUndefined" is set to true and the input is undefined.
 #[napi(strict, js_name = "JStoASN1", ts_return_type = "any")]
 pub fn js_to_asn1(
+	env: Env,
 	#[napi(ts_arg_type = "Readonly<ASN1AnyJS>")] data: JsUnknown,
-) -> Result<ASN1Encoder> {
-	ASN1Encoder::js_new(data)
+	#[napi(ts_arg_type = "boolean")] allow_undefined: Option<JsBoolean>,
+) -> Result<JsUnknown> {
+	if data.get_type()? == ValueType::Undefined {
+		if allow_undefined.is_some() && allow_undefined.unwrap().get_value()? {
+			return Ok(env.get_undefined()?.into_unknown());
+		} else {
+			return Err(ASN1NAPIError::UnknownJsArgument.into());
+		}
+	}
+
+	let instance = ASN1Encoder::js_new(data);
+
+	match instance {
+		Ok(encoder) => Ok(encoder
+			.into_instance(env)
+			.unwrap()
+			.as_object(env)
+			.into_unknown()),
+		Err(error) => Err(error),
+	}
 }
 
 /// Convert ASN1 BER encoded data to JS native types.
