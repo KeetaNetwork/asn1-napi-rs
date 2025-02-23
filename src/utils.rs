@@ -235,6 +235,51 @@ pub(crate) fn is_ia5_string(data: &str) -> bool {
 	data.chars().all(|c| c.is_ascii())
 }
 
+/// The "rasn" library authors forgot to include a way to get the header
+/// length for a tag, so we must re-implement ASN.1 BER parsing here.
+pub(crate) fn header_length(data: &[u8]) -> Result<usize, &'static str> {
+	let mut pos = 0;
+	if data.is_empty() {
+		return Err("data too short for tag");
+	}
+
+	// Parse the tag field.
+	// The first byte contains the tag class, primitive/constructed bit, and tag number.
+	let first_tag_byte = data[0];
+	pos += 1;
+
+	// If the tag number is 31 (0x1F), then the tag is encoded in multiple bytes.
+	if first_tag_byte & 0x1F == 0x1F {
+		// Continue reading bytes until a byte with the high bit clear is found.
+		while pos < data.len() {
+			let tag_byte = data[pos];
+			pos += 1;
+			if tag_byte & 0x80 == 0 {
+				break;
+			}
+		}
+	}
+
+	// Ensure there's at least one byte for the length field.
+	if pos >= data.len() {
+		return Err("data too short for length field");
+	}
+
+	// Parse the length field.
+	let length_byte = data[pos];
+	pos += 1;
+	if length_byte & 0x80 != 0 {
+		// Long form: the low 7 bits tell us how many subsequent bytes represent the length.
+		let num_len_bytes = (length_byte & 0x7F) as usize;
+		if pos + num_len_bytes > data.len() {
+			return Err("data too short for long form length bytes");
+		}
+		pos += num_len_bytes;
+	}
+
+	Ok(pos)
+}
+
 #[cfg(test)]
 mod test {
 	use chrono::{TimeZone, Utc};

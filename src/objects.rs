@@ -18,7 +18,7 @@ use crate::{
 	types::ASN1Data,
 	utils::{
 		get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements,
-		is_ia5_string, is_printable_string,
+		is_ia5_string, is_printable_string, header_length
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
@@ -475,8 +475,14 @@ impl Encode for ASN1Context {
 		if self.kind == "explicit" {
 			encoder.encode_explicit_prefix(tag, &*self.contains)?;
 		} else if self.kind == "implicit" {
-			if let Ok(data) = self.contains.to_bytes() {
-				encoder.encode_octet_string(tag, &data)?;
+			/* Encode the contents as a DER-encoded value */
+			if let Ok(data) = rasn::der::encode(&*self.contains) {
+				if let Ok(skip_bytes) = header_length(&data) {
+					/* Modify the tag to be the new context tag */
+					encoder.encode_octet_string(tag, &data[skip_bytes..].to_vec().as_slice())?;
+				} else {
+					return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UknownContext));
+				}
 			} else {
 				return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UknownContext));
 			}
@@ -499,8 +505,8 @@ impl Decode for ASN1Context {
 			}
 		} else {
 			let bytes = asn1.get_raw().to_vec();
-			let length = bytes[1] as usize;
-			let extracted_data = bytes[2..2 + length].to_vec();
+			let length = header_length(&bytes).unwrap();
+			let extracted_data = bytes[length..].to_vec();
 			let data = ASN1Data::Unknown(Any::new(extracted_data));
 			return Ok(Self::new(tag.value, data, "implicit"));
 		}

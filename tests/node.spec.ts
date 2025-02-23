@@ -71,6 +71,7 @@ test('Complex structure', (t) => {
 		} as lib.ASN1BitString,
 	]
 
+	// @ts-ignore XXX:TODO: FIX TYPES
 	const ber = lib.JStoASN1(input).toBER()
 	const data = lib.ASN1toJS(ber)
 
@@ -79,7 +80,7 @@ test('Complex structure', (t) => {
 
 test('Node ASN1 Tests', (t) => {
 	const integers = [-1, -0x7f, -0x80, -0xffffff, -0x7fffff]
-	const input = [
+	const checks = [
 		BigInt(-1),
 		BigInt(-0xffffff),
 		BigInt(-0x7fffff),
@@ -141,21 +142,92 @@ test('Node ASN1 Tests', (t) => {
 				100n,
 			],
 		} as lib.ASN1ContextTag,
-	]
+		{
+			type: 'context',
+			kind: 'implicit',
+			value: 5,
+			contains: new Uint8Array([0x54, 0x65, 0x73, 0x74]).buffer
+		} as lib.ASN1ContextTag,
+	];
 
-	input.map((v) => {
+	let workingDate = new Date(60000);
+
+	const nonCanonicalChecks = [
+		{
+			in: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: 'Test',
+			} as lib.ASN1ContextTag,
+			out: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: new Uint8Array([0x54, 0x65, 0x73, 0x74]).buffer
+			} as lib.ASN1ContextTag,
+		},
+		{
+			in: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: 10,
+			} as lib.ASN1ContextTag,
+			out: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: new Uint8Array([0x0A]).buffer
+			} as lib.ASN1ContextTag,
+		},
+		{
+			in: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: workingDate,
+			} as lib.ASN1ContextTag,
+			out: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: new Uint8Array([0x37, 0x30, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x31, 0x30, 0x30, 0x5a]).buffer
+			} as lib.ASN1ContextTag,
+		},
+		{
+			in: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: new Array(1000).fill(0).map(() => workingDate)
+			} as lib.ASN1ContextTag,
+			out: {
+				type: 'context',
+				kind: 'implicit',
+				value: 5,
+				contains: new Uint8Array(new Array(1000).fill(0).map(() => [0x17, 0x0d, 0x37, 0x30, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x31, 0x30, 0x30, 0x5a]).flat()).buffer
+			} as lib.ASN1ContextTag,
+		}
+	];
+
+	checks.map((v) => {
 		t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), v)
-	})
+	});
 
 	integers.map((v) => {
 		t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v).toBER()), BigInt(v))
-	})
+	});
 
-	const asn1 = lib.JStoASN1(input)
+	nonCanonicalChecks.map((v) => {
+		t.deepEqual(lib.ASN1toJS(lib.JStoASN1(v.in).toBER()), v.out)
+	});
+
+	const asn1 = lib.JStoASN1(checks)
 	const js = new lib.ASN1Decoder(asn1.toBER())
 
-	t.deepEqual(js.intoArray(), input)
-	t.deepEqual(lib.ASN1toJS(asn1.toBER()), input)
+	t.deepEqual(js.intoArray(), checks)
+	t.deepEqual(lib.ASN1toJS(asn1.toBER()), checks)
 
 	/**
 	 * JStoASN1 with undefined should throw an error
@@ -168,7 +240,6 @@ test('Node ASN1 Tests', (t) => {
 	 * ... unless "allowUndefined" is set to true
 	 */
 	t.is(lib.JStoASN1(undefined, true), undefined);
-
 
 	/**
 	 * An array with an element containing undefined should be elided
