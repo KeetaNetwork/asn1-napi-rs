@@ -2,6 +2,7 @@
 /node_modules
 /benchmark/results
 /*.node
+/keetanetwork-asn1-napi-rs-*.tgz
 /index.js
 /index.d.ts
 /__TMP__
