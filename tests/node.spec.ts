@@ -71,6 +71,7 @@ test('Complex structure', (t) => {
 		} as lib.ASN1BitString,
 	]
 
+	// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 	// @ts-ignore XXX:TODO: FIX TYPES
 	const ber = lib.JStoASN1(input).toBER()
 	const data = lib.ASN1toJS(ber)
@@ -150,7 +151,7 @@ test('Node ASN1 Tests', (t) => {
 		} as lib.ASN1ContextTag,
 	];
 
-	let workingDate = new Date(60000);
+	const workingDate = new Date(60000);
 
 	const nonCanonicalChecks = [
 		{
