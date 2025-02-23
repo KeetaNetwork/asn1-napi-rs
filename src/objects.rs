@@ -18,7 +18,7 @@ use crate::{
 	types::ASN1Data,
 	utils::{
 		get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements,
-		is_ia5_string, is_printable_string, header_length
+		header_length, is_ia5_string, is_printable_string,
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
