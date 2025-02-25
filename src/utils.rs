@@ -10,7 +10,7 @@ use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
-	constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
+	constants::{ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS, ASN1_DATE_TIME_UTC_FORMAT},
 	get_js_obj_from_asn_string,
 	types::{ASN1Data, JsValue},
 	ASN1NAPIError,
@@ -59,7 +59,7 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
 		),
 		0x18 => (
 			Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME),
-			ASN1_DATE_TIME_GENERAL_FORMAT,
+			ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS,
 		),
 		_ => bail!(ASN1NAPIError::MalformedData),
 	};

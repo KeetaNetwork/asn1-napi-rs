@@ -451,13 +451,15 @@ impl Encode for ASN1Date {
 					)?;
 				}
 				"general" => {
+					let format = if &self.date.timestamp_millis() % 1000 == 0 {
+						ASN1_DATE_TIME_GENERAL_FORMAT
+					} else {
+						ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+					};
+
 					encoder.encode_utf8_string(
 						Tag::GENERALIZED_TIME,
-						&self
-							.date
-							.with_timezone(&Utc)
-							.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-							.to_string(),
+						&self.date.with_timezone(&Utc).format(format).to_string(),
 					)?;
 				}
 				_ => {
@@ -471,13 +473,15 @@ impl Encode for ASN1Date {
 								.to_string(),
 						)?;
 					} else {
+						let format = if &self.date.timestamp_millis() % 1000 == 0 {
+							ASN1_DATE_TIME_GENERAL_FORMAT
+						} else {
+							ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+						};
+
 						encoder.encode_utf8_string(
 							Tag::GENERALIZED_TIME,
-							&self
-								.date
-								.with_timezone(&Utc)
-								.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-								.to_string(),
+							&self.date.with_timezone(&Utc).format(format).to_string(),
 						)?;
 					}
 				}
@@ -562,11 +566,18 @@ impl Encode for ASN1Data {
 			},
 			ASN1Data::Utf8String(string) => string.encode_with_tag(encoder, Tag::UTF8_STRING),
 			ASN1Data::UtcTime(date) => date.encode(encoder),
-			ASN1Data::GeneralizedTime(date) => date
-				.naive_utc()
-				.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-				.to_string()
-				.encode_with_tag(encoder, Tag::GENERALIZED_TIME),
+			ASN1Data::GeneralizedTime(date) => {
+				let format = if &date.timestamp_millis() % 1000 == 0 {
+					ASN1_DATE_TIME_GENERAL_FORMAT
+				} else {
+					ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+				};
+
+				date.naive_utc()
+					.format(format)
+					.to_string()
+					.encode_with_tag(encoder, Tag::GENERALIZED_TIME)
+			}
 			ASN1Data::Undefined => Ok(()),
 			_ => {
 				if let Ok(open) = Open::try_from(self) {
