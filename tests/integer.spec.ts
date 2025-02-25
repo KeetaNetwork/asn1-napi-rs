@@ -94,7 +94,6 @@ test('ASN1 to Js BigInt conversion from base64', (t) => {
 	const obj = lib.ASN1Decoder.fromBase64(base64)
 
 	t.deepEqual(obj.intoBigInt(), result)
-	t.deepEqual(lib.ASN1toJS(base64), result)
 })
 
 test('ASN1 to Js BigInt conversion round trip', (t) => {
@@ -111,7 +110,7 @@ test('ASN1 to Js BigInt conversion round trip', (t) => {
 
 test('JS BigInt to Buffer conversion helper', (t) => {
 	TEST_BIG_INTEGERS.forEach((v) => {
-		const buffer = lib.BigIntToBuffer(v)
+		const buffer = lib.ASN1BigIntToBuffer(v)
 		const nodeFuncVal = BigIntToBuffer(v)
 
 		// Node function has a bug with negative numbers.

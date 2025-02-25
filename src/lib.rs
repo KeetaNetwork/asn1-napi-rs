@@ -23,7 +23,7 @@ use constants::{
 };
 use napi::{
 	bindgen_prelude::{Array, Buffer},
-	Env, JsBigInt, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
+	Env, JsBigInt, JsBoolean, JsBuffer, JsDate, JsNumber, JsObject, JsString, JsUnknown, ValueType,
 };
 use num_bigint::BigInt;
 use thiserror::Error;
@@ -33,7 +33,10 @@ use objects::{
 	TypedObject, ASN1OID,
 };
 use types::{ASN1Data, JsValue};
-use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
+use utils::{
+	convert_string_kind_to_tag, get_big_int_from_js, get_string_kind_tag, get_vec_from_js_unknown,
+	get_words_from_big_int,
+};
 
 /// Library errors
 #[derive(Error, Eq, PartialEq, Debug)]
@@ -69,7 +72,7 @@ enum ASN1NAPIError {
 }
 
 /// Helper to convert a JS bigint to a JS Buffer
-#[napi(strict, js_name = "BigIntToBuffer")]
+#[napi(strict, js_name = "ASN1BigIntToBuffer")]
 pub fn get_buffer_from_big_int(data: JsBigInt) -> Result<Buffer> {
 	Ok(get_big_int_from_js(data.into_unknown()?)?
 		.to_signed_bytes_be()
@@ -83,8 +86,12 @@ pub fn get_big_int_from_buffer(env: Env, data: Buffer) -> Result<JsBigInt> {
 }
 
 /// Helper to convert a JS number to a JS BigInt
-#[napi(strict, js_name = "IntegerToBigInt")]
-pub fn get_big_int_from_integer(env: Env, data: i64) -> Result<JsBigInt> {
+#[napi(strict, js_name = "ASN1IntegerToBigInt")]
+pub fn get_big_int_from_integer(
+	env: Env,
+	// Using 'object' because the JS library is using internal object that we don't have here.
+	#[napi(ts_arg_type = "object | number")] data: i64,
+) -> Result<JsBigInt> {
 	get_js_big_int_from_big_int(env, BigInt::from(data))
 }
 
@@ -95,27 +102,40 @@ pub fn get_big_int_from_string(env: Env, data: String) -> Result<JsBigInt> {
 }
 
 /// Convert JS input into ASN1 BER encoded data.
-#[napi(strict, js_name = "JStoASN1")]
+// May return undefined if "allowUndefined" is set to true and the input is undefined.
+#[napi(strict, js_name = "JStoASN1", ts_return_type = "any")]
 pub fn js_to_asn1(
-	#[napi(
-		ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-	)]
-	data: JsUnknown,
-) -> Result<ASN1Encoder> {
-	ASN1Encoder::js_new(data)
+	env: Env,
+	#[napi(ts_arg_type = "Readonly<ASN1AnyJS>")] data: JsUnknown,
+	#[napi(ts_arg_type = "boolean")] allow_undefined: Option<JsBoolean>,
+) -> Result<JsUnknown> {
+	if data.get_type()? == ValueType::Undefined {
+		if allow_undefined.is_some() && allow_undefined.unwrap().get_value()? {
+			return Ok(env.get_undefined()?.into_unknown());
+		} else {
+			return Err(ASN1NAPIError::UnknownJsArgument.into());
+		}
+	}
+
+	let instance = ASN1Encoder::js_new(data);
+
+	match instance {
+		Ok(encoder) => Ok(encoder
+			.into_instance(env)
+			.unwrap()
+			.as_object(env)
+			.into_unknown()),
+		Err(error) => Err(error),
+	}
 }
 
 /// Convert ASN1 BER encoded data to JS native types.
 /// This supports number arrays, Buffer, ArrayBufferLike, base64 or hex
 /// encded strings, or null input.
-#[napi(
-	strict,
-	js_name = "ASN1toJS",
-	ts_return_type = "BigInt | bigint | number | Date  | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-)]
+#[napi(strict, js_name = "ASN1toJS", ts_return_type = "ASN1AnyJS")]
 pub fn asn1_to_js(
 	env: Env,
-	#[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
+	#[napi(ts_arg_type = "ArrayBuffer")] data: JsUnknown,
 ) -> Result<JsUnknown> {
 	let asn1 = match data.get_type()? {
 		ValueType::String => {
@@ -227,10 +247,34 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 				env.create_string(ASN1Set::TYPE)?,
 			)?;
 			obj.set_named_property::<JsObject>(ASN1_OBJECT_NAME_KEY, oid)?;
-			obj.set_named_property::<JsString>(
-				ASN1_OBJECT_VALUE_KEY,
-				env.create_string(&val.value)?,
-			)?;
+
+			/* Convert the value to an appropriate String representation */
+			let value_kind = convert_string_kind_to_tag(&val.value.kind)?;
+			let value_nominal_kind = get_string_kind_tag(&val.value.value);
+
+			/* If they are different, we need to return the value as an ASN1String */
+			if value_kind != value_nominal_kind {
+				let mut asn1_string = env.create_object()?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_TYPE_KEY,
+					env.create_string(ASN1String::TYPE)?,
+				)?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_KIND_KEY,
+					env.create_string(&val.value.kind)?,
+				)?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_VALUE_KEY,
+					env.create_string(&val.value.value)?,
+				)?;
+				obj.set_named_property::<JsObject>(ASN1_OBJECT_VALUE_KEY, asn1_string)?;
+			} else {
+				/* Otherwise we need to return the value as a primitive string */
+				obj.set_named_property::<JsString>(
+					ASN1_OBJECT_VALUE_KEY,
+					env.create_string(&val.value.value)?,
+				)?;
+			}
 		}
 		ASN1Object::String(val) => {
 			obj.set_named_property::<JsString>(

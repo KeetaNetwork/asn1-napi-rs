@@ -18,7 +18,8 @@ use crate::{
 	types::ASN1Data,
 	utils::{
 		get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements,
-		is_ia5_string, is_printable_string,
+		get_string_kind_from_tag, get_string_kind_tag, header_length, is_ia5_string,
+		is_printable_string,
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
@@ -32,6 +33,7 @@ static NAME_TO_OID_MAP: phf::Map<&'static str, &'static [u32]> = phf_map! {
 	"ecdsa" => &[1, 2, 840, 10045, 2, 1],
 	"ed25519" => &[1, 3, 101, 112],
 	"secp256k1" => &[1, 3, 132, 0, 10],
+	"secp256r1" => &[1, 2, 840, 10045, 3, 1, 7],
 	"account" => &[2, 23, 42, 2, 7, 11],
 	"serialNumber" => &[2, 5, 4, 5],
 	"member" => &[2, 5, 4, 31],
@@ -49,6 +51,7 @@ static OID_TO_NAME_MAP: phf::Map<&'static str, &'static str> = phf_map! {
 	"1.2.840.10045.2.1" => "ecdsa",
 	"1.3.101.112" => "ed25519",
 	"1.3.132.0.10" => "secp256k1",
+	"1.2.840.10045.3.1.7" => "secp256r1",
 	"2.23.42.2.7.11" => "account",
 	"2.5.4.5" => "serialNumber",
 	"2.5.4.31" => "member",
@@ -112,7 +115,8 @@ pub struct ASN1Set {
 	#[napi(ts_type = "'set'")]
 	pub r#type: &'static str,
 	pub name: ASN1OID,
-	pub value: String,
+	#[napi(ts_type = "string | ASN1String")]
+	pub value: ASN1String,
 }
 
 /// ASN1 String.
@@ -226,10 +230,10 @@ impl ASN1OID {
 
 impl ASN1Set {
 	/// Create a new instance of an ASN1Set from an ASN1OID and value.
-	pub fn new<T: ToString>(name: ASN1OID, value: T) -> Self {
+	pub fn new(name: ASN1OID, value: ASN1String) -> Self {
 		Self {
 			r#type: Self::TYPE,
-			value: value.to_string(),
+			value: value,
 			name,
 		}
 	}
@@ -242,6 +246,32 @@ impl ASN1Context {
 			value,
 			contains: Box::new(data),
 			kind: kind.to_string(),
+		}
+	}
+}
+
+impl ASN1String {
+	/// Create a new instance of an ASN1String from a string.
+	pub fn new(value: String, kind: Option<String>) -> Self {
+		let kind = if let Some(kind) = kind {
+			kind
+		} else {
+			get_string_kind_from_tag(get_string_kind_tag(&value)).to_string()
+		};
+
+		Self {
+			r#type: Self::TYPE,
+			kind,
+			value,
+		}
+	}
+
+	pub fn get_kind_tag(&self) -> Tag {
+		match self.kind.as_str() {
+			"ia5" => Tag::IA5_STRING,
+			"utf8" => Tag::UTF8_STRING,
+			"printable" => Tag::PRINTABLE_STRING,
+			_ => Tag::UTF8_STRING,
 		}
 	}
 }
@@ -333,10 +363,11 @@ impl Decode for ASN1OID {
 
 impl Encode for ASN1Set {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+		let string_tag = self.value.get_kind_tag();
 		encoder.encode_set(tag, |encoder| {
 			encoder.encode_sequence(Tag::SEQUENCE, |encoder| {
 				self.name.encode(encoder)?;
-				self.value.encode_with_tag(encoder, Tag::PRINTABLE_STRING)?;
+				self.value.encode_with_tag(encoder, string_tag)?;
 				Ok(())
 			})?;
 
@@ -358,6 +389,8 @@ impl Decode for ASN1Set {
 					let asn1 = ASN1Decoder::new(value.as_bytes().to_owned());
 
 					if let Ok(value) = asn1.into_string() {
+						let kind = get_string_kind_from_tag(*asn1.get_tag());
+						let value = ASN1String::new(value, Some(kind.to_string()));
 						Ok(Self::new(oid, value))
 					} else {
 						Err(<D as Decoder>::Error::custom(
@@ -418,13 +451,15 @@ impl Encode for ASN1Date {
 					)?;
 				}
 				"general" => {
+					let format = if &self.date.timestamp_millis() % 1000 == 0 {
+						ASN1_DATE_TIME_GENERAL_FORMAT
+					} else {
+						ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+					};
+
 					encoder.encode_utf8_string(
 						Tag::GENERALIZED_TIME,
-						&self
-							.date
-							.with_timezone(&Utc)
-							.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-							.to_string(),
+						&self.date.with_timezone(&Utc).format(format).to_string(),
 					)?;
 				}
 				_ => {
@@ -438,13 +473,15 @@ impl Encode for ASN1Date {
 								.to_string(),
 						)?;
 					} else {
+						let format = if &self.date.timestamp_millis() % 1000 == 0 {
+							ASN1_DATE_TIME_GENERAL_FORMAT
+						} else {
+							ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+						};
+
 						encoder.encode_utf8_string(
 							Tag::GENERALIZED_TIME,
-							&self
-								.date
-								.with_timezone(&Utc)
-								.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-								.to_string(),
+							&self.date.with_timezone(&Utc).format(format).to_string(),
 						)?;
 					}
 				}
@@ -474,8 +511,14 @@ impl Encode for ASN1Context {
 		if self.kind == "explicit" {
 			encoder.encode_explicit_prefix(tag, &*self.contains)?;
 		} else if self.kind == "implicit" {
-			if let Ok(data) = self.contains.to_bytes() {
-				encoder.encode_octet_string(tag, &data)?;
+			/* Encode the contents as a DER-encoded value */
+			if let Ok(data) = rasn::der::encode(&*self.contains) {
+				if let Ok(skip_bytes) = header_length(&data) {
+					/* Modify the tag to be the new context tag */
+					encoder.encode_octet_string(tag, &data[skip_bytes..].to_vec().as_slice())?;
+				} else {
+					return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UknownContext));
+				}
 			} else {
 				return Err(<E as Encoder>::Error::custom(ASN1NAPIError::UknownContext));
 			}
@@ -498,8 +541,8 @@ impl Decode for ASN1Context {
 			}
 		} else {
 			let bytes = asn1.get_raw().to_vec();
-			let length = bytes[1] as usize;
-			let extracted_data = bytes[2..2 + length].to_vec();
+			let length = header_length(&bytes).unwrap();
+			let extracted_data = bytes[length..].to_vec();
 			let data = ASN1Data::Unknown(Any::new(extracted_data));
 			return Ok(Self::new(tag.value, data, "implicit"));
 		}
@@ -523,11 +566,19 @@ impl Encode for ASN1Data {
 			},
 			ASN1Data::Utf8String(string) => string.encode_with_tag(encoder, Tag::UTF8_STRING),
 			ASN1Data::UtcTime(date) => date.encode(encoder),
-			ASN1Data::GeneralizedTime(date) => date
-				.naive_utc()
-				.format(ASN1_DATE_TIME_GENERAL_FORMAT)
-				.to_string()
-				.encode_with_tag(encoder, Tag::GENERALIZED_TIME),
+			ASN1Data::GeneralizedTime(date) => {
+				let format = if &date.timestamp_millis() % 1000 == 0 {
+					ASN1_DATE_TIME_GENERAL_FORMAT
+				} else {
+					ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS
+				};
+
+				date.naive_utc()
+					.format(format)
+					.to_string()
+					.encode_with_tag(encoder, Tag::GENERALIZED_TIME)
+			}
+			ASN1Data::Undefined => Ok(()),
 			_ => {
 				if let Ok(open) = Open::try_from(self) {
 					open.encode(encoder)
@@ -678,11 +729,17 @@ impl TryFrom<JsObject> for ASN1Set {
 	/// Attempt to convert a JsObject instance into an ASN1Set instance.
 	fn try_from(value: JsObject) -> Result<Self, Self::Error> {
 		let oid = ASN1OID::try_from(value.get_named_property::<JsObject>("name")?)?;
-		let value = value
-			.get_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY)?
-			.into_utf16()?;
+		let value = value.get_named_property::<JsUnknown>(ASN1_OBJECT_VALUE_KEY)?;
 
-		Ok(Self::new(oid, value.as_str()?))
+		let value = match value.get_type() {
+			Ok(ValueType::String) => ASN1String::new(
+				value.coerce_to_string()?.into_utf8()?.as_str()?.to_string(),
+				None,
+			),
+			_ => ASN1String::try_from(value.coerce_to_object()?)?,
+		};
+
+		Ok(Self::new(oid, value))
 	}
 }
 
@@ -810,9 +867,9 @@ impl TryFrom<JsObject> for ASN1Object {
 		let field = obj.get_named_property::<JsUnknown>(ASN1_OBJECT_TYPE_KEY)?;
 
 		if let Ok(ValueType::String) = field.get_type() {
-			let name = get_string_from_js(field)?;
+			let r#type = get_string_from_js(field)?;
 
-			Ok(match name.as_str() {
+			Ok(match r#type.as_str() {
 				ASN1OID::TYPE => ASN1Object::Oid(ASN1OID::try_from(obj)?),
 				ASN1Set::TYPE => ASN1Object::Set(ASN1Set::try_from(obj)?),
 				ASN1String::TYPE => ASN1Object::String(ASN1String::try_from(obj)?),

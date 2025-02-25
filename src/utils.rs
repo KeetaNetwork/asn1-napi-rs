@@ -10,7 +10,7 @@ use num_bigint::{BigInt, Sign};
 use rasn::{ber::de::DecoderOptions, types::Utf8String, Decode, Tag};
 
 use crate::{
-	constants::{ASN1_DATE_TIME_GENERAL_FORMAT, ASN1_DATE_TIME_UTC_FORMAT},
+	constants::{ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS, ASN1_DATE_TIME_UTC_FORMAT},
 	get_js_obj_from_asn_string,
 	types::{ASN1Data, JsValue},
 	ASN1NAPIError,
@@ -59,7 +59,7 @@ pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Resu
 		),
 		0x18 => (
 			Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME),
-			ASN1_DATE_TIME_GENERAL_FORMAT,
+			ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS,
 		),
 		_ => bail!(ASN1NAPIError::MalformedData),
 	};
@@ -233,6 +233,80 @@ pub(crate) fn is_printable_string(data: &str) -> bool {
 /// Check if a string is an IA5 string.
 pub(crate) fn is_ia5_string(data: &str) -> bool {
 	data.chars().all(|c| c.is_ascii())
+}
+
+/// Return the kind of string this should be encoded as
+pub(crate) fn get_string_kind_tag(data: &str) -> Tag {
+	if is_printable_string(data) {
+		Tag::PRINTABLE_STRING
+	} else if is_ia5_string(data) {
+		Tag::IA5_STRING
+	} else {
+		Tag::UTF8_STRING
+	}
+}
+
+pub(crate) fn convert_string_kind_to_tag(kind: &str) -> Result<Tag> {
+	Ok(match kind {
+		"printable" => Tag::PRINTABLE_STRING,
+		"ia5" => Tag::IA5_STRING,
+		"utf8" => Tag::UTF8_STRING,
+		_ => bail!(ASN1NAPIError::UnknownStringFormat),
+	})
+}
+
+pub(crate) fn get_string_kind_from_tag(tag: Tag) -> &'static str {
+	match tag {
+		Tag::PRINTABLE_STRING => "printable",
+		Tag::IA5_STRING => "ia5",
+		Tag::UTF8_STRING => "utf8",
+		_ => "unknown",
+	}
+}
+
+/// The "rasn" library authors forgot to include a way to get the header
+/// length for a tag, so we must re-implement ASN.1 BER parsing here.
+pub(crate) fn header_length(data: &[u8]) -> Result<usize, &'static str> {
+	let mut pos = 0;
+	if data.is_empty() {
+		return Err("data too short for tag");
+	}
+
+	// Parse the tag field.
+	// The first byte contains the tag class, primitive/constructed bit, and tag number.
+	let first_tag_byte = data[0];
+	pos += 1;
+
+	// If the tag number is 31 (0x1F), then the tag is encoded in multiple bytes.
+	if first_tag_byte & 0x1F == 0x1F {
+		// Continue reading bytes until a byte with the high bit clear is found.
+		while pos < data.len() {
+			let tag_byte = data[pos];
+			pos += 1;
+			if tag_byte & 0x80 == 0 {
+				break;
+			}
+		}
+	}
+
+	// Ensure there's at least one byte for the length field.
+	if pos >= data.len() {
+		return Err("data too short for length field");
+	}
+
+	// Parse the length field.
+	let length_byte = data[pos];
+	pos += 1;
+	if length_byte & 0x80 != 0 {
+		// Long form: the low 7 bits tell us how many subsequent bytes represent the length.
+		let num_len_bytes = (length_byte & 0x7F) as usize;
+		if pos + num_len_bytes > data.len() {
+			return Err("data too short for long form length bytes");
+		}
+		pos += num_len_bytes;
+	}
+
+	Ok(pos)
 }
 
 #[cfg(test)]

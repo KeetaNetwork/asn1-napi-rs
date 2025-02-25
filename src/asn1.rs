@@ -16,9 +16,7 @@ use rasn::{
 
 use crate::{
 	get_js_array_from_asn_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
-	objects::{
-		ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1Set, ASN1OID,
-	},
+	objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1OID},
 	types::{ASN1Data, JsType},
 	utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
 	ASN1NAPIError,
@@ -64,12 +62,7 @@ impl ASN1Iterator {
 impl ASN1Encoder {
 	/// Create a new ASN1Encoder instance from any ASN1 encodable type.
 	#[napi(constructor)]
-	pub fn js_new(
-		#[napi(
-			ts_arg_type = "BigInt | bigint | number | Date | ArrayBufferLike | Buffer | ASN1OID | ASN1Set | ASN1String | ASN1Date | ASN1ContextTag | ASN1BitString | string | boolean | any[] | null"
-		)]
-		data: JsUnknown,
-	) -> Result<Self> {
+	pub fn js_new(#[napi(ts_arg_type = "ASN1AnyJS")] data: JsUnknown) -> Result<Self> {
 		Ok(Self(ASN1Data::try_from(data)?))
 	}
 
@@ -293,12 +286,6 @@ impl ASN1Decoder {
 		))
 	}
 
-	/// Convert to an Set object.
-	#[napi]
-	pub fn into_set(&self) -> Result<ASN1Set> {
-		self.decode::<ASN1Set>()
-	}
-
 	/// Convert to an Context object.
 	#[napi]
 	pub fn into_context_tag(&self, env: Env) -> Result<ASN1ContextTag> {
@@ -503,15 +490,21 @@ mod test {
 					"sha256WithEcDSA",
 				)))]),
 				ASN1Data::Array(vec![
-					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.6"), "US"))),
-					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.8"), "CA"))),
+					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+						ASN1OID::new("2.5.4.6"),
+						ASN1String::new("US".to_string(), None),
+					))),
+					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+						ASN1OID::new("2.5.4.8"),
+						ASN1String::new("CA".to_string(), None),
+					))),
 					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
 						ASN1OID::new("2.5.4.10"),
-						"Keeta",
+						ASN1String::new("Keeta".to_string(), None),
 					))),
 					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
 						ASN1OID::new("commonName"),
-						"node1.keeta.com",
+						ASN1String::new("node1.keeta.com".to_string(), None),
 					))),
 				]),
 				ASN1Data::Array(vec![
@@ -523,19 +516,28 @@ mod test {
 					)),
 				]),
 				ASN1Data::Array(vec![
-					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.6"), "US"))),
-					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(ASN1OID::new("2.5.4.8"), "CA"))),
+					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+						ASN1OID::new("2.5.4.6"),
+						ASN1String::new("US".to_string(), None),
+					))),
+					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
+						ASN1OID::new("2.5.4.8"),
+						ASN1String::new("CA".to_string(), Some("utf8".to_string())),
+					))),
 					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
 						ASN1OID::new("2.5.4.7"),
-						"Los Angeles",
+						ASN1String::new("Los Angeles".to_string(), Some("utf8".to_string())),
 					))),
 					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
 						ASN1OID::new("2.5.4.10"),
-						"Keeta",
+						ASN1String::new("Keeta".to_string(), Some("utf8".to_string())),
 					))),
 					ASN1Data::Object(ASN1Object::Set(ASN1Set::new(
 						ASN1OID::new("commonName"),
-						"client1.node1.keeta.com",
+						ASN1String::new(
+							"client1.node1.keeta.com".to_string(),
+							Some("utf8".to_string()),
+						),
 					))),
 				]),
 				ASN1Data::Array(vec![
@@ -673,17 +675,6 @@ mod test {
 	}
 
 	#[test]
-	fn test_asn1_into_set() {
-		let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
-		let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
-
-		assert_eq!(
-			obj.into_set().unwrap(),
-			ASN1Set::new(ASN1OID::new("commonName"), "test")
-		);
-	}
-
-	#[test]
 	fn test_asn1_into_bit_string() {
 		let encoded = "AwYAChAUIAk=";
 		let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
@@ -691,17 +682,6 @@ mod test {
 		assert_eq!(
 			BitString::from(obj.get_raw_bit_string().unwrap()),
 			BitString::from_vec(vec![0xa, 0x10, 0x14, 0x20, 0x9])
-		);
-	}
-
-	#[test]
-	fn test_asn1_into_object() {
-		let encoded = "MQ0wCwYDVQQDEwR0ZXN0";
-		let obj = ASN1Decoder::from_base64(encoded.into()).expect("base64");
-
-		assert_eq!(
-			obj.into_set().unwrap(),
-			ASN1Set::new(ASN1OID::new("commonName"), "test")
 		);
 	}
 
