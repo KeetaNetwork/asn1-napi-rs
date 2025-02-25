@@ -33,7 +33,10 @@ use objects::{
 	TypedObject, ASN1OID,
 };
 use types::{ASN1Data, JsValue};
-use utils::{get_big_int_from_js, get_vec_from_js_unknown, get_words_from_big_int};
+use utils::{
+	convert_string_kind_to_tag, get_big_int_from_js, get_string_kind_tag, get_vec_from_js_unknown,
+	get_words_from_big_int,
+};
 
 /// Library errors
 #[derive(Error, Eq, PartialEq, Debug)]
@@ -244,10 +247,34 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 				env.create_string(ASN1Set::TYPE)?,
 			)?;
 			obj.set_named_property::<JsObject>(ASN1_OBJECT_NAME_KEY, oid)?;
-			obj.set_named_property::<JsString>(
-				ASN1_OBJECT_VALUE_KEY,
-				env.create_string(&val.value)?,
-			)?;
+
+			/* Convert the value to an appropriate String representation */
+			let value_kind = convert_string_kind_to_tag(&val.value.kind)?;
+			let value_nominal_kind = get_string_kind_tag(&val.value.value);
+
+			/* If they are different, we need to return the value as an ASN1String */
+			if value_kind != value_nominal_kind {
+				let mut asn1_string = env.create_object()?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_TYPE_KEY,
+					env.create_string(ASN1String::TYPE)?,
+				)?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_KIND_KEY,
+					env.create_string(&val.value.kind)?,
+				)?;
+				asn1_string.set_named_property::<JsString>(
+					ASN1_OBJECT_VALUE_KEY,
+					env.create_string(&val.value.value)?,
+				)?;
+				obj.set_named_property::<JsObject>(ASN1_OBJECT_VALUE_KEY, asn1_string)?;
+			} else {
+				/* Otherwise we need to return the value as a primitive string */
+				obj.set_named_property::<JsString>(
+					ASN1_OBJECT_VALUE_KEY,
+					env.create_string(&val.value.value)?,
+				)?;
+			}
 		}
 		ASN1Object::String(val) => {
 			obj.set_named_property::<JsString>(

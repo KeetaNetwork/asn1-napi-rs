@@ -18,7 +18,8 @@ use crate::{
 	types::ASN1Data,
 	utils::{
 		get_oid_elements_from_string, get_string_from_js, get_string_from_oid_elements,
-		header_length, is_ia5_string, is_printable_string,
+		get_string_kind_from_tag, get_string_kind_tag, header_length, is_ia5_string,
+		is_printable_string,
 	},
 	ASN1Decoder, ASN1NAPIError,
 };
@@ -115,7 +116,7 @@ pub struct ASN1Set {
 	pub r#type: &'static str,
 	pub name: ASN1OID,
 	#[napi(ts_type = "string | ASN1String")]
-	pub value: String,
+	pub value: ASN1String,
 }
 
 /// ASN1 String.
@@ -229,10 +230,10 @@ impl ASN1OID {
 
 impl ASN1Set {
 	/// Create a new instance of an ASN1Set from an ASN1OID and value.
-	pub fn new<T: ToString>(name: ASN1OID, value: T) -> Self {
+	pub fn new(name: ASN1OID, value: ASN1String) -> Self {
 		Self {
 			r#type: Self::TYPE,
-			value: value.to_string(),
+			value: value,
 			name,
 		}
 	}
@@ -245,6 +246,32 @@ impl ASN1Context {
 			value,
 			contains: Box::new(data),
 			kind: kind.to_string(),
+		}
+	}
+}
+
+impl ASN1String {
+	/// Create a new instance of an ASN1String from a string.
+	pub fn new(value: String, kind: Option<String>) -> Self {
+		let kind = if let Some(kind) = kind {
+			kind
+		} else {
+			get_string_kind_from_tag(get_string_kind_tag(&value)).to_string()
+		};
+
+		Self {
+			r#type: Self::TYPE,
+			kind,
+			value,
+		}
+	}
+
+	pub fn get_kind_tag(&self) -> Tag {
+		match self.kind.as_str() {
+			"ia5" => Tag::IA5_STRING,
+			"utf8" => Tag::UTF8_STRING,
+			"printable" => Tag::PRINTABLE_STRING,
+			_ => Tag::UTF8_STRING,
 		}
 	}
 }
@@ -336,10 +363,11 @@ impl Decode for ASN1OID {
 
 impl Encode for ASN1Set {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+		let string_tag = self.value.get_kind_tag();
 		encoder.encode_set(tag, |encoder| {
 			encoder.encode_sequence(Tag::SEQUENCE, |encoder| {
 				self.name.encode(encoder)?;
-				self.value.encode_with_tag(encoder, Tag::PRINTABLE_STRING)?;
+				self.value.encode_with_tag(encoder, string_tag)?;
 				Ok(())
 			})?;
 
@@ -361,6 +389,8 @@ impl Decode for ASN1Set {
 					let asn1 = ASN1Decoder::new(value.as_bytes().to_owned());
 
 					if let Ok(value) = asn1.into_string() {
+						let kind = get_string_kind_from_tag(*asn1.get_tag());
+						let value = ASN1String::new(value, Some(kind.to_string()));
 						Ok(Self::new(oid, value))
 					} else {
 						Err(<D as Decoder>::Error::custom(
@@ -688,11 +718,17 @@ impl TryFrom<JsObject> for ASN1Set {
 	/// Attempt to convert a JsObject instance into an ASN1Set instance.
 	fn try_from(value: JsObject) -> Result<Self, Self::Error> {
 		let oid = ASN1OID::try_from(value.get_named_property::<JsObject>("name")?)?;
-		let value = value
-			.get_named_property::<JsString>(ASN1_OBJECT_VALUE_KEY)?
-			.into_utf16()?;
+		let value = value.get_named_property::<JsUnknown>(ASN1_OBJECT_VALUE_KEY)?;
 
-		Ok(Self::new(oid, value.as_str()?))
+		let value = match value.get_type() {
+			Ok(ValueType::String) => ASN1String::new(
+				value.coerce_to_string()?.into_utf8()?.as_str()?.to_string(),
+				None,
+			),
+			_ => ASN1String::try_from(value.coerce_to_object()?)?,
+		};
+
+		Ok(Self::new(oid, value))
 	}
 }
 

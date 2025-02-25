@@ -106,6 +106,21 @@ test('Node ASN1 Tests', (t) => {
 			name: { type: 'oid', oid: '2.15216.1.999' },
 			value: 'Test',
 		} as lib.ASN1Set,
+		{
+			type: 'set',
+			name: { type: 'oid', oid: '2.15216.1.999' },
+			value: 'Tes_',
+		} as lib.ASN1Set,
+		{
+			type: 'set',
+			name: { type: 'oid', oid: '2.15216.1.999' },
+			value: 'Tes\u1133',
+		} as lib.ASN1Set,
+		{
+			type: 'set',
+			name: { type: 'oid', oid: '2.15216.1.999' },
+			value: { type: 'string', kind: 'utf8', value: 'Test' } as lib.ASN1String,
+		} as lib.ASN1Set,
 		Buffer.from('This is a Test String!\uD83D\uDE03'),
 		'This is a Test String!',
 		'This is a Test String!\uD83D\uDE03',

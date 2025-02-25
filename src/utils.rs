@@ -235,6 +235,35 @@ pub(crate) fn is_ia5_string(data: &str) -> bool {
 	data.chars().all(|c| c.is_ascii())
 }
 
+/// Return the kind of string this should be encoded as
+pub(crate) fn get_string_kind_tag(data: &str) -> Tag {
+	if is_printable_string(data) {
+		Tag::PRINTABLE_STRING
+	} else if is_ia5_string(data) {
+		Tag::IA5_STRING
+	} else {
+		Tag::UTF8_STRING
+	}
+}
+
+pub(crate) fn convert_string_kind_to_tag(kind: &str) -> Result<Tag> {
+	Ok(match kind {
+		"printable" => Tag::PRINTABLE_STRING,
+		"ia5" => Tag::IA5_STRING,
+		"utf8" => Tag::UTF8_STRING,
+		_ => bail!(ASN1NAPIError::UnknownStringFormat),
+	})
+}
+
+pub(crate) fn get_string_kind_from_tag(tag: Tag) -> &'static str {
+	match tag {
+		Tag::PRINTABLE_STRING => "printable",
+		Tag::IA5_STRING => "ia5",
+		Tag::UTF8_STRING => "utf8",
+		_ => "unknown",
+	}
+}
+
 /// The "rasn" library authors forgot to include a way to get the header
 /// length for a tag, so we must re-implement ASN.1 BER parsing here.
 pub(crate) fn header_length(data: &[u8]) -> Result<usize, &'static str> {
