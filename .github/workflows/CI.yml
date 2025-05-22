@@ -49,6 +49,7 @@ jobs:
             nodejsArch: 'x64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+            dockerPlatform: linux/amd64
             useZig: false
             build: |
               set -xe
@@ -62,6 +63,7 @@ jobs:
             nodejsArch: 'x64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            dockerPlatform: linux/amd64
             useZig: false
             build: |
               set -xe
@@ -92,6 +94,7 @@ jobs:
             nodejsArch: 'arm64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            dockerPlatform: linux/arm64
             useZig: false
             build: |
               set -xe
@@ -106,6 +109,7 @@ jobs:
             nodejsArch: 'arm64'
             docker: true
             dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            dockerPlatform: linux/arm64
             useZig: false
             build: |
               set -xe
@@ -340,7 +344,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}
-          options: '-v ${{ github.workspace }}:/build -w /build'
+          options: '-v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}'
           run: |
             set -e
             ( (apt update && apt install -y make) || ( apk add make ) )

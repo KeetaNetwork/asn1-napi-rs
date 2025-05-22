@@ -351,7 +351,6 @@ function computeCompatibleArchs(githubHost) {
 	const hostPlain = hostWork.filter(function(part) {
 		return(part !== undefined);
 	}).join('-');
-console.debug({hostPlain, hostWork});
 	switch (hostPlain) {
 		case 'ubuntu':
 			compatibleArchs.add('x64');
@@ -370,7 +369,6 @@ console.debug({hostPlain, hostWork});
 			compatibleArchs.add('x86');
 			break;
 	}
-console.debug({hostPlain, compatibleArchs: compatibleArchs.keys()});
 
 	return(compatibleArchs);
 }
@@ -508,6 +506,7 @@ for (const target of buildTargets) {
 	if (config.dockerImage) {
 		output.push('            docker: true');
 		output.push(`            dockerImage: ${config.dockerImage}`);
+		output.push(`            dockerPlatform: ${computeDockerPlatform({ ...config, target: target })}`);
 	} else {
 		output.push('            docker: false');
 	}
@@ -809,7 +808,7 @@ if (anyTargetHas({ dockerImage: IsSet, testable: Not(false) })) {
 		'        uses: addnab/docker-run-action@v3',
 		'        with:',
 		'          image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}',
-		'          options: \'-v ${{ github.workspace }}:/build -w /build\'',
+		'          options: \'-v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}\'',
 		...emitMultiLineScript(5, 'run', runCommandsDocker)
 	);
 }
