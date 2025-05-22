@@ -61,12 +61,12 @@ const targetConfiguration = {
 	},
 	'x86_64-unknown-linux-gnu': {
 		gitHubHost: 'ubuntu-latest',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian',
+		dockerImage: 'docker.io/library/rust:1-bullseye',
 		postBuildCommands: ['strip *.node']
 	},
 	'x86_64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
+		dockerImage: 'docker.io/library/rust:1-alpine',
 		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'musl'
@@ -85,19 +85,16 @@ const targetConfiguration = {
 	},
 	'aarch64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest-arm64-m',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
-		preBuildCommands: [
-			'rustup target add aarch64-unknown-linux-musl'
-		],
-		postBuildCommands: ['/aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node'],
+		dockerImage: 'docker.io/library/rust:1-alpine',
+		postBuildCommands: ['PATH="${PATH}:/aarch64-linux-musl-cross/bin" aarch64-linux-musl-strip *.node'],
 		npmConfig: {
-			'supportedArchitectures:libc': 'glibc',
+			'supportedArchitectures:libc': 'musl',
 			'supportedArchitectures:cpu': 'arm64'
 		}
 	},
 	'aarch64-unknown-linux-gnu': {
 		gitHubHost: 'ubuntu-latest-arm64-m',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64',
+		dockerImage: 'docker.io/library/rust:1-bullseye',
 		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'glibc',
@@ -512,6 +509,10 @@ for (const target of buildTargets) {
 	}
 
 	if (config.useZig) {
+		if (config.dockerImage) {
+			throw(new Error(`Cannot use Zig with Docker while processing target ${target}`));
+		}
+
 		output.push('            useZig: true');
 	} else {
 		output.push('            useZig: false');
@@ -537,8 +538,21 @@ for (const target of buildTargets) {
 		buildCommandAdd = ` NAPI_LOCAL_BUILD_ARGS='--target ${config.napiTarget}'`
 	}
 
+	let installNodeJSCommands;
+	if (config.dockerImage) {
+		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
+		installNodeJSCommands = [
+			'mkdir .nodejs',
+			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz`,
+			'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
+			'rm -f .nodejs/nodejs.tar.gz',
+			'export PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
+		];
+	}
+
 	const buildCommandsInput = [
 		'set -xe',
+		...(installNodeJSCommands ?? []),
 		`rustup target add ${target}`,
 		...(config.preBuildCommands ?? []),
 		`make all${buildCommandAdd}`,

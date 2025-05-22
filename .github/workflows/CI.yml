@@ -48,11 +48,16 @@ jobs:
             qemu: false
             nodejsArch: 'x64'
             docker: true
-            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+            dockerImage: docker.io/library/rust:1-bullseye
             dockerPlatform: linux/amd64
             useZig: false
             build: |
               set -xe
+              mkdir .nodejs
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz
+              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
+              rm -f .nodejs/nodejs.tar.gz
+              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               rustup target add x86_64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-gnu'
               strip *.node
@@ -62,11 +67,16 @@ jobs:
             qemu: false
             nodejsArch: 'x64'
             docker: true
-            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            dockerImage: docker.io/library/rust:1-alpine
             dockerPlatform: linux/amd64
             useZig: false
             build: |
               set -xe
+              mkdir .nodejs
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz
+              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
+              rm -f .nodejs/nodejs.tar.gz
+              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               rustup target add x86_64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-musl'
               strip *.node
@@ -93,26 +103,35 @@ jobs:
             qemu: false
             nodejsArch: 'arm64'
             docker: true
-            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            dockerImage: docker.io/library/rust:1-alpine
             dockerPlatform: linux/arm64
             useZig: false
             build: |
               set -xe
-              rustup target add aarch64-unknown-linux-musl
+              mkdir .nodejs
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz
+              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
+              rm -f .nodejs/nodejs.tar.gz
+              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               rustup target add aarch64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
-              /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
+              PATH="${PATH}:/aarch64-linux-musl-cross/bin" aarch64-linux-musl-strip *.node
               make test
           - target: aarch64-unknown-linux-gnu
             host: ubuntu-latest-arm64-m
             qemu: false
             nodejsArch: 'arm64'
             docker: true
-            dockerImage: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            dockerImage: docker.io/library/rust:1-bullseye
             dockerPlatform: linux/arm64
             useZig: false
             build: |
               set -xe
+              mkdir .nodejs
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz
+              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
+              rm -f .nodejs/nodejs.tar.gz
+              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               rustup target add aarch64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-gnu'
               aarch64-unknown-linux-gnu-strip *.node
@@ -262,7 +281,7 @@ jobs:
             dockerVariant: alpine
             dockerPlatform: linux/arm64
             npmConfig: |
-              npm config set supportedArchitectures:libc glibc
+              npm config set supportedArchitectures:libc musl
               npm config set supportedArchitectures:cpu arm64
             qemu: false
           - target: aarch64-unknown-linux-gnu
