@@ -87,7 +87,7 @@ jobs:
               strip -x *.node
               make test
           - target: aarch64-unknown-linux-musl
-            host: ubuntu-latest-l
+            host: ubuntu-latest-arm64-m
             qemu: false
             nodejsArch: ''
             docker: true
@@ -100,7 +100,7 @@ jobs:
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
           - target: aarch64-unknown-linux-gnu
-            host: ubuntu-latest-l
+            host: ubuntu-latest-arm64-m
             qemu: false
             nodejsArch: ''
             docker: true
@@ -248,27 +248,23 @@ jobs:
             docker: false
             qemu: false
           - target: aarch64-unknown-linux-musl
-            host: ubuntu-latest-l
+            host: ubuntu-latest-arm64-m
             nodejsArch: ''
-            docker: false
+            docker: true
             dockerVariant: alpine
             npmConfig: |
               npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures:cpu arm64
-            qemu: true
-            qemuPlatform: arm64
-            qemuDockerPlatform: linux/arm64
+            qemu: false
           - target: aarch64-unknown-linux-gnu
-            host: ubuntu-latest-l
+            host: ubuntu-latest-arm64-m
             nodejsArch: ''
-            docker: false
+            docker: true
             dockerVariant: slim
             npmConfig: |
               npm config set supportedArchitectures:libc glibc
               npm config set supportedArchitectures:cpu arm64
-            qemu: true
-            qemuPlatform: arm64
-            qemuDockerPlatform: linux/arm64
+            qemu: false
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
             nodejsArch: ''

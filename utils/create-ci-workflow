@@ -84,7 +84,7 @@ const targetConfiguration = {
 		postBuildCommands: ['strip -x *.node']
 	},
 	'aarch64-unknown-linux-musl': {
-		gitHubHost: 'ubuntu-latest-l',
+		gitHubHost: 'ubuntu-latest-arm64-m',
 		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
 		preBuildCommands: [
 			'rustup target add aarch64-unknown-linux-musl'
@@ -93,21 +93,15 @@ const targetConfiguration = {
 		npmConfig: {
 			'supportedArchitectures:libc': 'glibc',
 			'supportedArchitectures:cpu': 'arm64'
-		},
-		testQEMU: {
-			platform: 'linux/arm64'
 		}
 	},
 	'aarch64-unknown-linux-gnu': {
-		gitHubHost: 'ubuntu-latest-l',
+		gitHubHost: 'ubuntu-latest-arm64-m',
 		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64',
 		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'glibc',
 			'supportedArchitectures:cpu': 'arm64'
-		},
-		testQEMU: {
-			platform: 'linux/arm64'
 		}
 	},
 	'armv7-unknown-linux-gnueabihf': {
@@ -152,18 +146,6 @@ const targetConfiguration = {
 const buildTargets = Object.keys(targetConfiguration).filter(function(target) {
 	return(targetConfiguration[target].works !== false);
 });
-const buildTargets_ = [
-	'x86_64-unknown-linux-gnu',
-	'armv7-linux-androideabi',
-	'armv7-unknown-linux-gnueabihf'
-];
-
-const buildTargets__ = [
-	'aarch64-apple-darwin',
-	'x86_64-unknown-linux-gnu',
-	'x86_64-unknown-linux-musl',
-	'aarch64-unknown-linux-musl'
-];
 
 /**
  * Which targets to emit in the resulting package
