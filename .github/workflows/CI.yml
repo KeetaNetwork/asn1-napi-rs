@@ -74,7 +74,7 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash
+              apk add --no-cache bash make alpine-sdk openssl-dev
               export PATH="${PATH}:/usr/local/bin"
               apk add --no-cache curl
               mkdir .nodejs
@@ -115,7 +115,7 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash
+              apk add --no-cache bash make alpine-sdk openssl-dev
               export PATH="${PATH}:/usr/local/bin"
               apk add --no-cache curl
               mkdir .nodejs

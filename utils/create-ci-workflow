@@ -552,13 +552,13 @@ for (const target of buildTargets) {
 		to.push('export PATH="${PATH}:/usr/local/bin"');
 	}
 
-	let installBashCommands;
+	let installAlpineDeps;
 	if (isAlpine) {
-		installBashCommands = [
-			'apk add --no-cache bash',
+		installAlpineDeps = [
+			'apk add --no-cache bash make alpine-sdk openssl-dev',
 		];
 
-		addUsrLocalBin(installBashCommands);
+		addUsrLocalBin(installAlpineDeps);
 	}
 
 	let installNodeJSCommands;
@@ -586,7 +586,7 @@ for (const target of buildTargets) {
 
 	const buildCommandsInput = [
 		'set -xe',
-		...(installBashCommands ?? []),
+		...(installAlpineDeps ?? []),
 		...(installNodeJSCommands ?? []),
 		'make node_modules',
 		`rustup target add ${target}`,
