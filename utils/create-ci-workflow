@@ -86,7 +86,7 @@ const targetConfiguration = {
 	'aarch64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest-arm64-m',
 		dockerImage: 'docker.io/library/rust:1-alpine',
-		postBuildCommands: ['PATH="${PATH}:/aarch64-linux-musl-cross/bin" aarch64-linux-musl-strip *.node'],
+		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'musl',
 			'supportedArchitectures:cpu': 'arm64'

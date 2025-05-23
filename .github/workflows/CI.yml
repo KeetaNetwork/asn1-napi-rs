@@ -126,7 +126,7 @@ jobs:
               make node_modules
               rustup target add aarch64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
-              PATH="${PATH}:/aarch64-linux-musl-cross/bin" aarch64-linux-musl-strip *.node
+              strip *.node
               make test
           - target: aarch64-unknown-linux-gnu
             host: ubuntu-latest-arm64-m
