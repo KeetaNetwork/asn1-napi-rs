@@ -60,8 +60,6 @@ jobs:
               rm -f .nodejs/nodejs.tar.gz
               PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               export PATH
-              which node
-              which npm
               node --version
               make node_modules
               rustup target add x86_64-unknown-linux-gnu
@@ -73,7 +71,7 @@ jobs:
             qemu: false
             nodejsArch: 'x64'
             docker: true
-            dockerImage: docker.io/library/rust:1-alpine
+            dockerImage: docker.io/library/rust:1-alpine3.18
             dockerPlatform: linux/amd64
             useZig: false
             build: |
@@ -81,15 +79,7 @@ jobs:
               apk add --no-cache bash make alpine-sdk openssl-dev xz which
               PATH="${PATH}:/usr/local/bin"
               export PATH
-              apk add --no-cache curl
-              mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz"
-              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
-              rm -f .nodejs/nodejs.tar.gz
-              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
-              export PATH
-              which node
-              which npm
+              apk add --no-cache nodejs npm
               node --version
               make node_modules
               rustup target add x86_64-unknown-linux-musl
@@ -119,7 +109,7 @@ jobs:
             qemu: false
             nodejsArch: 'arm64'
             docker: true
-            dockerImage: docker.io/library/rust:1-alpine
+            dockerImage: docker.io/library/rust:1-alpine3.18
             dockerPlatform: linux/arm64
             useZig: false
             build: |
@@ -127,15 +117,7 @@ jobs:
               apk add --no-cache bash make alpine-sdk openssl-dev xz which
               PATH="${PATH}:/usr/local/bin"
               export PATH
-              apk add --no-cache curl
-              mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz"
-              ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
-              rm -f .nodejs/nodejs.tar.gz
-              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
-              export PATH
-              which node
-              which npm
+              apk add --no-cache nodejs npm
               node --version
               make node_modules
               rustup target add aarch64-unknown-linux-musl
@@ -158,8 +140,6 @@ jobs:
               rm -f .nodejs/nodejs.tar.gz
               PATH="${PATH}:$(pwd -P)/.nodejs/bin"
               export PATH
-              which node
-              which npm
               node --version
               make node_modules
               rustup target add aarch64-unknown-linux-gnu

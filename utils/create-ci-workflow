@@ -14,6 +14,11 @@ const outputFile = path.resolve(path.join(__dirname, '..', '.github', 'workflows
 const nodeJSVersions = ['18', '20'];
 
 /**
+ * NodeJS Version to build against
+ */
+const nodeJSVersion = '18.20.8';
+
+/**
  * NodeJS Version to Build against
  */
 const mainNodeJSVersion = nodeJSVersions[0];
@@ -66,7 +71,8 @@ const targetConfiguration = {
 	},
 	'x86_64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest',
-		dockerImage: 'docker.io/library/rust:1-alpine',
+		/* We need Alpine 3.18 for the correct version of NodeJS */
+		dockerImage: 'docker.io/library/rust:1-alpine3.18',
 		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'musl'
@@ -85,7 +91,8 @@ const targetConfiguration = {
 	},
 	'aarch64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest-arm64-m',
-		dockerImage: 'docker.io/library/rust:1-alpine',
+		/* We need Alpine 3.18 for the correct version of NodeJS */
+		dockerImage: 'docker.io/library/rust:1-alpine3.18',
 		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'musl',
@@ -566,27 +573,24 @@ for (const target of buildTargets) {
 	if (config.dockerImage) {
 		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
 
-		let installCURLCommands;
 		if (isAlpine) {
-			installCURLCommands = [
-				'apk add --no-cache curl',
+			installNodeJSCommands = [
+				'apk add --no-cache nodejs npm',
+				'node --version'
 			];
 
-			addUsrLocalBin(installCURLCommands);
+			addUsrLocalBin(installNodeJSCommands);
+		} else {
+			installNodeJSCommands = [
+				'mkdir .nodejs',
+				`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v${nodeJSVersion}/node-v${nodeJSVersion}-linux-${nodeJSArch}.tar.xz"`,
+				'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
+				'rm -f .nodejs/nodejs.tar.gz',
+				'PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
+				'export PATH',
+				'node --version',
+			];
 		}
-
-		installNodeJSCommands = [
-			...(installCURLCommands ?? []),
-			'mkdir .nodejs',
-			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz"`,
-			'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
-			'rm -f .nodejs/nodejs.tar.gz',
-			'PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
-			'export PATH',
-			'which node',
-			'which npm',
-			'node --version',
-		];
 	}
 
 	const buildCommandsInput = [
@@ -741,7 +745,7 @@ for (const target of buildTargets) {
 		output.push(`            dockerVariant: ${dockerVariant}`);
 	} else if (config.dockerImage !== undefined) {
 		let dockerVariant = 'slim';
-		if (config.dockerImage.match(/-alpine$/)) {
+		if (config.dockerImage.match(/-alpine.*$/)) {
 			dockerVariant = 'alpine';
 		}
 		output.push(`            docker: true`);
