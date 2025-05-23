@@ -76,7 +76,7 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash make alpine-sdk openssl-dev xz which
+              apk add --no-cache bash make alpine-sdk build-base gcc openssl-dev
               PATH="${PATH}:/usr/local/bin"
               export PATH
               apk add --no-cache nodejs npm
@@ -114,7 +114,7 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash make alpine-sdk openssl-dev xz which
+              apk add --no-cache bash make alpine-sdk build-base gcc openssl-dev
               PATH="${PATH}:/usr/local/bin"
               export PATH
               apk add --no-cache nodejs npm
