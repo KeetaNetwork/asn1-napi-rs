@@ -95,7 +95,7 @@ const targetConfiguration = {
 	'aarch64-unknown-linux-gnu': {
 		gitHubHost: 'ubuntu-latest-arm64-m',
 		dockerImage: 'docker.io/library/rust:1-bullseye',
-		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
+		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'glibc',
 			'supportedArchitectures:cpu': 'arm64'
@@ -549,13 +549,14 @@ for (const target of buildTargets) {
 		}
 
 		addedUsrLocalBin = true;
-		to.push('export PATH="${PATH}:/usr/local/bin"');
+		to.push('PATH="${PATH}:/usr/local/bin"');
+		to.push('export PATH');
 	}
 
 	let installAlpineDeps;
 	if (isAlpine) {
 		installAlpineDeps = [
-			'apk add --no-cache bash make alpine-sdk openssl-dev xz',
+			'apk add --no-cache bash make alpine-sdk openssl-dev xz which',
 		];
 
 		addUsrLocalBin(installAlpineDeps);
@@ -580,7 +581,11 @@ for (const target of buildTargets) {
 			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz"`,
 			'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
 			'rm -f .nodejs/nodejs.tar.gz',
-			'export PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
+			'PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
+			'export PATH',
+			'which node',
+			'which npm',
+			'node --version',
 		];
 	}
 

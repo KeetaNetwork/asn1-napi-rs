@@ -58,7 +58,11 @@ jobs:
               curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
-              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              export PATH
+              which node
+              which npm
+              node --version
               make node_modules
               rustup target add x86_64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-gnu'
@@ -74,14 +78,19 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash make alpine-sdk openssl-dev xz
-              export PATH="${PATH}:/usr/local/bin"
+              apk add --no-cache bash make alpine-sdk openssl-dev xz which
+              PATH="${PATH}:/usr/local/bin"
+              export PATH
               apk add --no-cache curl
               mkdir .nodejs
               curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
-              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              export PATH
+              which node
+              which npm
+              node --version
               make node_modules
               rustup target add x86_64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-musl'
@@ -115,14 +124,19 @@ jobs:
             useZig: false
             build: |
               set -xe
-              apk add --no-cache bash make alpine-sdk openssl-dev xz
-              export PATH="${PATH}:/usr/local/bin"
+              apk add --no-cache bash make alpine-sdk openssl-dev xz which
+              PATH="${PATH}:/usr/local/bin"
+              export PATH
               apk add --no-cache curl
               mkdir .nodejs
               curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
-              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              export PATH
+              which node
+              which npm
+              node --version
               make node_modules
               rustup target add aarch64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
@@ -142,11 +156,15 @@ jobs:
               curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
-              export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              export PATH
+              which node
+              which npm
+              node --version
               make node_modules
               rustup target add aarch64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-gnu'
-              aarch64-unknown-linux-gnu-strip *.node
+              strip *.node
               make test
           - target: armv7-unknown-linux-gnueabihf
             host: ubuntu-latest
