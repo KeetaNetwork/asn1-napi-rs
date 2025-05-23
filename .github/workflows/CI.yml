@@ -55,7 +55,7 @@ jobs:
             build: |
               set -xe
               mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
@@ -75,7 +75,7 @@ jobs:
             build: |
               set -xe
               mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-x64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
@@ -113,7 +113,7 @@ jobs:
             build: |
               set -xe
               mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
@@ -133,7 +133,7 @@ jobs:
             build: |
               set -xe
               mkdir .nodejs
-              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz
+              curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-arm64.tar.xz"
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"

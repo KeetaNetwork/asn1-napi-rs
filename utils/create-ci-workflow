@@ -536,7 +536,7 @@ for (const target of buildTargets) {
 		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
 		installNodeJSCommands = [
 			'mkdir .nodejs',
-			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz`,
+			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz"`,
 			'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
 			'rm -f .nodejs/nodejs.tar.gz',
 			'export PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
