@@ -555,7 +555,7 @@ for (const target of buildTargets) {
 	let installAlpineDeps;
 	if (isAlpine) {
 		installAlpineDeps = [
-			'apk add --no-cache bash make alpine-sdk openssl-dev',
+			'apk add --no-cache bash make alpine-sdk openssl-dev xz',
 		];
 
 		addUsrLocalBin(installAlpineDeps);
