@@ -531,10 +531,51 @@ for (const target of buildTargets) {
 		buildCommandAdd = ` NAPI_LOCAL_BUILD_ARGS='--target ${config.napiTarget}'`
 	}
 
+	let isAlpine = false;
+	if (config.dockerImage && config.dockerImage.match(/-alpine/)) {
+		isAlpine = true;
+	}
+
+	let addedUsrLocalBin = false;
+	/**
+	 * Add /usr/local/bin to the PATH if it is not already there
+	 *
+	 * @param {string[]} to The array to add the command to
+	 * @returns {void} Nothing
+	 */
+	function addUsrLocalBin(to) {
+		if (addedUsrLocalBin) {
+			return;
+		}
+
+		addedUsrLocalBin = true;
+		to.push('export PATH="${PATH}:/usr/local/bin"');
+	}
+
+	let installBashCommands;
+	if (isAlpine) {
+		installBashCommands = [
+			'apk add --no-cache bash',
+		];
+
+		addUsrLocalBin(installBashCommands);
+	}
+
 	let installNodeJSCommands;
 	if (config.dockerImage) {
 		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
+
+		let installCURLCommands;
+		if (isAlpine) {
+			installCURLCommands = [
+				'apk add --no-cache curl',
+			];
+
+			addUsrLocalBin(installCURLCommands);
+		}
+
 		installNodeJSCommands = [
+			...(installCURLCommands ?? []),
 			'mkdir .nodejs',
 			`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v18.20.8/node-v18.20.8-linux-${nodeJSArch}.tar.xz"`,
 			'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
@@ -545,6 +586,7 @@ for (const target of buildTargets) {
 
 	const buildCommandsInput = [
 		'set -xe',
+		...(installBashCommands ?? []),
 		...(installNodeJSCommands ?? []),
 		'make node_modules',
 		`rustup target add ${target}`,
