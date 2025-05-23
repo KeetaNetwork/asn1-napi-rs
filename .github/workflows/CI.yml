@@ -39,6 +39,7 @@ jobs:
             useZig: false
             build: |
               set -xe
+              make node_modules
               rustup target add x86_64-apple-darwin
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-apple-darwin'
               strip -x *.node
@@ -58,6 +59,7 @@ jobs:
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              make node_modules
               rustup target add x86_64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-gnu'
               strip *.node
@@ -77,6 +79,7 @@ jobs:
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              make node_modules
               rustup target add x86_64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target x86_64-unknown-linux-musl'
               strip *.node
@@ -89,6 +92,7 @@ jobs:
             useZig: false
             build: |
               set -xe
+              make node_modules
               rustup target add aarch64-apple-darwin
               sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
               export CC=$(xcrun -f clang)
@@ -113,6 +117,7 @@ jobs:
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              make node_modules
               rustup target add aarch64-unknown-linux-musl
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-musl'
               PATH="${PATH}:/aarch64-linux-musl-cross/bin" aarch64-linux-musl-strip *.node
@@ -132,6 +137,7 @@ jobs:
               ( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )
               rm -f .nodejs/nodejs.tar.gz
               export PATH="${PATH}:$(pwd -P)/.nodejs/bin"
+              make node_modules
               rustup target add aarch64-unknown-linux-gnu
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-unknown-linux-gnu'
               aarch64-unknown-linux-gnu-strip *.node
@@ -148,6 +154,7 @@ jobs:
               sudo apt-get install gcc-arm-linux-gnueabihf -y
             build: |
               set -xe
+              make node_modules
               rustup target add armv7-unknown-linux-gnueabihf
               make all NAPI_LOCAL_BUILD_ARGS='--target armv7-unknown-linux-gnueabihf'
               arm-linux-gnueabihf-strip *.node
@@ -159,6 +166,7 @@ jobs:
             useZig: false
             build: |
               set -xe
+              make node_modules
               rustup target add aarch64-linux-android
               make all NAPI_LOCAL_BUILD_ARGS='--target aarch64-linux-android'
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
@@ -170,6 +178,7 @@ jobs:
             useZig: false
             build: |
               set -xe
+              make node_modules
               rustup target add armv7-linux-androideabi
               make all NAPI_LOCAL_BUILD_ARGS='--target armv7-linux-androideabi'
               ${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip *.node
@@ -186,9 +195,6 @@ jobs:
           check-latest: true
           cache: npm
           architecture: ${{ matrix.settings.nodejsArch }}
-      - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true && matrix.settings.qemu != true
-        run: make node_modules
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
@@ -214,8 +220,8 @@ jobs:
         with:
           image: ${{ matrix.settings.dockerImage }}
           options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}'
-          run: make node_modules && ${{ matrix.settings.build }}
-          shell: bash
+          run: ${{ matrix.settings.build }}
+          shell: sh
         env:
           CARGO_HOME: /usr/local/cargo
       - name: Build
@@ -320,9 +326,6 @@ jobs:
       - name: Setup NPM
         if: matrix.settings.npmConfig != '' && matrix.settings.docker != true && matrix.settings.qemu != true
         run: ${{ matrix.settings.npmConfig }}
-      - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true && matrix.settings.qemu != true
-        run: make node_modules
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -389,9 +392,6 @@ jobs:
           check-latest: true
           cache: npm
           architecture: ${{ matrix.settings.nodejsArch }}
-      - name: Install NodeJS Dependencies
-        if: matrix.settings.docker != true && matrix.settings.qemu != true
-        run: make node_modules
       - name: Download artifacts (IndexJS)
         uses: actions/download-artifact@v4
         with:

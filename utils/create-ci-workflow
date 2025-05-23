@@ -312,17 +312,10 @@ function commonTargetSetup(config) {
 		'          check-latest: true',
 		'          cache: npm',
 		'          architecture: ${{ matrix.settings.nodejsArch }}',
-	)
+	);
 
 	/* Setup anything that needs to be done before installing NodeJS dependencies */
-	result.push(...beforeNodeModules),
-
-	/* Install NodeJS Dependencies */
-	result.push(
-		'      - name: Install NodeJS Dependencies',
-		'        if: matrix.settings.docker != true && matrix.settings.qemu != true',
-		'        run: make node_modules',
-	);
+	result.push(...beforeNodeModules);
 
 	return(result);
 }
@@ -553,6 +546,7 @@ for (const target of buildTargets) {
 	const buildCommandsInput = [
 		'set -xe',
 		...(installNodeJSCommands ?? []),
+		'make node_modules',
 		`rustup target add ${target}`,
 		...(config.preBuildCommands ?? []),
 		`make all${buildCommandAdd}`,
@@ -625,8 +619,8 @@ if (anyTargetHas({ dockerImage: IsSet })) {
 		'        with:',
 		'          image: ${{ matrix.settings.dockerImage }}',
 		'          options: \'--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}\'',
-		'          run: make node_modules && ${{ matrix.settings.build }}',
-		'          shell: bash',
+		'          run: ${{ matrix.settings.build }}',
+		'          shell: sh',
 		'        env:',
 		'          CARGO_HOME: /usr/local/cargo',
 	);
