@@ -560,44 +560,70 @@ for (const target of buildTargets) {
 		to.push('export PATH');
 	}
 
-	let installAlpineDeps;
+	let installDistroDeps = [];
 	if (isAlpine) {
-		installAlpineDeps = [
-			'apk add --no-cache bash make alpine-sdk build-base gcc openssl-dev',
-		];
+		installDistroDeps.push(
+			'apk add --no-cache bash make alpine-sdk build-base gcc openssl-dev'
+		);
 
-		addUsrLocalBin(installAlpineDeps);
+		addUsrLocalBin(installDistroDeps);
 	}
 
-	let installNodeJSCommands;
-	if (config.dockerImage) {
+	let needNodeJS = false;
+	let needRust = false;
+	if (config.dockerImage && !config.dockerImage.match(/\/node:/)) {
+		needNodeJS = true;
+	}
+
+	if (config.dockerImage && !config.dockerImage.match(/\/rust:/)) {
+		needRust = true;
+	}
+
+	let installNodeJSCommands = [];
+	if (needNodeJS) {
 		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
 
 		if (isAlpine) {
-			installNodeJSCommands = [
-				'apk add --no-cache nodejs npm',
-				'node --version'
-			];
+			installNodeJSCommands.push(
+				'apk add --no-cache nodejs npm'
+			);
 
 			addUsrLocalBin(installNodeJSCommands);
 		} else {
-			installNodeJSCommands = [
+			installNodeJSCommands.push(
 				'mkdir .nodejs',
 				`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v${nodeJSVersion}/node-v${nodeJSVersion}-linux-${nodeJSArch}.tar.xz"`,
 				'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
 				'rm -f .nodejs/nodejs.tar.gz',
 				'PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
-				'export PATH',
-				'node --version',
-			];
+				'export PATH'
+			);
 		}
+	}
+
+	let installRustCommands = [];
+	if (needRust) {
+		throw(new Error(`Need to install Rust in Docker image -- not implemented ${target}`));
+	}
+
+	if (isAlpine && target.match(/aarch64.*linux.*musl/)) {
+		installRustCommands.push(
+			'echo \'#! /usr/bin/env sh\' > /usr/local/bin/aarch64-linux-musl-gcc',
+			'echo \'exec gcc "${@}"\' >> /usr/local/bin/aarch64-linux-musl-gcc',
+			'chmod +x /usr/local/bin/aarch64-linux-musl-gcc',
+		)
+
+		addUsrLocalBin(installRustCommands);
 	}
 
 	const buildCommandsInput = [
 		'set -xe',
-		...(installAlpineDeps ?? []),
-		...(installNodeJSCommands ?? []),
+		...installDistroDeps,
+		...installNodeJSCommands,
+		'node --version',
 		'make node_modules',
+		...installRustCommands,
+		'rustc --version',
 		`rustup target add ${target}`,
 		...(config.preBuildCommands ?? []),
 		`make all${buildCommandAdd}`,
