@@ -10,7 +10,7 @@
 		"type": "git",
 		"url": "git+ssh://git@github.com/KeetaNetwork/asn1-napi-rs.git"
 	},
-	"license": "Proprietary",
+	"license": "SEE LICENSE IN LICENSE",
 	"files": [
 		"index.d.ts",
 		"index.js",
