@@ -49,7 +49,7 @@ checksum = "37bf3594c4c988a53154954629820791dde498571819ae4ca50ca811e060cc95"
 
 [[package]]
 name = "asn1-napi-rs"
-version = "1.1.6"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "base64",
