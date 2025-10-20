@@ -18,7 +18,7 @@ use crate::{
 	constants::{ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_TYPE_KEY},
 	get_big_int_from_integer, get_js_big_int_from_big_int, get_js_obj_from_asn_data,
 	get_js_obj_from_asn_object,
-	objects::{ASN1Date, ASN1Object, ASN1RawBitString, TypedObject, ASN1OID},
+	objects::{ASN1Date, ASN1Object, ASN1RawBitString, ASN1Struct, TypedObject, ASN1OID},
 	utils::{
 		get_array_buffer_from_js, get_array_from_js, get_asn_date_type_from_js_unknown,
 		get_asn_string_type_from_js_unknown, get_big_int_from_js, get_boolean_from_js,
@@ -245,7 +245,20 @@ impl TryFrom<JsUnknown> for ASN1Data {
 			ValueType::Object if value.is_buffer()? => ASN1Data::Bytes(get_buffer_from_js(value)?),
 			ValueType::Object if value.is_date()? => get_asn_date_type_from_js_unknown(value)?,
 			ValueType::Object if value.is_array()? => ASN1Data::Array(get_array_from_js(value)?),
-			ValueType::Object => ASN1Data::Object(ASN1Object::try_from(value)?),
+			ValueType::Object => {
+				let object = value.coerce_to_object()?;
+				if let Ok(object_type) = object.get_named_property::<JsString>(ASN1_OBJECT_TYPE_KEY)
+				{
+					let object_type = object_type.into_utf8()?.as_str()?.to_string();
+					if object_type == ASN1Struct::TYPE {
+						return Ok(ASN1Data::Object(ASN1Object::Struct(ASN1Struct::try_from(
+							object,
+						)?)));
+					}
+				}
+
+				ASN1Data::Object(ASN1Object::try_from(object.into_unknown())?)
+			}
 			ValueType::Undefined => ASN1Data::Undefined,
 			_ => ASN1Data::Unknown(Any::new(get_buffer_from_js(value)?)),
 		})

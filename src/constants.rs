@@ -8,6 +8,10 @@ pub(crate) const ASN1_OBJECT_KIND_KEY: &str = "kind";
 pub(crate) const ASN1_OBJECT_DATE_KEY: &str = "date";
 /// Key string for "name" attribute of objects.
 pub(crate) const ASN1_OBJECT_NAME_KEY: &str = "name";
+/// Key string for "fieldNames" attribute of struct objects.
+pub(crate) const ASN1_OBJECT_FIELD_NAMES_KEY: &str = "fieldNames";
+/// Key string for "contains" attribute of struct objects.
+pub(crate) const ASN1_OBJECT_CONTAINS_KEY: &str = "contains";
 /// ASN1 Date format for GeneralizedTime but without milliseconds.
 pub(crate) const ASN1_DATE_TIME_GENERAL_FORMAT: &str = "%Y%m%d%H%M%SZ";
 /// ASN1 Date format for GeneralizedTime with milliseconds.
