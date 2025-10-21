@@ -26,6 +26,17 @@ interface ASN1BitString extends ASN1Object {
 	value: Buffer
 }
 
+interface ASN1Struct extends ASN1Object {
+	type: 'struct'
+	/**
+	 * Field names are optional if they appear in the schema
+	 */
+	fieldNames?: string[]
+	contains: {
+		[name: string]: ASN1AnyJS
+	}
+}
+
 type ASN1AnyJS =
 	| any[]
 	| bigint
@@ -36,6 +47,7 @@ type ASN1AnyJS =
 	| ASN1Set
 	| ASN1ContextTag
 	| ASN1BitString
+	| ASN1Struct
 	| string
 	| boolean
 	| null
@@ -169,6 +181,26 @@ function isASN1BitString(input: any): input is ASN1BitString {
 	return true
 }
 
+function isASN1Struct(input: any): input is ASN1Struct {
+	if (typeof input !== 'object' || input === null) {
+		return false
+	}
+
+	if (input.type !== 'struct') {
+		return false
+	}
+
+	if (!Array.isArray(input.fieldNames)) {
+		return false
+	}
+
+	if (typeof input.contains !== 'object' || input.contains === null) {
+		return false
+	}
+
+	return true
+}
+
 const oidMapDB: { [k: string]: string } = {
 	sha256: '2.16.840.1.101.3.4.2.1',
 	'sha3-256': '2.16.840.1.101.3.4.2.8',
@@ -273,6 +305,23 @@ export function JStoASN1(input: ASN1AnyJS): ASN1AnyASN {
 		constructedObject.idBlock.tagNumber = input.value
 		constructedObject.valueBlock.value.push(JStoASN1(input.contains))
 		return constructedObject
+	} else if (isASN1Struct(input)) {
+		// Structs are encoded as sequences
+		const structContainer = new asn1js.Sequence()
+		if (input.fieldNames === undefined) {
+			throw new Error('internal error: ASN1Struct is missing fieldNames')
+		}
+
+		for (const fieldName of input.fieldNames) {
+			const fieldValue = input.contains[fieldName]
+			if (fieldValue === undefined) {
+				// Skip over undefined values, they should be "optional" in the schema
+				continue
+			}
+
+			structContainer.valueBlock.value.push(JStoASN1(fieldValue))
+		}
+		return structContainer
 	} else if (typeof input === 'string') {
 		return new asn1js.PrintableString({ value: input })
 	} else if (typeof input === 'boolean') {
