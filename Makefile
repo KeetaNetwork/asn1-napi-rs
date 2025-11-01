@@ -67,6 +67,10 @@ do-lint: node_modules
 do-bench: node_modules index.js index.d.ts asn1-napi-rs.node
 	node -r @swc-node/register benchmark/bench.ts
 
+# Create an npm package locally
+do-npm-pack: node_modules
+	npm pack
+
 # Create an npm package
 do-npm-publish: node_modules
 	npm publish
@@ -81,4 +85,4 @@ distclean: clean
 	rm -rf target
 	rm -rf node_modules
 
-.PHONY: all help test do-test-no-dep-build do-test-cargo-only do-lint do-bench do-npm-publish clean distclean
+.PHONY: all help test do-test-no-dep-build do-test-cargo-only do-lint do-bench do-npm-publish no-npm-pack clean distclean
