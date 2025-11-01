@@ -85,4 +85,4 @@ distclean: clean
 	rm -rf target
 	rm -rf node_modules
 
-.PHONY: all help test do-test-no-dep-build do-test-cargo-only do-lint do-bench do-npm-publish no-npm-pack clean distclean
+.PHONY: all help test do-test-no-dep-build do-test-cargo-only do-lint do-bench do-npm-publish do-npm-pack clean distclean
