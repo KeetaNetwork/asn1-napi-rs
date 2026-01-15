@@ -14,12 +14,13 @@ mod utils;
 use std::str::FromStr;
 
 pub use crate::asn1::ASN1Decoder;
+use crate::objects::ASN1Struct;
 
 use anyhow::Result;
 use asn1::ASN1Encoder;
 use constants::{
-	ASN1_NULL, ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_KIND_KEY, ASN1_OBJECT_NAME_KEY,
-	ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY,
+	ASN1_NULL, ASN1_OBJECT_DATE_KEY, ASN1_OBJECT_FIELD_NAMES_KEY, ASN1_OBJECT_KIND_KEY,
+	ASN1_OBJECT_NAME_KEY, ASN1_OBJECT_TYPE_KEY, ASN1_OBJECT_VALUE_KEY,
 };
 use napi::{
 	bindgen_prelude::{Array, Buffer},
@@ -339,6 +340,26 @@ fn get_js_obj_from_asn_object(env: Env, data: ASN1Object) -> Result<JsObject> {
 				"contains",
 				get_js_unknown_from_asn1_data(env, *val.contains)?,
 			)?;
+		}
+		ASN1Object::Struct(val) => {
+			obj.set_named_property::<JsString>(
+				ASN1_OBJECT_TYPE_KEY,
+				env.create_string(ASN1Struct::TYPE)?,
+			)?;
+
+			let mut js_field_names = env.create_array_with_length(val.0.len())?;
+			let mut js_contains = env.create_object()?;
+			for (index, asn1_data) in val.0.into_iter().enumerate() {
+				let field_name = format!("field_{index}");
+				js_field_names.set_element(index as u32, env.create_string(&field_name)?)?;
+				js_contains.set_named_property::<JsUnknown>(
+					&field_name,
+					get_js_unknown_from_asn1_data(env, asn1_data)?,
+				)?;
+			}
+
+			obj.set_named_property::<JsObject>(ASN1_OBJECT_FIELD_NAMES_KEY, js_field_names)?;
+			obj.set_named_property::<JsObject>(ASN1_OBJECT_VALUE_KEY, js_contains)?;
 		}
 	};
 

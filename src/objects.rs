@@ -76,6 +76,8 @@ pub enum ASN1Object {
 	Date(ASN1Date),
 	#[rasn(tag(universal, 3))]
 	BitString(ASN1RawBitString),
+	#[rasn(tag(universal, 16))]
+	Struct(ASN1Struct),
 	#[rasn(tag(context, 0))]
 	Context(ASN1Context),
 }
@@ -164,6 +166,23 @@ pub struct ASN1BitString {
 	pub unused_bits: Option<u8>,
 }
 
+/// ASN1 Struct represented as a sequence of ASN1Data values.
+#[derive(AsnType, Decode, Encode, Clone, Eq, PartialEq, Debug)]
+#[rasn(delegate)]
+pub struct ASN1Struct(pub Vec<ASN1Data>);
+
+/// Shim to surface ASN1Struct in generated TypeScript declarations only.
+#[napi(object, js_name = "ASN1Struct")]
+#[allow(dead_code)]
+pub struct ASN1StructShim {
+	#[napi(ts_type = "'struct'")]
+	pub r#type: &'static str,
+	#[napi(js_name = "fieldNames")]
+	pub field_names: Option<Vec<String>>,
+	#[napi(ts_type = "Record<string, ASN1AnyJS>")]
+	pub contains: JsUnknown,
+}
+
 /// Get an oid as u32 words from a canonically named identifier.
 fn get_oid_from_name<T: AsRef<str>>(name: T) -> Result<&'static [u32]> {
 	if let Some(oid) = NAME_TO_OID_MAP.get(name.as_ref()) {
@@ -200,6 +219,7 @@ fn get_name_from_oid_string<T: AsRef<str>>(oid: T) -> Result<&'static str> {
 pub trait TypedObject<'a> {
 	const TYPE: &'a str;
 
+	#[allow(dead_code)]
 	fn get_type() -> &'a str {
 		Self::TYPE
 	}
@@ -306,6 +326,7 @@ type_object!(ASN1Set, "set");
 type_object!(ASN1String, "string");
 type_object!(ASN1Date, "date");
 type_object!(ASN1ContextTag, "context");
+type_object!(ASN1Struct, "struct");
 
 impl Encode for ASN1RawBitString {
 	fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
@@ -563,6 +584,7 @@ impl Encode for ASN1Data {
 				ASN1Object::Date(date) => date.encode(encoder),
 				ASN1Object::BitString(bs) => bs.encode(encoder),
 				ASN1Object::Context(context) => context.encode(encoder),
+				ASN1Object::Struct(struct_value) => struct_value.encode(encoder),
 			},
 			ASN1Data::Utf8String(string) => string.encode_with_tag(encoder, Tag::UTF8_STRING),
 			ASN1Data::UtcTime(date) => date.encode(encoder),
@@ -635,6 +657,73 @@ impl TryFrom<JsObject> for ASN1RawBitString {
 		} else {
 			bail!(ASN1NAPIError::InvalidBitString)
 		}
+	}
+}
+
+impl TryFrom<JsObject> for ASN1Struct {
+	type Error = Error;
+
+	fn try_from(object: JsObject) -> Result<Self, Self::Error> {
+		if !object.has_named_property(ASN1_OBJECT_CONTAINS_KEY)? {
+			bail!(ASN1NAPIError::UnknownObject);
+		}
+
+		let contains = object.get_named_property::<JsObject>(ASN1_OBJECT_CONTAINS_KEY)?;
+		let mut ordered_names = Vec::new();
+
+		if object.has_named_property(ASN1_OBJECT_FIELD_NAMES_KEY)? {
+			let js_field_names =
+				object.get_named_property::<JsObject>(ASN1_OBJECT_FIELD_NAMES_KEY)?;
+			let len = js_field_names.get_array_length()?;
+			for index in 0..len {
+				ordered_names.push(
+					js_field_names
+						.get_element::<JsString>(index)?
+						.into_utf8()?
+						.as_str()?
+						.to_string(),
+				);
+			}
+		}
+
+		let property_names = contains.get_property_names()?;
+		let len = property_names.get_array_length()?;
+		let mut discovered = Vec::with_capacity(len as usize);
+		for index in 0..len {
+			discovered.push(
+				property_names
+					.get_element::<JsString>(index)?
+					.into_utf8()?
+					.as_str()?
+					.to_string(),
+			);
+		}
+
+		if ordered_names.is_empty() {
+			ordered_names = discovered.clone();
+		} else {
+			for name in discovered {
+				if !ordered_names.iter().any(|existing| existing == &name) {
+					ordered_names.push(name);
+				}
+			}
+		}
+
+		let mut values = Vec::new();
+		for field_name in ordered_names {
+			if !contains.has_named_property(&field_name)? {
+				continue;
+			}
+
+			let field_value = contains.get_named_property::<JsUnknown>(&field_name)?;
+			if field_value.get_type()? == ValueType::Undefined {
+				continue;
+			}
+
+			values.push(ASN1Data::try_from(field_value)?);
+		}
+
+		Ok(ASN1Struct(values))
 	}
 }
 
@@ -876,6 +965,7 @@ impl TryFrom<JsObject> for ASN1Object {
 				ASN1Date::TYPE => ASN1Object::Date(ASN1Date::try_from(obj)?),
 				ASN1BitString::TYPE => ASN1Object::BitString(ASN1RawBitString::try_from(obj)?),
 				ASN1ContextTag::TYPE => ASN1Object::Context(ASN1Context::try_from(obj)?),
+				ASN1Struct::TYPE => ASN1Object::Struct(ASN1Struct::try_from(obj)?),
 				_ => bail!(ASN1NAPIError::UnknownFieldProperty),
 			})
 		} else {
