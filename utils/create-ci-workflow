@@ -14,6 +14,11 @@ const outputFile = path.resolve(path.join(__dirname, '..', '.github', 'workflows
 const nodeJSVersions = ['18', '20'];
 
 /**
+ * NodeJS Version to build against
+ */
+const nodeJSVersion = '18.20.8';
+
+/**
  * NodeJS Version to Build against
  */
 const mainNodeJSVersion = nodeJSVersions[0];
@@ -61,12 +66,13 @@ const targetConfiguration = {
 	},
 	'x86_64-unknown-linux-gnu': {
 		gitHubHost: 'ubuntu-latest',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian',
+		dockerImage: 'docker.io/library/rust:1-bullseye',
 		postBuildCommands: ['strip *.node']
 	},
 	'x86_64-unknown-linux-musl': {
 		gitHubHost: 'ubuntu-latest',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
+		/* We need Alpine 3.18 for the correct version of NodeJS */
+		dockerImage: 'docker.io/library/rust:1-alpine3.18',
 		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'musl'
@@ -84,30 +90,22 @@ const targetConfiguration = {
 		postBuildCommands: ['strip -x *.node']
 	},
 	'aarch64-unknown-linux-musl': {
-		gitHubHost: 'ubuntu-latest-l',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine',
-		preBuildCommands: [
-			'rustup target add aarch64-unknown-linux-musl'
-		],
-		postBuildCommands: ['/aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node'],
+		gitHubHost: 'ubuntu-latest-arm64-m',
+		/* We need Alpine 3.18 for the correct version of NodeJS */
+		dockerImage: 'docker.io/library/rust:1-alpine3.18',
+		postBuildCommands: ['strip *.node'],
 		npmConfig: {
-			'supportedArchitectures:libc': 'glibc',
+			'supportedArchitectures:libc': 'musl',
 			'supportedArchitectures:cpu': 'arm64'
-		},
-		testQEMU: {
-			platform: 'linux/arm64'
 		}
 	},
 	'aarch64-unknown-linux-gnu': {
-		gitHubHost: 'ubuntu-latest-l',
-		dockerImage: 'ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64',
-		postBuildCommands: ['aarch64-unknown-linux-gnu-strip *.node'],
+		gitHubHost: 'ubuntu-latest-arm64-m',
+		dockerImage: 'docker.io/library/rust:1-bullseye',
+		postBuildCommands: ['strip *.node'],
 		npmConfig: {
 			'supportedArchitectures:libc': 'glibc',
 			'supportedArchitectures:cpu': 'arm64'
-		},
-		testQEMU: {
-			platform: 'linux/arm64'
 		}
 	},
 	'armv7-unknown-linux-gnueabihf': {
@@ -152,18 +150,6 @@ const targetConfiguration = {
 const buildTargets = Object.keys(targetConfiguration).filter(function(target) {
 	return(targetConfiguration[target].works !== false);
 });
-const buildTargets_ = [
-	'x86_64-unknown-linux-gnu',
-	'armv7-linux-androideabi',
-	'armv7-unknown-linux-gnueabihf'
-];
-
-const buildTargets__ = [
-	'aarch64-apple-darwin',
-	'x86_64-unknown-linux-gnu',
-	'x86_64-unknown-linux-musl',
-	'aarch64-unknown-linux-musl'
-];
 
 /**
  * Which targets to emit in the resulting package
@@ -333,57 +319,66 @@ function commonTargetSetup(config) {
 		'          check-latest: true',
 		'          cache: npm',
 		'          architecture: ${{ matrix.settings.nodejsArch }}',
-	)
+	);
 
 	/* Setup anything that needs to be done before installing NodeJS dependencies */
-	result.push(...beforeNodeModules),
-
-	/* Install NodeJS Dependencies */
-	result.push(
-		'      - name: Install NodeJS Dependencies',
-		'        if: matrix.settings.docker != true && matrix.settings.qemu != true',
-		'        run: make node_modules',
-	);
+	result.push(...beforeNodeModules);
 
 	return(result);
 }
 
 /**
- * Compute the NodeJS architecture to use for this target
+ * Compute the compatible architecture for a given GitHub Host
  *
- * @param {TargetConfigurationItem & { target: string }} targetConfig
- * @returns {string}
+ * @param {string} githubHost The GitHub host to compute the compatible architectures for
+ * @returns {Set<string>} The set of compatible architectures
  */
-function computeNodeJSArch(targetConfig) {
-	const target = targetConfig.target;
-	const host = targetConfig.gitHubHost;
-	/** @type {string[]} */
-	let compatibleArchs = [];
+function computeCompatibleArchs(githubHost) {
+	/** @type {Set<string>} */
+	let compatibleArchs = new Set();
 
 	/** @type {(string | undefined)[]} */
-	const hostWork = host.split('-');
+	const hostWork = githubHost.split('-');
 	if (hostWork[1] === 'latest') {
 		hostWork[1] = undefined;
 	}
-	if (hostWork[2] === 'l' || hostWork[2] === 'm') {
-		hostWork[2] = undefined;
+	if (hostWork.at(-1) === 'l' || hostWork.at(-1) === 'm') {
+		hostWork.pop();
 	}
 	const hostPlain = hostWork.filter(function(part) {
 		return(part !== undefined);
 	}).join('-');
 	switch (hostPlain) {
 		case 'ubuntu':
-			compatibleArchs = ['x64', 'x86'];
+			compatibleArchs.add('x64');
+			compatibleArchs.add('x86');
+			break;
+		case 'ubuntu-arm64':
+			compatibleArchs.add('arm64');
+			compatibleArchs.add('arm');
 			break;
 		case 'macos':
-			compatibleArchs = ['x64', 'arm64'];
+			compatibleArchs.add('x64');
+			compatibleArchs.add('arm64');
 			break;
 		case 'windows':
-			compatibleArchs = ['x64', 'x86'];
+			compatibleArchs.add('x64');
+			compatibleArchs.add('x86');
 			break;
 	}
 
-	let arch = '';
+	return(compatibleArchs);
+}
+
+/**
+ * Compute the architecture to use for this target
+ *
+ * @param {string} target The target to compute the architecture for
+ * @param {string} [host] The host to bound the target to
+ * @returns {string | null} The normalized architecture for the target
+ */
+function computeArch(target, host) {
+	let arch = null;
 	if (target.match(/^i.86-/)) {
 		arch = 'x86';
 	} else if (target.match(/^x86_64-/)) {
@@ -394,14 +389,50 @@ function computeNodeJSArch(targetConfig) {
 		arch = 'arm';
 	}
 
-	let retval = '';
-	if (arch !== '') {
-		if (compatibleArchs.includes(arch)) {
+	let retval = null;
+	if (arch !== null && host !== undefined) {
+		const compatibleArchs = computeCompatibleArchs(host);
+		if (compatibleArchs.has(arch)) {
 			retval = arch;
 		}
 	}
 
 	return(retval);
+}
+
+/**
+ * Compute the NodeJS architecture to use for this target
+ *
+ * @param {TargetConfigurationItem & { target: string }} targetConfig
+ * @returns {string} The NodeJS Architecture
+ */
+function computeNodeJSArch(targetConfig) {
+	const nodeJSArch = computeArch(targetConfig.target, targetConfig.gitHubHost);
+
+	return(nodeJSArch ?? '');
+}
+
+
+/**
+ * Compute the Docker platform to use for this target
+ *
+ * @param {TargetConfigurationItem & { target: string }} targetConfig
+ * @returns {string} The docker platform to use
+ */
+function computeDockerPlatform(targetConfig) {
+	const arch = computeArch(targetConfig.target, targetConfig.gitHubHost);
+
+	switch (arch) {
+		case 'x86':
+		case 'x64':
+			return('linux/amd64');
+		case 'arm':
+			return('linux/arm/v7');
+		case 'arm64':
+			return('linux/arm64');
+		default:
+			throw(new Error(`Unknown architecture: ${arch}`));
+	}
 }
 
 /**
@@ -472,11 +503,16 @@ for (const target of buildTargets) {
 	if (config.dockerImage) {
 		output.push('            docker: true');
 		output.push(`            dockerImage: ${config.dockerImage}`);
+		output.push(`            dockerPlatform: ${computeDockerPlatform({ ...config, target: target })}`);
 	} else {
 		output.push('            docker: false');
 	}
 
 	if (config.useZig) {
+		if (config.dockerImage) {
+			throw(new Error(`Cannot use Zig with Docker while processing target ${target}`));
+		}
+
 		output.push('            useZig: true');
 	} else {
 		output.push('            useZig: false');
@@ -502,8 +538,92 @@ for (const target of buildTargets) {
 		buildCommandAdd = ` NAPI_LOCAL_BUILD_ARGS='--target ${config.napiTarget}'`
 	}
 
+	let isAlpine = false;
+	if (config.dockerImage && config.dockerImage.match(/-alpine/)) {
+		isAlpine = true;
+	}
+
+	let addedUsrLocalBin = false;
+	/**
+	 * Add /usr/local/bin to the PATH if it is not already there
+	 *
+	 * @param {string[]} to The array to add the command to
+	 * @returns {void} Nothing
+	 */
+	function addUsrLocalBin(to) {
+		if (addedUsrLocalBin) {
+			return;
+		}
+
+		addedUsrLocalBin = true;
+		to.push('PATH="${PATH}:/usr/local/bin"');
+		to.push('export PATH');
+	}
+
+	let installDistroDeps = [];
+	if (isAlpine) {
+		installDistroDeps.push(
+			'apk add --no-cache bash make alpine-sdk build-base gcc openssl-dev'
+		);
+
+		addUsrLocalBin(installDistroDeps);
+	}
+
+	let needNodeJS = false;
+	let needRust = false;
+	if (config.dockerImage && !config.dockerImage.match(/\/node:/)) {
+		needNodeJS = true;
+	}
+
+	if (config.dockerImage && !config.dockerImage.match(/\/rust:/)) {
+		needRust = true;
+	}
+
+	let installNodeJSCommands = [];
+	if (needNodeJS) {
+		const nodeJSArch = computeNodeJSArch({ ...config, target: target });
+
+		if (isAlpine) {
+			installNodeJSCommands.push(
+				'apk add --no-cache nodejs npm'
+			);
+
+			addUsrLocalBin(installNodeJSCommands);
+		} else {
+			installNodeJSCommands.push(
+				'mkdir .nodejs',
+				`curl -sL -o .nodejs/nodejs.tar.gz "https://nodejs.org/dist/v${nodeJSVersion}/node-v${nodeJSVersion}-linux-${nodeJSArch}.tar.xz"`,
+				'( cd .nodejs && tar -xf nodejs.tar.gz && mv */* . )',
+				'rm -f .nodejs/nodejs.tar.gz',
+				'PATH="${PATH}:$(pwd -P)/.nodejs/bin"',
+				'export PATH'
+			);
+		}
+	}
+
+	let installRustCommands = [];
+	if (needRust) {
+		throw(new Error(`Need to install Rust in Docker image -- not implemented ${target}`));
+	}
+
+	if (isAlpine && target.match(/aarch64.*linux.*musl/)) {
+		installRustCommands.push(
+			'echo \'#! /usr/bin/env sh\' > /usr/local/bin/aarch64-linux-musl-gcc',
+			'echo \'exec gcc "${@}"\' >> /usr/local/bin/aarch64-linux-musl-gcc',
+			'chmod +x /usr/local/bin/aarch64-linux-musl-gcc',
+		)
+
+		addUsrLocalBin(installRustCommands);
+	}
+
 	const buildCommandsInput = [
 		'set -xe',
+		...installDistroDeps,
+		...installNodeJSCommands,
+		'node --version',
+		'make node_modules',
+		...installRustCommands,
+		'rustc --version',
 		`rustup target add ${target}`,
 		...(config.preBuildCommands ?? []),
 		`make all${buildCommandAdd}`,
@@ -575,9 +695,9 @@ if (anyTargetHas({ dockerImage: IsSet })) {
 		'        uses: addnab/docker-run-action@v3',
 		'        with:',
 		'          image: ${{ matrix.settings.dockerImage }}',
-		'          options: \'--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build\'',
-		'          run: make node_modules && ${{ matrix.settings.build }}',
-		'          shell: bash',
+		'          options: \'--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}\'',
+		'          run: ${{ matrix.settings.build }}',
+		'          shell: sh',
 		'        env:',
 		'          CARGO_HOME: /usr/local/cargo',
 	);
@@ -651,14 +771,16 @@ for (const target of buildTargets) {
 		output.push(`            dockerVariant: ${dockerVariant}`);
 	} else if (config.dockerImage !== undefined) {
 		let dockerVariant = 'slim';
-		if (config.dockerImage.match(/-alpine$/)) {
+		if (config.dockerImage.match(/-alpine.*$/)) {
 			dockerVariant = 'alpine';
 		}
 		output.push(`            docker: true`);
 		output.push(`            dockerVariant: ${dockerVariant}`);
+		output.push(`            dockerPlatform: ${computeDockerPlatform({ ...config, target: target })}`);
 	} else if (config.testDocker !== undefined) {
 		output.push('            docker: true');
 		output.push(`            dockerVariant: ${config.testDocker}`);
+		output.push(`            dockerPlatform: ${computeDockerPlatform({ ...config, target: target })}`);
 	} else {
 		output.push('            docker: false');
 	}
@@ -771,7 +893,7 @@ if (anyTargetHas({ dockerImage: IsSet, testable: Not(false) })) {
 		'        uses: addnab/docker-run-action@v3',
 		'        with:',
 		'          image: node:${{ matrix.node }}-${{ matrix.settings.dockerVariant }}',
-		'          options: \'-v ${{ github.workspace }}:/build -w /build\'',
+		'          options: \'-v ${{ github.workspace }}:/build -w /build --platform ${{ matrix.settings.dockerPlatform }}\'',
 		...emitMultiLineScript(5, 'run', runCommandsDocker)
 	);
 }
