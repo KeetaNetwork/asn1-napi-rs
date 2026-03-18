@@ -263,3 +263,23 @@ test('Node ASN1 Tests', (t) => {
 	const arrayCheck = lib.ASN1toJS(lib.JStoASN1(['Test', undefined]).toBER());
 	t.deepEqual(arrayCheck, ['Test']);
 })
+
+test('ASN1 decode validation - both structures should decode', (t) => {
+	// First structure - was failing to parse ASN to JS without the extra sequence wrapper that structure 2 contains, but the structure is correct according to spec and should decode successfully
+	const structure1Base64 = 'oH+gfTB7ME0BAf8CAQGAIgACqqY3rHQVJU8ztMyoC1rUvjhnyir3tZHxBMTHaZ00WmuBIQMQZlP/LBTNGUXwU4iOZ43fmu+2I582shGN5JE0CHg+WzAqAQH/AgECgCIAAia5KORyatb7eREpY0qRPvg9tTTguftKtZP+wsAVoKS1';
+	
+	// Second structure - contains an extra sequence wrapper around the context tag that worked but sequence wrapper does not match required spec
+	const structure2Base64 = 'oIGBMH+gfTB7ME0BAf8CAQGAIgADDcXIesg69n0DAL+I5LnmpAb7ek941lgqipm8vXgAoKCBIQP5uzF9uVj5NKJI28UxxteSVSTYHIKWRqLTRVGzeCbhNDAqAQH/AgECgCIAAyTi1nt3zM+y6pGKe+2Lw8a+wUb+v0R7ru5/4EGfcQpw';
+	
+	// Test that structure 1 decodes successfully
+	const buffer1 = Buffer.from(structure1Base64, 'base64')
+	const result1 = lib.ASN1toJS(buffer1)
+	t.truthy(result1, 'Structure 1 should decode with ASN1toJS')
+	t.is((result1 as lib.ASN1ContextTag).type, 'context', 'Structure 1 should be a context tag')
+	
+	// Test that structure 2 also decodes successfully
+	const buffer2 = Buffer.from(structure2Base64, 'base64')
+	const result2 = lib.ASN1toJS(buffer2)
+	t.truthy(result2, 'Structure 2 should decode with ASN1toJS')
+	t.is((result2 as lib.ASN1ContextTag).type, 'context', 'Structure 2 should be a context tag')
+})
