@@ -5,7 +5,6 @@ use chrono::{DateTime, Datelike, FixedOffset, Utc};
 use napi::bindgen_prelude::FromNapiValue;
 use napi::{Env, JsArrayBuffer, JsBuffer, JsNumber, JsObject, JsString, JsUnknown, ValueType};
 use rasn::{
-	ber::de::DecoderOptions,
 	de::Error as rasnDeError,
 	enc::Error as rasnEncError,
 	types::{Any, BitString, Class, ObjectIdentifier, Oid, Open},
@@ -551,12 +550,15 @@ impl Encode for ASN1Context {
 impl Decode for ASN1Context {
 	fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
 		let asn1 = ASN1Decoder::new(decoder.decode_any()?.as_bytes().to_owned());
-		let mut decoder = rasn::ber::de::Decoder::new(asn1.get_raw(), DecoderOptions::ber());
 		let tag = *asn1.get_tag();
 
 		if asn1.get_is_constructed() {
-			if let Ok(ASN1Data::Unknown(any)) = decoder.decode_explicit_prefix::<ASN1Data>(tag) {
-				if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(any.as_bytes().to_owned())) {
+			// For explicit context tags, skip the tag+length header and decode the inner content
+			let bytes = asn1.get_raw().to_vec();
+			if let Ok(header_len) = header_length(&bytes) {
+				let inner_bytes = bytes[header_len..].to_vec();
+				// Use ASN1Decoder which properly analyzes tags before decoding
+				if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(inner_bytes)) {
 					return Ok(Self::new(tag.value, data, "explicit"));
 				}
 			}
