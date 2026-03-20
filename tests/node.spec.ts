@@ -265,21 +265,48 @@ test('Node ASN1 Tests', (t) => {
 })
 
 test('ASN1 decode validation - both structures should decode', (t) => {
-	// First structure - was failing to parse ASN to JS without the extra sequence wrapper that structure 2 contains, but the structure is correct according to spec and should decode successfully
-	const structure1Base64 = 'oH+gfTB7ME0BAf8CAQGAIgACqqY3rHQVJU8ztMyoC1rUvjhnyir3tZHxBMTHaZ00WmuBIQMQZlP/LBTNGUXwU4iOZ43fmu+2I582shGN5JE0CHg+WzAqAQH/AgECgCIAAia5KORyatb7eREpY0qRPvg9tTTguftKtZP+wsAVoKS1';
-	
-	// Second structure - contains an extra sequence wrapper around the context tag that worked but sequence wrapper does not match required spec
-	const structure2Base64 = 'oIGBMH+gfTB7ME0BAf8CAQGAIgADDcXIesg69n0DAL+I5LnmpAb7ek941lgqipm8vXgAoKCBIQP5uzF9uVj5NKJI28UxxteSVSTYHIKWRqLTRVGzeCbhNDAqAQH/AgECgCIAAyTi1nt3zM+y6pGKe+2Lw8a+wUb+v0R7ru5/4EGfcQpw';
-	
-	// Test that structure 1 decodes successfully
-	const buffer1 = Buffer.from(structure1Base64, 'base64')
-	const result1 = lib.ASN1toJS(buffer1)
-	t.truthy(result1, 'Structure 1 should decode with ASN1toJS')
-	t.is((result1 as lib.ASN1ContextTag).type, 'context', 'Structure 1 should be a context tag')
-	
-	// Test that structure 2 also decodes successfully
-	const buffer2 = Buffer.from(structure2Base64, 'base64')
-	const result2 = lib.ASN1toJS(buffer2)
-	t.truthy(result2, 'Structure 2 should decode with ASN1toJS')
-	t.is((result2 as lib.ASN1ContextTag).type, 'context', 'Structure 2 should be a context tag')
+	const structures = [
+		{
+			name: 'Structure 1',
+			description: 'was failing to parse ASN to JS without the extra sequence wrapper that structure 2 contains, but the structure is correct according to spec and should decode successfully',
+			base64: 'oH+gfTB7ME0BAf8CAQGAIgACqqY3rHQVJU8ztMyoC1rUvjhnyir3tZHxBMTHaZ00WmuBIQMQZlP/LBTNGUXwU4iOZ43fmu+2I582shGN5JE0CHg+WzAqAQH/AgECgCIAAia5KORyatb7eREpY0qRPvg9tTTguftKtZP+wsAVoKS1',
+		},
+		{
+			name: 'Structure 2',
+			description: 'contains an extra sequence wrapper around the context tag that worked but sequence wrapper does not match required spec',
+			base64: 'oIGBMH+gfTB7ME0BAf8CAQGAIgADDcXIesg69n0DAL+I5LnmpAb7ek941lgqipm8vXgAoKCBIQP5uzF9uVj5NKJI28UxxteSVSTYHIKWRqLTRVGzeCbhNDAqAQH/AgECgCIAAyTi1nt3zM+y6pGKe+2Lw8a+wUb+v0R7ru5/4EGfcQpw',
+		},
+	]
+
+	const contexts: lib.ASN1ContextTag[] = []
+
+	// Test that both structures decode successfully
+	for (const structure of structures) {
+		const buffer = Buffer.from(structure.base64, 'base64')
+		const result = lib.ASN1toJS(buffer)
+		t.truthy(result, `${structure.name} should decode with ASN1toJS`)
+		t.is((result as lib.ASN1ContextTag).type, 'context', `${structure.name} should be a context tag`)
+
+		const ctx = result as lib.ASN1ContextTag
+		t.is(ctx.kind, 'explicit', `${structure.name} should use an explicit context tag`)
+		t.true(
+			typeof ctx.value === 'number' || typeof ctx.value === 'bigint',
+			`${structure.name} context tag should have a numeric tag value`,
+		)
+		t.truthy(ctx.contains, `${structure.name} context tag should contain a decoded value`)
+		
+		contexts.push(ctx)
+	}
+
+ 	// Both structures should represent the same context tag and payload
+ 	t.is(
+ 		contexts[0].value as unknown as number,
+ 		contexts[1].value as unknown as number,
+ 		'Both structures should use the same context tag number',
+ 	)
+ 	t.is(
+ 		typeof contexts[0].contains,
+ 		typeof contexts[1].contains,
+ 		'Both structures should decode to the same kind of contained value',
+ 	)
 })
