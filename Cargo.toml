@@ -2,7 +2,7 @@
 authors = ["Tanveer Wahid <twahid@keeta.com>"]
 edition = "2021"
 name = "asn1-napi-rs"
-version = "1.2.0"
+version = "1.2.2"
 rust-version = "1.56"
 
 [lib]
