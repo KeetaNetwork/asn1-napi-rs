@@ -554,8 +554,8 @@ impl Decode for ASN1Context {
 
 		if asn1.get_is_constructed() {
 			// For explicit context tags, skip the tag+length header and decode the inner content
-			let bytes = asn1.get_raw().to_vec();
-			if let Ok(header_len) = header_length(&bytes) {
+			let bytes = asn1.get_raw();
+			if let Ok(header_len) = header_length(bytes) {
 				let inner_bytes = bytes[header_len..].to_vec();
 				// Use ASN1Decoder which properly analyzes tags before decoding
 				if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(inner_bytes)) {
@@ -563,8 +563,9 @@ impl Decode for ASN1Context {
 				}
 			}
 		} else {
-			let bytes = asn1.get_raw().to_vec();
-			let length = header_length(&bytes).unwrap();
+			let bytes = asn1.get_raw();
+			let length = header_length(bytes)
+				.map_err(|e| <D as Decoder>::Error::custom(e))?;
 			let extracted_data = bytes[length..].to_vec();
 			let data = ASN1Data::Unknown(Any::new(extracted_data));
 			return Ok(Self::new(tag.value, data, "implicit"));
