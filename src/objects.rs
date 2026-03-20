@@ -557,15 +557,14 @@ impl Decode for ASN1Context {
 			let bytes = asn1.get_raw();
 			if let Ok(header_len) = header_length(bytes) {
 				let inner_bytes = bytes[header_len..].to_vec();
-				// Use ASN1Decoder which properly analyzes tags before decoding
+				// Use ASN1Decoder to reuse the crate's tag and JS-type inference before decoding
 				if let Ok(data) = ASN1Data::try_from(ASN1Decoder::new(inner_bytes)) {
 					return Ok(Self::new(tag.value, data, "explicit"));
 				}
 			}
 		} else {
 			let bytes = asn1.get_raw();
-			let length = header_length(bytes)
-				.map_err(|e| <D as Decoder>::Error::custom(e))?;
+			let length = header_length(bytes).map_err(|e| <D as Decoder>::Error::custom(e))?;
 			let extracted_data = bytes[length..].to_vec();
 			let data = ASN1Data::Unknown(Any::new(extracted_data));
 			return Ok(Self::new(tag.value, data, "implicit"));
