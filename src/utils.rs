@@ -52,25 +52,34 @@ pub(crate) fn get_words_from_big_int(data: BigInt) -> (bool, Vec<u64>) {
 #[allow(deprecated)]
 pub(crate) fn get_utc_date_time_from_asn1_milli<T: AsRef<[u8]>>(data: T) -> Result<DateTime<Utc>> {
 	let mut decoder = rasn::ber::de::Decoder::new(data.as_ref(), DecoderOptions::ber());
-	let (decoded, format) = match data.as_ref().first().unwrap_or(&0) {
+	let (decoded, format, is_utc_time) = match data.as_ref().first().unwrap_or(&0) {
 		0x17 => (
 			Utf8String::decode_with_tag(&mut decoder, Tag::UTC_TIME),
 			ASN1_DATE_TIME_UTC_FORMAT,
+			true,
 		),
 		0x18 => (
 			Utf8String::decode_with_tag(&mut decoder, Tag::GENERALIZED_TIME),
 			ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS,
+			false,
 		),
 		_ => bail!(ASN1NAPIError::MalformedData),
 	};
 
 	if let Ok(decoded) = decoded {
 		if let Some(offset) = FixedOffset::east_opt(0) {
-			Ok(DateTime::<FixedOffset>::from_utc(
-				NaiveDateTime::parse_from_str(&decoded, format)?,
-				offset,
-			)
-			.with_timezone(&Utc))
+			let mut naive = NaiveDateTime::parse_from_str(&decoded, format)?;
+
+			// RFC 5280 §4.1.2.5.1: UTCTime pivots at 50 (>= 50 → 19xx),
+			// but chrono's %y pivots at 70. Correct the 50-69 range.
+			// See `<https://github.com/chronotope/chrono/issues/1152>`
+			if is_utc_time && naive.year() >= 2050 {
+				naive = naive
+					.with_year(naive.year() - 100)
+					.ok_or(ASN1NAPIError::MalformedData)?;
+			}
+
+			Ok(DateTime::<FixedOffset>::from_utc(naive, offset).with_timezone(&Utc))
 		} else {
 			bail!(ASN1NAPIError::MalformedData)
 		}
@@ -311,7 +320,8 @@ pub(crate) fn header_length(data: &[u8]) -> Result<usize, &'static str> {
 
 #[cfg(test)]
 mod test {
-	use chrono::{TimeZone, Utc};
+	use anyhow::Result;
+	use chrono::{Datelike, TimeZone, Utc};
 	use num_bigint::BigInt;
 
 	use crate::utils::get_utf16_from_string;
@@ -321,56 +331,106 @@ mod test {
 	use super::get_utc_date_time_from_asn1_milli;
 	use super::get_words_from_big_int;
 
+	fn build_time_der(tag: u8, time_str: &str) -> Vec<u8> {
+		let bytes = time_str.as_bytes();
+		let mut der = Vec::with_capacity(2 + bytes.len());
+		der.push(tag);
+		der.push(bytes.len() as u8);
+		der.extend_from_slice(bytes);
+		der
+	}
+
+	fn utc_time_der(time_str: &str) -> Vec<u8> {
+		build_time_der(0x17, time_str)
+	}
+
+	fn generalized_time_der(time_str: &str) -> Vec<u8> {
+		build_time_der(0x18, time_str)
+	}
+
 	#[test]
 	fn test_get_utf16_from_string() {
 		assert_eq!(get_utf16_from_string("test"), vec![0x74, 0x65, 0x73, 0x74]);
 	}
 
 	#[test]
-	fn test_get_oid_elements_from_string() {
-		assert_eq!(
-			get_oid_elements_from_string("2.5.4.5").unwrap(),
-			vec![2, 5, 4, 5]
-		);
-	}
+	fn test_oid_roundtrip() -> Result<()> {
+		let cases: &[(&str, &[u32])] = &[("2.5.4.5", &[2, 5, 4, 5])];
 
-	#[test]
-	fn test_get_string_from_oid_elements() {
-		assert_eq!(
-			get_string_from_oid_elements([2, 5, 4, 5]).unwrap(),
-			"2.5.4.5"
-		);
+		for (string, elements) in cases {
+			assert_eq!(
+				get_oid_elements_from_string(string)?,
+				*elements,
+				"parse {string}"
+			);
+			assert_eq!(
+				get_string_from_oid_elements(*elements)?,
+				*string,
+				"format {elements:?}"
+			);
+		}
+
+		Ok(())
 	}
 
 	#[test]
 	fn test_get_words_from_big_int() {
-		let input = BigInt::from(18591708106338011145_i128);
-		let (negative, words) = get_words_from_big_int(input);
+		let cases: &[(i128, bool, &[u64])] = &[
+			(18591708106338011145, false, &[0x203040506070809, 0x01]),
+			(-18591708106338011145, true, &[0x203040506070809, 0x01]),
+		];
 
-		assert!(!negative);
-		assert_eq!(words, vec![0x203040506070809, 0x01]);
-
-		let input = BigInt::from(-18591708106338011145_i128);
-		let (negative, words) = get_words_from_big_int(input);
-
-		assert!(negative);
-		assert_eq!(words, vec![0x203040506070809, 0x01]);
+		for (value, expected_negative, expected_words) in cases {
+			let (negative, words) = get_words_from_big_int(BigInt::from(*value));
+			assert_eq!(negative, *expected_negative, "sign for {value}");
+			assert_eq!(words.as_slice(), *expected_words, "words for {value}");
+		}
 	}
 
 	#[test]
-	fn test_get_utc_date_time_from_asn1_milli() {
-		let date = Utc.timestamp_millis_opt(1655921880210).unwrap();
-		let input = [
-			24, 19, 50, 48, 50, 50, 48, 54, 50, 50, 49, 56, 49, 56, 48, 48, 46, 50, 49, 48, 90,
+	fn test_utc_time_rfc5280_pivot() -> Result<()> {
+		// RFC 5280 §4.1.2.5.1: >= 50 → 19xx, < 50 → 20xx
+		let cases: &[(&str, i32)] = &[
+			("000601120000Z", 2000), // below pivot, 21st century
+			("490601120000Z", 2049), // boundary: last year below pivot
+			("500601120000Z", 1950), // boundary: first year at pivot
+			("690101000000Z", 1969), // above pivot, chrono disagrees (bug case)
+			("700601120000Z", 1970), // at chrono's pivot, both agree
+			("990601120000Z", 1999), // max 2-digit year
 		];
 
-		assert_eq!(get_utc_date_time_from_asn1_milli(input).unwrap(), date);
+		for (time_str, expected_year) in cases {
+			let result = get_utc_date_time_from_asn1_milli(utc_time_der(time_str))?;
+			assert_eq!(
+				result.year(),
+				*expected_year,
+				"UTCTime {time_str} should decode to year {expected_year}"
+			);
+		}
 
-		let date = Utc.with_ymd_and_hms(2022, 9, 26, 10, 0, 0).unwrap();
-		let input = [
-			24, 15, 50, 48, 50, 50, 48, 57, 50, 54, 49, 48, 48, 48, 48, 48, 90,
+		Ok(())
+	}
+
+	#[test]
+	fn test_generalized_time_decode() -> Result<()> {
+		let cases = [
+			(
+				"20220622181800.210Z",
+				Utc.timestamp_millis_opt(1655921880210).single(),
+			),
+			(
+				"20220926100000Z",
+				Utc.with_ymd_and_hms(2022, 9, 26, 10, 0, 0).single(),
+			),
 		];
 
-		assert_eq!(get_utc_date_time_from_asn1_milli(input).unwrap(), date);
+		for (time_str, expected) in cases {
+			let expected =
+				expected.ok_or_else(|| anyhow::anyhow!("invalid test date {time_str}"))?;
+			let result = get_utc_date_time_from_asn1_milli(generalized_time_der(time_str))?;
+			assert_eq!(result, expected, "GeneralizedTime {time_str}");
+		}
+
+		Ok(())
 	}
 }
