@@ -61,9 +61,3 @@ These contracts bind more than one module.
 | Typed objects carry a `type` discriminant (`oid`, `set`, `string`, `bitstring`, `context`, `date`, `struct`) | `TypedObject` and napi objects in `src/objects.rs` |
 | Ava specs under `tests/` are the usage source of truth for examples | `tests/*.spec.ts` |
 | Make owns build and test (`make`, `make test`, `make do-lint`, `make node_modules`) | repository `Makefile` |
-
-## Major Assumptions and Assertions
-
-- This page does not enumerate every public export.
-- The interaction path is a collaboration story, not a BER tutorial.
-- This page assumes the tip `src/` module layout.

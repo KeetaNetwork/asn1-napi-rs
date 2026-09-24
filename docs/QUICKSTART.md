@@ -66,9 +66,3 @@ lib.ASN1toJS(lib.JStoASN1(value).toBER())
 ```
 
 That call returns `BigInt(value)` in `tests/integer.spec.ts`. The same file also constructs `ASN1Decoder` from BER bytes and calls `intoInteger`. `tests/object.oid.spec.ts` uses the same `JStoASN1` / `toBER` / `ASN1toJS` path with an `ASN1OID` value.
-
-## Major Assumptions and Assertions
-
-- This page shows one integer round-trip rather than full type coverage.
-- GitHub Packages authentication stays on the operator machine.
-- `index.d.ts` may be absent until a local build finishes.

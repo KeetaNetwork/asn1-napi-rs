@@ -58,11 +58,6 @@ Every shaped page under `docs/` MUST carry the following sections, in the follow
 2. **Abstract.** Two or three sentences on what the page holds.
 3. **Purpose.** Who reads the page, and what they can do afterward.
 4. **Body.** The sections that carry the content, which SHOULD sit in the correct dependency order.
-5. **Major Assumptions and Assertions.** Two to four honest limitations or assumptions about this page.
-
-Every shaped page closes with **Major Assumptions and Assertions**. That section holds short caveats. Body sections remain the home for contracts.
-
-The closer MUST use two, three, or four bullets. Each bullet states one limitation or assumption.
 
 A page SHOULD cite the test that encodes an invariant when that file is the enforcement point. One citation replaces a prose argument that the guarantee holds.
 
@@ -71,9 +66,3 @@ The root `README.md` MAY stay a thin pointer. That page does not use this page s
 Navigation and audience live on the [Overview](README.md). This page MUST NOT carry a page index.
 
 A Mermaid diagram, when used, MUST give every node and participant an id that is not a Mermaid keyword. Ids such as `fn_js_to_asn1` and `enc_asn1` stay keyword-safe. A node id MUST stay outside the reserved words `graph`, `end`, and `subgraph`.
-
-## Major Assumptions and Assertions
-
-- This standard applies to shaped pages in this documentation tree.
-- This page does not replace tip source as the API reference.
-- This page does not decide product runtime behavior.

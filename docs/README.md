@@ -25,9 +25,3 @@ An engineer reads this guide to find the page that holds each inbound question. 
 | `docs/QUICKSTART.md` | Install, build, and first use |
 
 This package has no `src/*/docs/` modules. This tree has no `docs/resources/` pages.
-
-## Major Assumptions and Assertions
-
-- This table of contents may lag when a writer adds or moves a page.
-- This guide does not teach encode or decode mechanics.
-- This guide does not replace the contract pages it links.
