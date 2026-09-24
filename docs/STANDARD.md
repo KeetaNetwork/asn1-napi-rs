@@ -60,6 +60,8 @@ Every shaped page under `docs/` MUST carry the following sections, in the follow
 4. **Body.** The sections that carry the content, which SHOULD sit in the correct dependency order.
 5. **Falsified by.** The changes that make the page wrong.
 
+[Architecture](ARCHITECTURE.md) is the exception. That page closes with **Major Assumptions and Assertions**. That section holds the same bullet maintenance-contract role.
+
 The closing section is the maintenance contract. It MUST name the code or tree changes that invalidate the page.
 
 A page SHOULD cite the test that encodes an invariant when that file is the enforcement point. One citation replaces a prose argument that the guarantee holds.

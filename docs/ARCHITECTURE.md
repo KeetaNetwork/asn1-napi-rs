@@ -62,7 +62,7 @@ These contracts bind more than one module.
 | Ava specs under `tests/` are the usage source of truth for examples | `tests/*.spec.ts` |
 | Make owns build and test (`make`, `make test`, `make do-lint`, `make node_modules`) | repository `Makefile` |
 
-## Falsified by
+## Major Assumptions and Assertions
 
 - A rename or removal of `JStoASN1` or `ASN1toJS` in `src/lib.rs` falsifies the encode and decode entry contract.
 - A rename or removal of `ASN1Encoder::toBER` in `src/asn1.rs` falsifies the encoder output contract.
