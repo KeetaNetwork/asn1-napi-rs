@@ -64,10 +64,6 @@ These contracts bind more than one module.
 
 ## Major Assumptions and Assertions
 
-- Encode enters through `JStoASN1` in `src/lib.rs`.
-- Decode enters through `ASN1toJS` in `src/lib.rs` or `ASN1Decoder` in `src/asn1.rs`.
-- Encoder bytes leave through `toBER` or `toBase64` on `ASN1Encoder` in `src/asn1.rs`.
-- Typed objects in `src/objects.rs` carry a `type` discriminant of `oid`, `set`, `string`, `bitstring`, `context`, `date`, or `struct`.
-- Ava specs under `tests/*.spec.ts` are the usage source of truth for examples.
-- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
-- Make owns `make`, `make test`, `make do-lint`, and `make node_modules` in the repository `Makefile`.
+- This page does not enumerate every public export.
+- The interaction path is a collaboration story, not a BER tutorial.
+- This page assumes the tip `src/` module layout.

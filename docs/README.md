@@ -28,12 +28,6 @@ This package has no `src/*/docs/` modules. This tree has no `docs/resources/` pa
 
 ## Major Assumptions and Assertions
 
-- The living table of contents names [Architecture](ARCHITECTURE.md), [Quickstart](QUICKSTART.md), and [Documentation Standard](STANDARD.md).
-- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
-- Root `README.md` is a thin pointer into this tree.
-- `docs/README.md` holds the overview table of contents.
-- `docs/STANDARD.md` holds the documentation contract.
-- `docs/ARCHITECTURE.md` holds the collaboration graph and interaction path.
-- `docs/QUICKSTART.md` holds install, build, and first use.
-- This package has no `src/*/docs/` modules.
-- This tree has no `docs/resources/` pages.
+- This table of contents may lag when a writer adds or moves a page.
+- This guide does not teach encode or decode mechanics.
+- This guide does not replace the contract pages it links.

@@ -58,11 +58,11 @@ Every shaped page under `docs/` MUST carry the following sections, in the follow
 2. **Abstract.** Two or three sentences on what the page holds.
 3. **Purpose.** Who reads the page, and what they can do afterward.
 4. **Body.** The sections that carry the content, which SHOULD sit in the correct dependency order.
-5. **Major Assumptions and Assertions.** The claims this page holds.
+5. **Major Assumptions and Assertions.** Two to four honest limitations or assumptions about this page.
 
-Every shaped page closes with **Major Assumptions and Assertions**. That section states those claims as one bullet per claim.
+Every shaped page closes with **Major Assumptions and Assertions**. That section holds short caveats. Body sections remain the home for contracts.
 
-The closing section is the maintenance contract. It MUST state the assumptions and assertions that the page holds.
+The closer MUST use two, three, or four bullets. Each bullet states one limitation or assumption.
 
 A page SHOULD cite the test that encodes an invariant when that file is the enforcement point. One citation replaces a prose argument that the guarantee holds.
 
@@ -74,10 +74,6 @@ A Mermaid diagram, when used, MUST give every node and participant an id that is
 
 ## Major Assumptions and Assertions
 
-- The inclusion test is the bar for a living page.
-- Prose uses full sentences, articles, one topic, active present tense, and one register.
-- Every shaped page closes with Major Assumptions and Assertions.
-- Contract pages live as UPPER_CASE names under `docs/`.
-- Supplementary guides live as lowercase names under `docs/resources/`.
-- This package has no `src/*/docs/` modules.
-- This page is the one home for RFC 2119 Requirements Language.
+- This standard applies to shaped pages in this documentation tree.
+- This page does not replace tip source as the API reference.
+- This page does not decide product runtime behavior.

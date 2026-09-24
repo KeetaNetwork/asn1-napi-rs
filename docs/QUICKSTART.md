@@ -69,8 +69,6 @@ That call returns `BigInt(value)` in `tests/integer.spec.ts`. The same file also
 
 ## Major Assumptions and Assertions
 
-- Make owns `make`, `make test`, `make do-lint`, and `make node_modules` in the repository `Makefile`.
-- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
-- Root `.npmrc` sets `@keetanetwork:registry=https://npm.pkg.github.com`.
-- The integer round-trip in `tests/integer.spec.ts` uses `JStoASN1`, `toBER`, and `ASN1toJS`.
-- `index.d.ts` may be absent until `make`.
+- This page shows one integer round-trip rather than full type coverage.
+- GitHub Packages authentication stays on the operator machine.
+- `index.d.ts` may be absent until a local build finishes.
