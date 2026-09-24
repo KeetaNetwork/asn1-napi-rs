@@ -12,7 +12,7 @@ An engineer reads this guide to find the page that holds each inbound question. 
 
 | Next question | The page |
 | --- | --- |
-| How do encode and decode modules collaborate? | [Architecture](ARCHITECTURE.md) |
+| Which decisions do encode and decode keep? | [Architecture](ARCHITECTURE.md) |
 | How does a reader install, build, and run one round-trip? | [Quickstart](QUICKSTART.md) |
 | How does a writer review a page in this tree? | [Documentation Standard](STANDARD.md) |
 
@@ -21,7 +21,7 @@ An engineer reads this guide to find the page that holds each inbound question. 
 | Root `README.md` | Thin pointer into this tree |
 | `docs/README.md` | This overview |
 | `docs/STANDARD.md` | Documentation contract |
-| `docs/ARCHITECTURE.md` | Collaboration graph and interaction path |
+| `docs/ARCHITECTURE.md` | Load-bearing boundaries, decisions, and invariants |
 | `docs/QUICKSTART.md` | Install, build, and first use |
 
 This package has no `src/*/docs/` modules. This tree has no `docs/resources/` pages.

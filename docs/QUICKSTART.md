@@ -65,4 +65,13 @@ const value = 42
 lib.ASN1toJS(lib.JStoASN1(value).toBER())
 ```
 
-That call returns `BigInt(value)` in `tests/integer.spec.ts`. The same file also constructs `ASN1Decoder` from BER bytes and calls `intoInteger`. `tests/object.oid.spec.ts` uses the same `JStoASN1` / `toBER` / `ASN1toJS` path with an `ASN1OID` value.
+That call returns `BigInt(value)` in `tests/integer.spec.ts`. The same file also constructs `ASN1Decoder` from BER bytes and calls `intoInteger`.
+
+The OID round-trip in `tests/object.oid.spec.ts` uses the same path with an `ASN1OID` value.
+
+```ts
+import * as lib from '..'
+
+const oid: lib.ASN1OID = { type: 'oid', oid: 'sha256' }
+lib.ASN1toJS(lib.JStoASN1(oid).toBER())
+```
