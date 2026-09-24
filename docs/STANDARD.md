@@ -58,11 +58,11 @@ Every shaped page under `docs/` MUST carry the following sections, in the follow
 2. **Abstract.** Two or three sentences on what the page holds.
 3. **Purpose.** Who reads the page, and what they can do afterward.
 4. **Body.** The sections that carry the content, which SHOULD sit in the correct dependency order.
-5. **Falsified by.** The changes that make the page wrong.
+5. **Major Assumptions and Assertions.** The claims this page holds.
 
-[Architecture](ARCHITECTURE.md) is the exception. That page closes with **Major Assumptions and Assertions**. That section holds the same bullet maintenance-contract role.
+Every shaped page closes with **Major Assumptions and Assertions**. That section states those claims as one bullet per claim.
 
-The closing section is the maintenance contract. It MUST name the code or tree changes that invalidate the page.
+The closing section is the maintenance contract. It MUST state the assumptions and assertions that the page holds.
 
 A page SHOULD cite the test that encodes an invariant when that file is the enforcement point. One citation replaces a prose argument that the guarantee holds.
 
@@ -72,11 +72,12 @@ Navigation and audience live on the [Overview](README.md). This page MUST NOT ca
 
 A Mermaid diagram, when used, MUST give every node and participant an id that is not a Mermaid keyword. Ids such as `fn_js_to_asn1` and `enc_asn1` stay keyword-safe. A node id MUST stay outside the reserved words `graph`, `end`, and `subgraph`.
 
-## Falsified by
+## Major Assumptions and Assertions
 
-- A change to the prose contract falsifies this page.
-- A change to the inclusion test falsifies this page.
-- A change to the page shape falsifies this page.
-- A change that places a contract page outside `docs/` UPPER_CASE names falsifies this page.
-- A change that places a supplementary guide outside `docs/resources/` lowercase names falsifies this page.
-- A change that adds module documentation under `src/*/docs/` falsifies this page.
+- The inclusion test is the bar for a living page.
+- Prose uses full sentences, articles, one topic, active present tense, and one register.
+- Every shaped page closes with Major Assumptions and Assertions.
+- Contract pages live as UPPER_CASE names under `docs/`.
+- Supplementary guides live as lowercase names under `docs/resources/`.
+- This package has no `src/*/docs/` modules.
+- This page is the one home for RFC 2119 Requirements Language.

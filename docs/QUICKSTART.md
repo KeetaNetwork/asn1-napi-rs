@@ -67,13 +67,10 @@ lib.ASN1toJS(lib.JStoASN1(value).toBER())
 
 That call returns `BigInt(value)` in `tests/integer.spec.ts`. The same file also constructs `ASN1Decoder` from BER bytes and calls `intoInteger`. `tests/object.oid.spec.ts` uses the same `JStoASN1` / `toBER` / `ASN1toJS` path with an `ASN1OID` value.
 
-## Falsified by
+## Major Assumptions and Assertions
 
-- A change to the `all` target in `Makefile` falsifies this page.
-- A change to the `test` target in `Makefile` falsifies this page.
-- A change to the `do-lint` target in `Makefile` falsifies this page.
-- A change to the `node_modules` target in `Makefile` falsifies this page.
-- A change to `package.json` `name` falsifies this page.
-- A change to the registry line in `.npmrc` falsifies this page.
-- A change to the `JStoASN1` / `toBER` / `ASN1toJS` usage in `tests/integer.spec.ts` falsifies this page.
-- A change to the `index.js` generation rule in `Makefile` that drops `index.d.ts` falsifies this page.
+- Make owns `make`, `make test`, `make do-lint`, and `make node_modules` in the repository `Makefile`.
+- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
+- Root `.npmrc` sets `@keetanetwork:registry=https://npm.pkg.github.com`.
+- The integer round-trip in `tests/integer.spec.ts` uses `JStoASN1`, `toBER`, and `ASN1toJS`.
+- `index.d.ts` may be absent until `make`.

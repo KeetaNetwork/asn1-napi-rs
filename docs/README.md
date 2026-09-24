@@ -26,7 +26,14 @@ An engineer reads this guide to find the page that holds each inbound question. 
 
 This package has no `src/*/docs/` modules. This tree has no `docs/resources/` pages.
 
-## Falsified by
+## Major Assumptions and Assertions
 
-- A change to the living documentation map that this table of contents names falsifies this page.
-- A change to `package.json` `name` falsifies this page.
+- The living table of contents names [Architecture](ARCHITECTURE.md), [Quickstart](QUICKSTART.md), and [Documentation Standard](STANDARD.md).
+- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
+- Root `README.md` is a thin pointer into this tree.
+- `docs/README.md` holds the overview table of contents.
+- `docs/STANDARD.md` holds the documentation contract.
+- `docs/ARCHITECTURE.md` holds the collaboration graph and interaction path.
+- `docs/QUICKSTART.md` holds install, build, and first use.
+- This package has no `src/*/docs/` modules.
+- This tree has no `docs/resources/` pages.
