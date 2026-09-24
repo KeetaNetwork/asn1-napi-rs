@@ -64,9 +64,10 @@ These contracts bind more than one module.
 
 ## Major Assumptions and Assertions
 
-- A rename or removal of `JStoASN1` or `ASN1toJS` in `src/lib.rs` falsifies the encode and decode entry contract.
-- A rename or removal of `ASN1Encoder::toBER` in `src/asn1.rs` falsifies the encoder output contract.
-- A change to `TypedObject` discriminants or napi object `type` fields in `src/objects.rs` falsifies the typed-object contract.
-- A move of usage examples off `tests/*.spec.ts` without a new cited home falsifies the usage source-of-truth contract.
-- A change to `package.json` `name` falsifies package identity.
-- A change to primary targets `make` / `make test` / `make do-lint` / `make node_modules` in `Makefile` falsifies the Make-owns-build contract.
+- Encode enters through `JStoASN1` in `src/lib.rs`.
+- Decode enters through `ASN1toJS` in `src/lib.rs` or `ASN1Decoder` in `src/asn1.rs`.
+- Encoder bytes leave through `toBER` or `toBase64` on `ASN1Encoder` in `src/asn1.rs`.
+- Typed objects in `src/objects.rs` carry a `type` discriminant of `oid`, `set`, `string`, `bitstring`, `context`, `date`, or `struct`.
+- Ava specs under `tests/*.spec.ts` are the usage source of truth for examples.
+- Package identity is `@keetanetwork/asn1-napi-rs` in `package.json` `name`.
+- Make owns `make`, `make test`, `make do-lint`, and `make node_modules` in the repository `Makefile`.
