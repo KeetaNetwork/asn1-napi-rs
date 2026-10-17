@@ -11,6 +11,15 @@
 
 This project utilizes [napi-rs](https://github.com/napi-rs/napi-rs) to build native Rust functionality that can be consumed in NodeJS. This library specifically addresses ASN.1 encoding and decoding for the [@keetanetwork/node](https://github.com/KeetaNetwork/node) project. It contains all critical functionality for encoding/decoding ASN.1 BER for all KeetaNet node functionality.
 
+## Documentation
+
+Contract pages live under `docs/`.
+
+- [Overview](docs/README.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Quickstart](docs/QUICKSTART.md)
+- [Documentation Standard](docs/STANDARD.md)
+
 ## Install this package
 
 ```bash
