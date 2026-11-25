@@ -20,3 +20,7 @@ pub(crate) const ASN1_DATE_TIME_GENERAL_FORMAT_WITH_MS: &str = "%Y%m%d%H%M%S%.3f
 pub(crate) const ASN1_DATE_TIME_UTC_FORMAT: &str = "%y%m%d%H%M%SZ";
 /// ASN1 null data.
 pub(crate) const ASN1_NULL: &[u8] = &[0x05, 0x00];
+/// Deepest nesting of constructed elements that the decode entries accept.
+/// Decoding recurses once per level, so this bounds native stack use. Real
+/// certificates, blocks and vote staples nest fewer than 20 levels.
+pub(crate) const ASN1_MAX_NESTING_DEPTH: usize = 128;

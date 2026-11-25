@@ -70,6 +70,8 @@ enum ASN1NAPIError {
 	InvalidContextNonSequence,
 	#[error("Could not encode provided data into ASN.1 format")]
 	InvalidDataEncoding,
+	#[error("The provided ASN1 data is nested too deeply")]
+	NestingTooDeep,
 }
 
 /// Helper to convert a JS bigint to a JS Buffer
@@ -143,7 +145,7 @@ pub fn asn1_to_js(
 			ASN1Decoder::try_from(data.coerce_to_string()?.into_utf8()?.as_str()?)?
 		}
 		ValueType::Null => ASN1Decoder::new(ASN1_NULL.to_owned()),
-		_ => ASN1Decoder::new(get_vec_from_js_unknown(data)?),
+		_ => ASN1Decoder::try_from(get_vec_from_js_unknown(data)?)?,
 	};
 
 	get_js_unknown_from_asn1_data(env, ASN1Data::try_from(asn1)?)

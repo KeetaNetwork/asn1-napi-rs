@@ -15,10 +15,11 @@ use rasn::{
 };
 
 use crate::{
+	constants::ASN1_MAX_NESTING_DEPTH,
 	get_js_array_from_asn_iter, get_js_big_int_from_big_int, get_js_context_tag_from_asn1_context,
 	objects::{ASN1BitString, ASN1Context, ASN1ContextTag, ASN1Object, ASN1RawBitString, ASN1OID},
 	types::{ASN1Data, JsType},
-	utils::{get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
+	utils::{check_nesting_depth, get_utc_date_time_from_asn1_milli, get_vec_from_js_unknown},
 	ASN1NAPIError,
 };
 
@@ -100,7 +101,7 @@ impl ASN1Decoder {
 	pub fn js_new(
 		#[napi(ts_arg_type = "string | null | number[] | Buffer | ArrayBuffer")] data: JsUnknown,
 	) -> Result<Self> {
-		Ok(Self::new(get_vec_from_js_unknown(data)?))
+		Self::try_from(get_vec_from_js_unknown(data)?)
 	}
 
 	/// Create a new ASN1Decoder instance from ASN1 encoded data.
@@ -358,7 +359,11 @@ impl<'a> TryFrom<&'a str> for ASN1Decoder {
 impl<'a> TryFrom<&'a [u8]> for ASN1Decoder {
 	type Error = Error;
 
+	/// Every decode entry that takes bytes from JS comes through here, so the
+	/// nesting check runs once per input. Nested elements use
+	/// `ASN1Decoder::new` directly and are not checked again.
 	fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+		check_nesting_depth(value, ASN1_MAX_NESTING_DEPTH)?;
 		Ok(Self::new(value.into()))
 	}
 }
