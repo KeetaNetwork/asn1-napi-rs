@@ -318,6 +318,116 @@ pub(crate) fn header_length(data: &[u8]) -> Result<usize, &'static str> {
 	Ok(pos)
 }
 
+/// Read one BER header at `pos`. Returns whether the element is constructed,
+/// where its content starts, and its content length (`None` for indefinite
+/// length). Returns `None` when the header cannot be read.
+fn read_ber_header(data: &[u8], pos: usize) -> Option<(bool, usize, Option<usize>)> {
+	let first = *data.get(pos)?;
+	let constructed = first & 0x20 != 0;
+	let mut pos = pos + 1;
+
+	if first & 0x1F == 0x1F {
+		loop {
+			let tag_byte = *data.get(pos)?;
+			pos += 1;
+			if tag_byte & 0x80 == 0 {
+				break;
+			}
+		}
+	}
+
+	let length_byte = *data.get(pos)?;
+	pos += 1;
+
+	let length = match length_byte {
+		0x00..=0x7F => Some(length_byte as usize),
+		0x80 if constructed => None,
+		0x80 => return None,
+		_ => {
+			let mut length: usize = 0;
+			for _ in 0..(length_byte & 0x7F) {
+				length = length
+					.checked_mul(0x100)?
+					.checked_add(*data.get(pos)? as usize)?;
+				pos += 1;
+			}
+			Some(length)
+		}
+	};
+
+	Some((constructed, pos, length))
+}
+
+/// Reject BER data whose constructed elements nest deeper than `max_depth`.
+///
+/// Decoding recurses once per nesting level, so deeply nested input exhausts
+/// the native stack and aborts the process. This walks the headers of the
+/// first element without recursion before anything is decoded.
+///
+/// Only nesting is rejected here. When a header cannot be read, the walk skips
+/// to the end of the innermost definite-length element that holds it, which is
+/// where the decoder gives up on that element too, and leaves the error to the
+/// decoder.
+pub(crate) fn check_nesting_depth(data: &[u8], max_depth: usize) -> Result<()> {
+	// End offset of each open constructed element, `None` for indefinite length.
+	let mut open: Vec<Option<usize>> = Vec::new();
+	let mut pos = 0;
+
+	loop {
+		while let Some(&Some(end)) = open.last() {
+			if pos < end {
+				break;
+			}
+			open.pop();
+		}
+
+		if open.is_empty() && pos > 0 {
+			return Ok(());
+		}
+
+		if open.last() == Some(&None) && data.get(pos..pos + 2) == Some(&[0, 0]) {
+			open.pop();
+			pos += 2;
+			continue;
+		}
+
+		let limit = open.iter().rev().find_map(|end| *end).unwrap_or(data.len());
+		let header = read_ber_header(data, pos).and_then(|(constructed, start, length)| {
+			let end = match length {
+				Some(length) => Some(start.checked_add(length)?),
+				None => None,
+			};
+
+			if pos >= limit || end.unwrap_or(start) > limit {
+				return None;
+			}
+
+			Some((constructed, start, end))
+		});
+
+		match header {
+			Some((true, start, end)) => {
+				open.push(end);
+				if open.len() > max_depth {
+					bail!(ASN1NAPIError::NestingTooDeep);
+				}
+				pos = start;
+			}
+			Some((false, _, Some(end))) => pos = end,
+			_ => loop {
+				match open.pop() {
+					None => return Ok(()),
+					Some(None) => continue,
+					Some(Some(end)) => {
+						pos = end;
+						break;
+					}
+				}
+			},
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use anyhow::Result;
@@ -326,6 +436,7 @@ mod test {
 
 	use crate::utils::get_utf16_from_string;
 
+	use super::check_nesting_depth;
 	use super::get_oid_elements_from_string;
 	use super::get_string_from_oid_elements;
 	use super::get_utc_date_time_from_asn1_milli;
@@ -432,5 +543,107 @@ mod test {
 		}
 
 		Ok(())
+	}
+
+	/// Wrap an INTEGER in `depth` definite-length SEQUENCEs.
+	fn nested_sequences(depth: usize) -> Vec<u8> {
+		let mut data = vec![0x02, 0x01, 0x01];
+		for _ in 0..depth {
+			let length = data.len();
+			let mut wrapped = vec![0x30];
+			if length < 0x80 {
+				wrapped.push(length as u8);
+			} else {
+				let bytes: Vec<u8> = length
+					.to_be_bytes()
+					.into_iter()
+					.skip_while(|byte| *byte == 0)
+					.collect();
+				wrapped.push(0x80 | bytes.len() as u8);
+				wrapped.extend(bytes);
+			}
+			wrapped.extend(data);
+			data = wrapped;
+		}
+		data
+	}
+
+	/// Wrap an INTEGER in `depth` indefinite-length SEQUENCEs.
+	fn nested_indefinite_sequences(depth: usize) -> Vec<u8> {
+		let mut data = vec![0x30, 0x80].repeat(depth);
+		data.extend([0x02, 0x01, 0x01]);
+		data.extend([0x00, 0x00].repeat(depth));
+		data
+	}
+
+	#[test]
+	fn test_check_nesting_depth_at_limit() {
+		assert!(check_nesting_depth(&nested_sequences(8), 8).is_ok());
+		assert!(check_nesting_depth(&nested_indefinite_sequences(8), 8).is_ok());
+		assert!(check_nesting_depth(&[0x02, 0x01, 0x01], 0).is_ok());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_over_limit() {
+		assert!(check_nesting_depth(&nested_sequences(9), 8).is_err());
+		assert!(check_nesting_depth(&nested_indefinite_sequences(9), 8).is_err());
+		assert!(check_nesting_depth(&nested_sequences(100_000), 128).is_err());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_counts_depth_not_width() {
+		// Many siblings at one level are not nesting
+		let mut content = Vec::new();
+		for _ in 0..1000 {
+			content.extend(nested_sequences(4));
+		}
+		let mut data = vec![0x30, 0x82, (content.len() >> 8) as u8, content.len() as u8];
+		data.extend(content);
+		assert!(check_nesting_depth(&data, 5).is_ok());
+		assert!(check_nesting_depth(&data, 4).is_err());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_ignores_trailing_data() {
+		let mut data = vec![0x02, 0x01, 0x01];
+		data.extend(nested_sequences(10));
+		assert!(check_nesting_depth(&data, 2).is_ok());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_leaves_malformed_data_to_decoder() {
+		assert!(check_nesting_depth(&[], 8).is_ok());
+		assert!(check_nesting_depth(&[0x30], 8).is_ok());
+		assert!(check_nesting_depth(&[0x30, 0x05, 0x02], 8).is_ok());
+		assert!(check_nesting_depth(&[0x30, 0x89, 1, 2, 3, 4, 5, 6, 7, 8, 9], 8).is_ok());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_after_malformed_sibling() {
+		// A malformed element ends the walk of its definite-length parent, but
+		// a deep sibling of that parent is still checked
+		let deep = nested_sequences(20);
+		let broken = vec![0x30, 0x03, 0x04, 0x7F, 0x00];
+		let mut content = broken;
+		content.extend(&deep);
+		let mut data = vec![0x30, 0x82, (content.len() >> 8) as u8, content.len() as u8];
+		data.extend(content);
+		assert!(check_nesting_depth(&data, 10).is_err());
+	}
+
+	#[test]
+	fn test_check_nesting_depth_with_default_limit() {
+		for depth in [
+			nested_sequences(1),
+			nested_sequences(127),
+			nested_indefinite_sequences(128),
+		] {
+			assert!(check_nesting_depth(&depth, crate::constants::ASN1_MAX_NESTING_DEPTH).is_ok());
+		}
+		assert!(check_nesting_depth(
+			&nested_sequences(129),
+			crate::constants::ASN1_MAX_NESTING_DEPTH
+		)
+		.is_err());
 	}
 }

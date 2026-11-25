@@ -90,6 +90,7 @@ stateDiagram-v2
 | `JStoASN1` returns an `ASN1Encoder` instance | Return BER bytes from the entry | The consumer then chooses `toBER` or `toBase64`. Both call the same `encode` |
 | `ASN1toJS` accepts ArrayBuffer, Buffer, a number array, base64, hex, or null | One byte-source type only | `asn1_to_js` matches `ValueType`. A string tries base64 and then hex through `TryFrom<&str>` for `ASN1Decoder` |
 | Decode integers through `ASN1toJS` as BigInt | Return a JS number when the value fits `i64` | A JS number loses integers past 53 bits. `tests/integer.spec.ts` encodes that promotion |
+| Every byte entry from JS checks nesting depth first, up to `ASN1_MAX_NESTING_DEPTH` (128) | Let rasn and the converters recurse as deep as the input goes | Decode recurses once per level. Input nested a few thousand levels deep exhausts the native stack and aborts the whole process, which no JS `try` can catch. `check_nesting_depth` in `src/utils.rs` walks headers without recursion and raises `NestingTooDeep` |
 | Errors are `ASN1NAPIError` variants | Surface rasn strings as the public error | Encode maps failure to `InvalidDataEncoding`. Decode maps failure to `MalformedData` |
 | The Makefile appends `ASN1AnyJS` after napi emit | Hand-write `index.d.ts` | napi-rs emits the classes and object types. The `index.js` rule then appends the consumer union |
 
@@ -104,6 +105,7 @@ Each invariant below spans more than one file, which puts it beyond the reach of
 | A typed object carries `TypedObject::TYPE` | `type_object!` in `src/macros.rs` and `TryFrom<JsObject>` for `ASN1Object` in `src/objects.rs` | A plain object encodes under the wrong ASN.1 tag |
 | A catalog OID name encodes to the same BER as its dotted form | `NAME_TO_OID_MAP` and `OID_TO_NAME_MAP` in `src/objects.rs`, checked by `tests/object.oid.spec.ts` | `sha256` and `2.16.840.1.101.3.4.2.1` diverge |
 | A rasn encode failure becomes `InvalidDataEncoding` | `ASN1Encoder::encode` in `src/asn1.rs` | A rasn error leaves NAPI as an untyped failure |
+| Bytes from JS reach `ASN1Decoder::new` only after `check_nesting_depth` | `ASN1toJS` in `src/lib.rs`, and `ASN1Decoder::js_new` and `TryFrom<&[u8]>` for `ASN1Decoder` in `src/asn1.rs`, checked by `tests/nesting.spec.ts` | A small hostile input overflows the stack and kills the host process |
 | A rasn decode failure becomes `MalformedData` | `ASN1Decoder::decode` in `src/asn1.rs` | Malformed BER appears as a successful empty value |
 
 ## Collaboration
