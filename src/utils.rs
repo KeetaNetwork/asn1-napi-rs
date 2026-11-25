@@ -360,9 +360,9 @@ fn read_ber_header(data: &[u8], pos: usize) -> Option<(bool, usize, Option<usize
 
 /// Reject BER data whose constructed elements nest deeper than `max_depth`.
 ///
-/// Decoding recurses once per nesting level, so deeply nested input exhausts
-/// the native stack and aborts the process. This walks the headers of the
-/// first element without recursion before anything is decoded.
+/// Decoding recurses once per nesting level, so this bounds the native stack
+/// that one input can use. It walks the headers of the first element without
+/// recursion before anything is decoded.
 ///
 /// Only nesting is rejected here. When a header cannot be read, the walk skips
 /// to the end of the innermost definite-length element that holds it, which is

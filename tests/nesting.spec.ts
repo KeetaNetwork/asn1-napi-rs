@@ -52,7 +52,7 @@ test('rejects data nested past the limit', (t) => {
   t.throws(() => lib.ASN1Decoder.fromHex(data.toString('hex')), expected)
 })
 
-test('rejects deeply nested data without exhausting the stack', (t) => {
+test('rejects very deeply nested data', (t) => {
   const data = nestedSequences(100_000)
 
   t.throws(() => lib.ASN1toJS(data), {
